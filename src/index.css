@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --color-primary: #6366f1;
+  --color-primary-light: #818cf8;
+  --color-primary-dark: #4f46e5;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: #0f0f1a;
+  color: #e2e8f0;
+  overflow: hidden;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  transition: all 0.2s ease;
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+.gradient-text {
+  background: linear-gradient(135deg, #818cf8, #a78bfa, #f0abfc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.ProseMirror {
+  outline: none;
+  min-height: 300px;
+  line-height: 1.75;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: rgba(255, 255, 255, 0.3);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; color: #f1f5f9; }
+.ProseMirror h2 { font-size: 1.375rem; font-weight: 600; margin-bottom: 0.4rem; color: #e2e8f0; }
+.ProseMirror h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.3rem; color: #cbd5e1; }
+.ProseMirror strong { color: #f1f5f9; }
+.ProseMirror ul { padding-left: 1.5rem; list-style: disc; }
+.ProseMirror ol { padding-left: 1.5rem; list-style: decimal; }
+.ProseMirror li { margin: 0.25rem 0; }
+.ProseMirror a { color: #818cf8; text-decoration: underline; }
+.ProseMirror blockquote {
+  border-left: 3px solid rgba(129,140,248,0.5);
+  padding-left: 1rem;
+  color: rgba(255,255,255,0.6);
+  font-style: italic;
+}
+.ProseMirror code {
+  background: rgba(99,102,241,0.2);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+.ProseMirror pre {
+  background: rgba(0,0,0,0.4);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastIn { from { opacity: 0; transform: translateX(100%) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
+
+.animate-fadeIn { animation: fadeIn 0.3s ease forwards; }
+.animate-slideInRight { animation: slideInRight 0.3s ease forwards; }
+.animate-toastIn { animation: toastIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
