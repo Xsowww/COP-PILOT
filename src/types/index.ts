@@ -50,6 +50,14 @@ export interface Note {
   linkedEventIds?: string[];
 }
 
+// ── COP Chat ─────────────────────────────────────────────────────────────────
+export interface ChatMessage {
+  id: string;
+  role: 'cop' | 'user';
+  text: string;
+  timestamp: Date;
+}
+
 // ── COP Bot ─────────────────────────────────────────────────────────────────
 export interface CopSuggestion {
   id: string;

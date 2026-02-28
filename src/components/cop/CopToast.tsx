@@ -1,5 +1,6 @@
 import { X, Bot, Sparkles } from 'lucide-react';
 import { useCopStore } from '../../store/copStore';
+import { useChatStore } from '../../store/chatStore';
 import type { CopSuggestion } from '../../types';
 
 function Toast({ suggestion }: { suggestion: CopSuggestion }) {
@@ -9,10 +10,10 @@ function Toast({ suggestion }: { suggestion: CopSuggestion }) {
     <div
       className="animate-toastIn rounded-2xl p-4 flex flex-col gap-3 max-w-sm"
       style={{
-        background: 'rgba(18,18,32,0.92)',
-        border: '1px solid rgba(99,102,241,0.35)',
+        background: 'rgba(14,14,26,0.95)',
+        border: '1px solid rgba(99,102,241,0.32)',
         backdropFilter: 'blur(30px)',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(99,102,241,0.08)',
       }}
     >
       {/* Header */}
@@ -28,13 +29,13 @@ function Toast({ suggestion }: { suggestion: CopSuggestion }) {
             <span className="text-xs font-semibold" style={{ color: '#818cf8' }}>COP</span>
             <Sparkles size={10} color="#a78bfa" />
           </div>
-          <p className="text-sm leading-snug" style={{ color: 'rgba(255,255,255,0.85)' }}>
+          <p className="text-sm leading-snug" style={{ color: 'rgba(255,255,255,0.88)' }}>
             {suggestion.message}
           </p>
         </div>
         <button
           onClick={() => dismissSuggestion(suggestion.id)}
-          className="shrink-0 mt-0.5 opacity-40 hover:opacity-80 transition-opacity"
+          className="shrink-0 mt-0.5 opacity-35 hover:opacity-75 transition-opacity"
         >
           <X size={14} color="white" />
         </button>
@@ -47,11 +48,11 @@ function Toast({ suggestion }: { suggestion: CopSuggestion }) {
             <button
               key={i}
               onClick={() => { action.handler(); dismissSuggestion(suggestion.id); }}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90"
               style={
                 i === 0
-                  ? { background: 'rgba(99,102,241,0.85)', color: 'white' }
-                  : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }
+                  ? { background: 'rgba(99,102,241,0.9)', color: 'white' }
+                  : { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.65)', border: '1px solid rgba(255,255,255,0.1)' }
               }
             >
               {action.label}
@@ -65,13 +66,22 @@ function Toast({ suggestion }: { suggestion: CopSuggestion }) {
 
 export default function CopToastContainer() {
   const { suggestions } = useCopStore();
+  const { isOpen: chatIsOpen } = useChatStore();
 
   if (suggestions.length === 0) return null;
 
+  // Shift toasts left when chat panel is open to avoid overlap
+  const rightOffset = chatIsOpen ? 380 : 24;
+
   return (
     <div
-      className="fixed bottom-6 right-6 flex flex-col gap-3 z-50"
-      style={{ maxWidth: '360px' }}
+      className="fixed flex flex-col gap-3 z-[70]"
+      style={{
+        bottom: 100,
+        right: rightOffset,
+        maxWidth: '360px',
+        transition: 'right 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
     >
       {suggestions.map(s => (
         <Toast key={s.id} suggestion={s} />
