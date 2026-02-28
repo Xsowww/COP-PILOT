@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { Plus, Trash2, FileText, Link, Calendar, FolderOpen, Bold, Italic, List, ListOrdered, Heading1, Heading2, Undo, Redo, Code } from 'lucide-react';
+import {
+  Plus, Trash2, FileText, Link, Calendar, FolderOpen,
+  Bold, Italic, List, ListOrdered, Heading1, Heading2,
+  Undo, Redo, Code, PenLine,
+} from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -13,6 +17,43 @@ import type { Note } from '../../types';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
+// ── Toolbar button ────────────────────────────────────────────────────────────
+function ToolbarBtn({
+  icon, onClick, active = false, title,
+}: {
+  icon: React.ReactNode; onClick: () => void; active?: boolean; title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        width: 28, height: 28, borderRadius: 6,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: active ? '1px solid rgba(99,102,241,0.35)' : '1px solid transparent',
+        background: active ? 'rgba(99,102,241,0.2)' : 'transparent',
+        color: active ? '#818cf8' : 'rgba(255,255,255,0.5)',
+        cursor: 'pointer', transition: 'all 0.12s',
+      }}
+      onMouseEnter={e => {
+        if (!active) {
+          (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)';
+          (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.85)';
+        }
+      }}
+      onMouseLeave={e => {
+        if (!active) {
+          (e.currentTarget as HTMLElement).style.background = 'transparent';
+          (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.5)';
+        }
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
+
+// ── Rich text editor ──────────────────────────────────────────────────────────
 function NoteEditor({ note }: { note: Note }) {
   const { updateNote } = useNotesStore();
   const { files } = useDriveStore();
@@ -33,14 +74,14 @@ function NoteEditor({ note }: { note: Note }) {
     },
   }, [note.id]);
 
-  const recentFiles = [...files].filter(f => f.type !== 'folder').slice(0, 4);
-  const upcomingEvents = [...events].filter(e => e.date >= format(new Date(), 'yyyy-MM-dd')).slice(0, 4);
+  const recentFiles = files.filter(f => f.type !== 'folder').slice(0, 4);
+  const upcomingEvents = events.filter(e => e.date >= format(new Date(), 'yyyy-MM-dd')).slice(0, 4);
 
   const insertFileLink = (file: typeof files[0]) => {
     if (!editor) return;
     editor.chain().focus().insertContent(`<a href="#file-${file.id}">${file.name}</a>`).run();
     addSuggestion(
-      `Lien vers "${file.name}" inséré. Voulez-vous aussi noter les informations clés de ce fichier ?`,
+      `Lien vers "${file.name}" inséré. Voulez-vous ajouter une section de notes ?`,
       [
         { label: 'Ajouter une section', handler: () => editor.chain().focus().insertContent(`<h3>Notes – ${file.name}</h3><p></p>`).run() },
         { label: 'Non merci', handler: () => {} },
@@ -57,52 +98,70 @@ function NoteEditor({ note }: { note: Note }) {
 
   if (!editor) return null;
 
+  const toolbarGroups = [
+    [
+      { icon: <Undo size={13} />, action: () => editor.chain().focus().undo().run(), title: 'Annuler' },
+      { icon: <Redo size={13} />, action: () => editor.chain().focus().redo().run(), title: 'Rétablir' },
+    ],
+    [
+      { icon: <Heading1 size={13} />, action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), active: editor.isActive('heading', { level: 1 }), title: 'Titre 1' },
+      { icon: <Heading2 size={13} />, action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), active: editor.isActive('heading', { level: 2 }), title: 'Titre 2' },
+      { icon: <Bold size={13} />, action: () => editor.chain().focus().toggleBold().run(), active: editor.isActive('bold'), title: 'Gras' },
+      { icon: <Italic size={13} />, action: () => editor.chain().focus().toggleItalic().run(), active: editor.isActive('italic'), title: 'Italique' },
+      { icon: <Code size={13} />, action: () => editor.chain().focus().toggleCode().run(), active: editor.isActive('code'), title: 'Code' },
+      { icon: <List size={13} />, action: () => editor.chain().focus().toggleBulletList().run(), active: editor.isActive('bulletList'), title: 'Liste' },
+      { icon: <ListOrdered size={13} />, action: () => editor.chain().focus().toggleOrderedList().run(), active: editor.isActive('orderedList'), title: 'Liste numérotée' },
+    ],
+    [
+      { icon: <Link size={13} />, action: () => setShowLinkPanel(p => !p), active: showLinkPanel, title: 'Liens intelligents' },
+    ],
+  ];
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Editor toolbar */}
-      <div
-        className="flex items-center gap-1 px-4 py-2 shrink-0 flex-wrap"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-      >
-        {[
-          { icon: <Undo size={14} />, action: () => editor.chain().focus().undo().run(), title: 'Annuler' },
-          { icon: <Redo size={14} />, action: () => editor.chain().focus().redo().run(), title: 'Rétablir' },
-        ].map((btn, i) => <ToolbarBtn key={i} icon={btn.icon} onClick={btn.action} title={btn.title} />)}
-        <div className="w-px h-5 mx-1" style={{ background: 'rgba(255,255,255,0.1)' }} />
-        {[
-          { icon: <Heading1 size={14} />, action: () => editor.chain().focus().toggleHeading({ level: 1 }).run(), active: editor.isActive('heading', { level: 1 }), title: 'Titre 1' },
-          { icon: <Heading2 size={14} />, action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), active: editor.isActive('heading', { level: 2 }), title: 'Titre 2' },
-          { icon: <Bold size={14} />, action: () => editor.chain().focus().toggleBold().run(), active: editor.isActive('bold'), title: 'Gras' },
-          { icon: <Italic size={14} />, action: () => editor.chain().focus().toggleItalic().run(), active: editor.isActive('italic'), title: 'Italique' },
-          { icon: <Code size={14} />, action: () => editor.chain().focus().toggleCode().run(), active: editor.isActive('code'), title: 'Code' },
-          { icon: <List size={14} />, action: () => editor.chain().focus().toggleBulletList().run(), active: editor.isActive('bulletList'), title: 'Liste' },
-          { icon: <ListOrdered size={14} />, action: () => editor.chain().focus().toggleOrderedList().run(), active: editor.isActive('orderedList'), title: 'Liste numérotée' },
-        ].map((btn, i) => <ToolbarBtn key={i} icon={btn.icon} onClick={btn.action} active={btn.active} title={btn.title} />)}
-        <div className="w-px h-5 mx-1" style={{ background: 'rgba(255,255,255,0.1)' }} />
-        <ToolbarBtn
-          icon={<Link size={14} />}
-          onClick={() => setShowLinkPanel(p => !p)}
-          active={showLinkPanel}
-          title="Insérer un lien"
-        />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 2, padding: '8px 20px',
+        borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, flexWrap: 'wrap',
+      }}>
+        {toolbarGroups.map((group, gi) => (
+          <span key={gi} style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {gi > 0 && (
+              <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.1)', margin: '0 5px' }} />
+            )}
+            {group.map((btn, bi) => (
+              <ToolbarBtn key={bi} icon={btn.icon} onClick={btn.action} active={btn.active} title={btn.title} />
+            ))}
+          </span>
+        ))}
       </div>
 
-      {/* COP Link Panel */}
+      {/* Smart link panel */}
       {showLinkPanel && (
         <div
-          className="shrink-0 px-4 py-3 animate-fadeIn"
-          style={{ background: 'rgba(99,102,241,0.07)', borderBottom: '1px solid rgba(99,102,241,0.15)' }}
+          className="animate-fadeIn"
+          style={{
+            padding: '12px 20px', flexShrink: 0,
+            background: 'rgba(99,102,241,0.06)',
+            borderBottom: '1px solid rgba(99,102,241,0.15)',
+          }}
         >
-          <p className="text-xs font-semibold mb-2" style={{ color: '#818cf8' }}>🔗 Liens intelligents (COP)</p>
-          <div className="grid grid-cols-2 gap-4">
+          <p style={{ fontSize: 11, fontWeight: 600, color: '#818cf8', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Link size={11} /> Liens intelligents COP
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
-              <p className="text-xs mb-1.5 flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                <FolderOpen size={11} /> Fichiers récents
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <FolderOpen size={10} /> Fichiers récents
               </p>
               {recentFiles.map(f => (
                 <button key={f.id} onClick={() => insertFileLink(f)}
-                  className="block w-full text-left px-2 py-1 rounded-lg text-xs mb-1 transition-colors"
-                  style={{ color: 'rgba(255,255,255,0.7)' }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '5px 8px', borderRadius: 6, fontSize: 12,
+                    color: 'rgba(255,255,255,0.7)', background: 'none', border: 'none',
+                    cursor: 'pointer', transition: 'background 0.12s', marginBottom: 2,
+                  }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
@@ -111,13 +170,17 @@ function NoteEditor({ note }: { note: Note }) {
               ))}
             </div>
             <div>
-              <p className="text-xs mb-1.5 flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                <Calendar size={11} /> Événements à venir
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Calendar size={10} /> Événements à venir
               </p>
               {upcomingEvents.map(ev => (
                 <button key={ev.id} onClick={() => insertEventLink(ev)}
-                  className="block w-full text-left px-2 py-1 rounded-lg text-xs mb-1 transition-colors"
-                  style={{ color: 'rgba(255,255,255,0.7)' }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '5px 8px', borderRadius: 6, fontSize: 12,
+                    color: 'rgba(255,255,255,0.7)', background: 'none', border: 'none',
+                    cursor: 'pointer', transition: 'background 0.12s', marginBottom: 2,
+                  }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
@@ -129,56 +192,65 @@ function NoteEditor({ note }: { note: Note }) {
         </div>
       )}
 
-      {/* Editor content */}
-      <div className="flex-1 overflow-y-auto px-8 py-6">
+      {/* Editor */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
         <EditorContent editor={editor} className="min-h-full" />
       </div>
     </div>
   );
 }
 
-function ToolbarBtn({ icon, onClick, active = false, title }: { icon: React.ReactNode; onClick: () => void; active?: boolean; title?: string }) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-      style={{
-        background: active ? 'rgba(99,102,241,0.25)' : 'transparent',
-        color: active ? '#818cf8' : 'rgba(255,255,255,0.55)',
-        border: active ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
-      }}
-    >
-      {icon}
-    </button>
-  );
-}
-
-function NoteItem({ note, active, onClick, onDelete }: { note: Note; active: boolean; onClick: () => void; onDelete: () => void }) {
+// ── Note item in sidebar ──────────────────────────────────────────────────────
+function NoteItem({ note, active, onClick, onDelete }: {
+  note: Note; active: boolean; onClick: () => void; onDelete: () => void;
+}) {
   const [hovered, setHovered] = useState(false);
-  const stripped = note.content.replace(/<[^>]*>/g, '').slice(0, 60);
+  const preview = note.content.replace(/<[^>]*>/g, '').slice(0, 55);
 
   return (
     <div
-      className="px-3 py-2.5 rounded-xl cursor-pointer transition-all relative"
       style={{
-        background: active ? 'rgba(99,102,241,0.15)' : hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
-        border: active ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
+        padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+        position: 'relative',
+        background: active
+          ? 'rgba(99,102,241,0.13)'
+          : hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
+        borderLeft: active ? '2px solid #6366f1' : '2px solid transparent',
+        transition: 'background 0.12s',
       }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <p className="text-sm font-medium truncate" style={{ color: active ? '#818cf8' : 'white' }}>{note.title}</p>
-      <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>{stripped || 'Note vide…'}</p>
-      <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px' }}>
-        {format(new Date(note.updatedAt), 'd MMM', { locale: fr })}
+      <p style={{
+        fontSize: 13, fontWeight: 500,
+        color: active ? '#818cf8' : '#f1f5f9',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        paddingRight: 20,
+      }}>
+        {note.title || 'Sans titre'}
       </p>
+      <p style={{
+        fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 3,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        lineHeight: 1.4,
+      }}>
+        {preview || 'Note vide…'}
+      </p>
+      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)', marginTop: 4 }}>
+        {format(new Date(note.updatedAt), "d MMM · HH:mm", { locale: fr })}
+      </p>
+
       {hovered && (
         <button
           onClick={e => { e.stopPropagation(); onDelete(); }}
-          className="absolute right-2 top-2 w-6 h-6 rounded-lg flex items-center justify-center"
-          style={{ background: 'rgba(239,68,68,0.15)' }}
+          title="Supprimer la note"
+          style={{
+            position: 'absolute', top: 8, right: 8,
+            width: 22, height: 22, borderRadius: 5,
+            background: 'rgba(239,68,68,0.15)', border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
         >
           <Trash2 size={11} color="#ef4444" />
         </button>
@@ -187,79 +259,133 @@ function NoteItem({ note, active, onClick, onDelete }: { note: Note; active: boo
   );
 }
 
+// ── Notes page ────────────────────────────────────────────────────────────────
 export default function Notes() {
   const { notes, activeNoteId, setActiveNote, createNote, deleteNote, updateNote } = useNotesStore();
   const activeNote = notes.find(n => n.id === activeNoteId) ?? null;
+  const sorted = [...notes].sort((a, b) =>
+    new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Sidebar */}
-      <div
-        className="w-64 flex flex-col shrink-0 overflow-hidden"
-        style={{ borderRight: '1px solid rgba(255,255,255,0.07)' }}
-      >
-        {/* Sidebar header */}
-        <div
-          className="flex items-center justify-between px-4 py-3 shrink-0"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-        >
-          <div className="flex items-center gap-2">
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+
+      {/* ── Notes sidebar ──────────────────────────────── */}
+      <div style={{
+        width: 260, minWidth: 260, flexShrink: 0,
+        borderRight: '1px solid rgba(255,255,255,0.07)',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        background: '#0e0e1a',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 14px 12px',
+          borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <FileText size={15} color="#22c55e" />
-            <span className="text-sm font-semibold text-white">Notes</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Notes</span>
+            <span style={{
+              fontSize: 11, fontWeight: 600, padding: '1px 6px',
+              borderRadius: 10, background: 'rgba(34,197,94,0.12)', color: '#22c55e',
+            }}>
+              {notes.length}
+            </span>
           </div>
           <button
             onClick={() => createNote()}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-            style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.25)' }}
+            title="Nouvelle note"
+            style={{
+              width: 28, height: 28, borderRadius: 7,
+              background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.22)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.22)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.12)')}
           >
             <Plus size={14} color="#22c55e" />
           </button>
         </div>
 
         {/* Note list */}
-        <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
-          {notes.length === 0 && (
-            <p className="text-xs text-center py-8" style={{ color: 'rgba(255,255,255,0.3)' }}>Aucune note</p>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 6px' }}>
+          {sorted.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 16px' }}>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Aucune note</p>
+            </div>
+          ) : (
+            sorted.map(note => (
+              <NoteItem
+                key={note.id}
+                note={note}
+                active={note.id === activeNoteId}
+                onClick={() => setActiveNote(note.id)}
+                onDelete={() => deleteNote(note.id)}
+              />
+            ))
           )}
-          {[...notes].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).map(note => (
-            <NoteItem
-              key={note.id}
-              note={note}
-              active={note.id === activeNoteId}
-              onClick={() => setActiveNote(note.id)}
-              onDelete={() => deleteNote(note.id)}
-            />
-          ))}
         </div>
       </div>
 
-      {/* Editor area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* ── Editor area ────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {activeNote ? (
           <>
-            {/* Title */}
-            <div
-              className="px-8 py-4 shrink-0"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-            >
+            {/* Note title bar */}
+            <div style={{
+              padding: '16px 32px 14px',
+              borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0,
+            }}>
               <input
                 value={activeNote.title}
                 onChange={e => updateNote(activeNote.id, { title: e.target.value })}
-                className="text-xl font-bold bg-transparent outline-none w-full"
-                style={{ color: 'white', caretColor: '#818cf8' }}
                 placeholder="Titre de la note…"
+                style={{
+                  fontSize: 20, fontWeight: 700, color: '#f1f5f9',
+                  background: 'none', border: 'none', outline: 'none',
+                  width: '100%', letterSpacing: '-0.01em', caretColor: '#818cf8',
+                }}
               />
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
+                Modifié le {format(new Date(activeNote.updatedAt), "d MMMM 'à' HH:mm", { locale: fr })}
+              </p>
             </div>
+
             <NoteEditor note={activeNote} />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-4">
-            <FileText size={48} color="rgba(255,255,255,0.1)" />
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sélectionnez une note ou créez-en une</p>
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', height: '100%', gap: 14,
+          }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: 16,
+              background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <PenLine size={26} color="rgba(34,197,94,0.6)" />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>
+                Aucune note sélectionnée
+              </p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
+                Choisissez une note ou créez-en une nouvelle
+              </p>
+            </div>
             <button
               onClick={() => createNote()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
-              style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                background: 'rgba(34,197,94,0.12)', color: '#22c55e',
+                border: '1px solid rgba(34,197,94,0.22)', cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.2)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(34,197,94,0.12)')}
             >
               <Plus size={14} /> Nouvelle note
             </button>

@@ -1,18 +1,29 @@
 import { useState } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from 'date-fns';
+import {
+  format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths,
+  addWeeks, subWeeks, addDays, subDays,
+} from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Check, Trash2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Check, Trash2, X, CalendarDays } from 'lucide-react';
 import { useCalendarStore } from '../../store/calendarStore';
 import type { CalendarEvent, EventPriority } from '../../types';
 import { PRIORITY_COLORS } from '../../types';
 
 type CalView = 'month' | 'week' | 'day';
 
+const PRIORITY_LABELS: Record<EventPriority, string> = {
+  low: 'Faible', medium: 'Moyen', high: 'Urgent', exam: 'Examen',
+};
+
 export default function CalendarSpace() {
   const { events, currentDate, view, setCurrentDate, setView, addEvent, deleteEvent, toggleDone } = useCalendarStore();
   const [showForm, setShowForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [form, setForm] = useState({ title: '', description: '', date: '', startTime: '', endTime: '', priority: 'medium' as EventPriority });
+  const [form, setForm] = useState({
+    title: '', description: '', date: '',
+    startTime: '', endTime: '', priority: 'medium' as EventPriority,
+  });
 
   const navigate = (dir: 1 | -1) => {
     if (view === 'month') setCurrentDate(dir === 1 ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
@@ -28,15 +39,9 @@ export default function CalendarSpace() {
   const handleSubmit = () => {
     if (!form.title.trim() || !form.date) return;
     addEvent({
-      title: form.title,
-      description: form.description,
-      date: form.date,
-      startTime: form.startTime || undefined,
-      endTime: form.endTime || undefined,
-      priority: form.priority,
-      done: false,
-      linkedFileIds: [],
-      linkedNoteIds: [],
+      title: form.title, description: form.description, date: form.date,
+      startTime: form.startTime || undefined, endTime: form.endTime || undefined,
+      priority: form.priority, done: false, linkedFileIds: [], linkedNoteIds: [],
     });
     setForm({ title: '', description: '', date: '', startTime: '', endTime: '', priority: 'medium' });
     setShowForm(false);
@@ -49,105 +54,251 @@ export default function CalendarSpace() {
     : format(currentDate, 'EEEE d MMMM yyyy', { locale: fr });
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 px-6 py-3 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-2 flex-1">
-          <button onClick={() => navigate(-1)} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <ChevronLeft size={15} color="rgba(255,255,255,0.7)" />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+
+      {/* ── Toolbar ──────────────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '12px 24px', flexShrink: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+      }}>
+
+        {/* Navigation */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              width: 30, height: 30, borderRadius: 7,
+              border: '1px solid rgba(255,255,255,0.09)',
+              background: 'rgba(255,255,255,0.05)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: 'rgba(255,255,255,0.65)', transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+          >
+            <ChevronLeft size={14} />
           </button>
-          <button onClick={() => navigate(1)} className="w-8 h-8 rounded-lg flex items-center justify-center transition-all" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <ChevronRight size={15} color="rgba(255,255,255,0.7)" />
-          </button>
-          <h2 className="text-sm font-semibold text-white capitalize ml-1">{viewLabel}</h2>
-          <button onClick={() => setCurrentDate(new Date())} className="px-2.5 py-1 rounded-lg text-xs ml-1" style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.25)' }}>
-            Aujourd'hui
+          <button
+            onClick={() => navigate(1)}
+            style={{
+              width: 30, height: 30, borderRadius: 7,
+              border: '1px solid rgba(255,255,255,0.09)',
+              background: 'rgba(255,255,255,0.05)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: 'rgba(255,255,255,0.65)', transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+          >
+            <ChevronRight size={14} />
           </button>
         </div>
-        <div className="flex items-center gap-1">
+
+        {/* Period label */}
+        <h2 style={{ fontSize: 15, fontWeight: 600, color: '#f1f5f9', textTransform: 'capitalize', flex: 1 }}>
+          {viewLabel}
+        </h2>
+
+        {/* Today button */}
+        <button
+          onClick={() => setCurrentDate(new Date())}
+          style={{
+            padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 500,
+            background: 'rgba(99,102,241,0.12)', color: '#818cf8',
+            border: '1px solid rgba(99,102,241,0.25)', cursor: 'pointer',
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.2)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.12)')}
+        >
+          Aujourd'hui
+        </button>
+
+        {/* View switcher */}
+        <div style={{
+          display: 'flex', borderRadius: 8, overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.04)',
+        }}>
           {(['month', 'week', 'day'] as CalView[]).map(v => (
             <button
               key={v}
               onClick={() => setView(v)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all"
-              style={view === v
-                ? { background: 'rgba(99,102,241,0.25)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.35)' }
-                : { color: 'rgba(255,255,255,0.5)', border: '1px solid transparent' }
-              }
+              style={{
+                padding: '5px 12px', fontSize: 12, fontWeight: 500,
+                cursor: 'pointer', border: 'none',
+                background: view === v ? 'rgba(99,102,241,0.25)' : 'transparent',
+                color: view === v ? '#818cf8' : 'rgba(255,255,255,0.5)',
+                transition: 'all 0.15s',
+              }}
             >
               {v === 'month' ? 'Mois' : v === 'week' ? 'Semaine' : 'Jour'}
             </button>
           ))}
         </div>
+
+        {/* Add event */}
         <button
           onClick={() => { setForm(f => ({ ...f, date: format(currentDate, 'yyyy-MM-dd') })); setShowForm(true); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-          style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.25)' }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 14px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+            background: '#6366f1', color: 'white', border: 'none',
+            cursor: 'pointer', transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#5254c7')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#6366f1')}
         >
           <Plus size={13} /> Événement
         </button>
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-4 px-6 py-2 shrink-0">
-        {Object.entries(PRIORITY_COLORS).map(([p, c]) => (
-          <div key={p} className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ background: c }} />
-            <span className="text-xs capitalize" style={{ color: 'rgba(255,255,255,0.45)' }}>{p}</span>
-          </div>
-        ))}
+      {/* ── Calendar content ─────────────────────────── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+        {view === 'month' && (
+          <MonthView
+            currentDate={currentDate} events={events}
+            onDayClick={handleDayClick} selectedDate={selectedDate}
+            onToggle={toggleDone} onDelete={deleteEvent}
+          />
+        )}
+        {view === 'week' && (
+          <WeekView
+            currentDate={currentDate} events={events}
+            onDayClick={handleDayClick} onToggle={toggleDone} onDelete={deleteEvent}
+          />
+        )}
+        {view === 'day' && (
+          <DayView
+            currentDate={currentDate} events={events}
+            onToggle={toggleDone} onDelete={deleteEvent}
+          />
+        )}
       </div>
 
-      {/* Calendar View */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
-        {view === 'month' && <MonthView currentDate={currentDate} events={events} onDayClick={handleDayClick} selectedDate={selectedDate} onToggle={toggleDone} onDelete={deleteEvent} />}
-        {view === 'week' && <WeekView currentDate={currentDate} events={events} onDayClick={handleDayClick} onToggle={toggleDone} onDelete={deleteEvent} />}
-        {view === 'day' && <DayView currentDate={currentDate} events={events} onToggle={toggleDone} onDelete={deleteEvent} />}
-      </div>
-
-      {/* New event form modal */}
+      {/* ── Add event modal ───────────────────────────── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
-          onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div className="animate-fadeIn rounded-2xl w-full max-w-md p-6 flex flex-col gap-4"
-            style={{ background: 'rgba(18,18,32,0.97)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(40px)' }}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-white">Nouvel événement</h3>
-              <button onClick={() => setShowForm(false)}><X size={16} color="rgba(255,255,255,0.5)" /></button>
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+            background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}
+        >
+          <div
+            className="animate-fadeIn"
+            style={{
+              width: '100%', maxWidth: 420, borderRadius: 16,
+              background: '#14142a', border: '1px solid rgba(255,255,255,0.12)',
+              padding: 24, display: 'flex', flexDirection: 'column', gap: 14,
+              boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+            }}
+          >
+            {/* Modal header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CalendarDays size={16} color="#818cf8" />
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: '#f1f5f9' }}>Nouvel événement</h3>
+              </div>
+              <button
+                onClick={() => setShowForm(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: 4 }}
+              >
+                <X size={15} />
+              </button>
             </div>
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Titre…" autoFocus
-              className="px-3 py-2.5 rounded-xl text-sm outline-none w-full"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
-            <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Description (optionnel)…"
-              className="px-3 py-2.5 rounded-xl text-sm outline-none w-full"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
-            <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              className="px-3 py-2.5 rounded-xl text-sm outline-none w-full"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', colorScheme: 'dark' }} />
-            <div className="grid grid-cols-2 gap-2">
-              <input type="time" value={form.startTime} onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))} placeholder="Début"
-                className="px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', colorScheme: 'dark' }} />
-              <input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))} placeholder="Fin"
-                className="px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', colorScheme: 'dark' }} />
+
+            {/* Fields */}
+            <input
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="Titre de l'événement…"
+              autoFocus
+              style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 8, padding: '9px 12px', fontSize: 14, color: '#f1f5f9',
+                outline: 'none', width: '100%',
+              }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+            />
+            <input
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Description (optionnel)…"
+              style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#f1f5f9',
+                outline: 'none', width: '100%',
+              }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+            />
+            <input
+              type="date" value={form.date}
+              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+              style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#f1f5f9',
+                outline: 'none', width: '100%', colorScheme: 'dark',
+              }}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input
+                type="time" value={form.startTime}
+                onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
+                style={{
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#f1f5f9',
+                  outline: 'none', colorScheme: 'dark',
+                }}
+              />
+              <input
+                type="time" value={form.endTime}
+                onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+                style={{
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#f1f5f9',
+                  outline: 'none', colorScheme: 'dark',
+                }}
+              />
             </div>
-            <div className="flex gap-2">
-              {(Object.keys(PRIORITY_COLORS) as EventPriority[]).map(p => (
-                <button key={p}
-                  onClick={() => setForm(f => ({ ...f, priority: p }))}
-                  className="flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-all"
-                  style={{
-                    background: form.priority === p ? PRIORITY_COLORS[p] + '30' : 'rgba(255,255,255,0.05)',
-                    border: `1px solid ${form.priority === p ? PRIORITY_COLORS[p] : 'rgba(255,255,255,0.1)'}`,
-                    color: form.priority === p ? PRIORITY_COLORS[p] : 'rgba(255,255,255,0.5)',
-                  }}
-                >{p}</button>
-              ))}
+
+            {/* Priority selector */}
+            <div>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 8, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                Priorité
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(Object.keys(PRIORITY_COLORS) as EventPriority[]).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setForm(f => ({ ...f, priority: p }))}
+                    style={{
+                      flex: 1, padding: '7px 4px', borderRadius: 7, fontSize: 11,
+                      fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+                      background: form.priority === p ? PRIORITY_COLORS[p] + '25' : 'rgba(255,255,255,0.05)',
+                      border: `1.5px solid ${form.priority === p ? PRIORITY_COLORS[p] : 'rgba(255,255,255,0.09)'}`,
+                      color: form.priority === p ? PRIORITY_COLORS[p] : 'rgba(255,255,255,0.45)',
+                    }}
+                  >
+                    {PRIORITY_LABELS[p]}
+                  </button>
+                ))}
+              </div>
             </div>
-            <button onClick={handleSubmit}
-              className="py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
+
+            <button
+              onClick={handleSubmit}
+              style={{
+                padding: '10px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                background: '#6366f1', color: 'white', border: 'none',
+                cursor: 'pointer', transition: 'background 0.15s', marginTop: 2,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#5254c7')}
+              onMouseLeave={e => (e.currentTarget.style.background = '#6366f1')}
+            >
               Créer l'événement
             </button>
           </div>
@@ -157,7 +308,7 @@ export default function CalendarSpace() {
   );
 }
 
-// ── Month View ─────────────────────────────────────────────────────────────
+// ── Month View ────────────────────────────────────────────────────────────────
 function MonthView({ currentDate, events, onDayClick, selectedDate, onToggle }: {
   currentDate: Date; events: CalendarEvent[]; onDayClick: (d: string) => void;
   selectedDate: string | null; onToggle: (id: string) => void; onDelete?: (id: string) => void;
@@ -170,13 +321,22 @@ function MonthView({ currentDate, events, onDayClick, selectedDate, onToggle }: 
   const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-7 gap-1">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* Weekday headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
         {WEEKDAYS.map(d => (
-          <div key={d} className="text-center text-xs py-2 font-medium" style={{ color: 'rgba(255,255,255,0.35)' }}>{d}</div>
+          <div key={d} style={{
+            textAlign: 'center', fontSize: 11, fontWeight: 600,
+            color: 'rgba(255,255,255,0.3)', padding: '6px 0',
+            letterSpacing: '0.05em', textTransform: 'uppercase',
+          }}>
+            {d}
+          </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+
+      {/* Day grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
         {days.map(day => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const dayEvents = events.filter(e => e.date === dateStr);
@@ -188,29 +348,90 @@ function MonthView({ currentDate, events, onDayClick, selectedDate, onToggle }: 
             <div
               key={dateStr}
               onClick={() => onDayClick(dateStr)}
-              className="rounded-xl p-2 cursor-pointer transition-all min-h-20 flex flex-col gap-1"
               style={{
-                background: isSelected ? 'rgba(99,102,241,0.2)' : isToday ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.03)',
-                border: isSelected ? '1px solid rgba(99,102,241,0.5)' : isToday ? '1px solid rgba(99,102,241,0.25)' : '1px solid rgba(255,255,255,0.04)',
-                opacity: isCurrentMonth ? 1 : 0.35,
+                borderRadius: 10,
+                padding: '8px 8px 6px',
+                cursor: 'pointer',
+                minHeight: 88,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 3,
+                background: isSelected
+                  ? 'rgba(99,102,241,0.15)'
+                  : isToday
+                  ? 'rgba(99,102,241,0.07)'
+                  : 'rgba(255,255,255,0.025)',
+                border: isSelected
+                  ? '1.5px solid rgba(99,102,241,0.45)'
+                  : isToday
+                  ? '1.5px solid rgba(99,102,241,0.2)'
+                  : '1px solid rgba(255,255,255,0.05)',
+                opacity: isCurrentMonth ? 1 : 0.3,
+                transition: 'background 0.12s, border-color 0.12s',
+              }}
+              onMouseEnter={e => {
+                if (!isSelected && !isToday)
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
+              }}
+              onMouseLeave={e => {
+                if (!isSelected && !isToday)
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.025)';
               }}
             >
-              <span className="text-xs font-semibold" style={{ color: isToday ? '#818cf8' : 'rgba(255,255,255,0.8)' }}>
+              {/* Day number */}
+              <span style={{
+                fontSize: 12,
+                fontWeight: isToday ? 700 : 500,
+                color: isToday ? '#818cf8' : 'rgba(255,255,255,0.75)',
+                alignSelf: 'flex-end',
+                lineHeight: 1,
+              }}>
                 {format(day, 'd')}
               </span>
+
+              {/* Events */}
               {dayEvents.slice(0, 3).map(ev => (
-                <div key={ev.id} className="rounded-md px-1.5 py-0.5 flex items-center gap-1 group relative" style={{ background: PRIORITY_COLORS[ev.priority] + '22' }}>
-                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PRIORITY_COLORS[ev.priority] }} />
-                  <span className="text-xs truncate" style={{ color: ev.done ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.8)', textDecoration: ev.done ? 'line-through' : 'none', fontSize: '10px' }}>
+                <div
+                  key={ev.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '2px 5px', borderRadius: 4,
+                    background: PRIORITY_COLORS[ev.priority] + '1e',
+                  }}
+                >
+                  <div style={{
+                    width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                    background: PRIORITY_COLORS[ev.priority],
+                  }} />
+                  <span style={{
+                    fontSize: 10, fontWeight: 500,
+                    color: ev.done ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.82)',
+                    textDecoration: ev.done ? 'line-through' : 'none',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
                     {ev.title}
                   </span>
-                  <button onClick={e => { e.stopPropagation(); onToggle(ev.id); }} className="hidden group-hover:flex w-3 h-3 rounded-full items-center justify-center shrink-0" style={{ background: PRIORITY_COLORS[ev.priority] }}>
-                    <Check size={8} color="white" />
+                  <button
+                    onClick={e => { e.stopPropagation(); onToggle(ev.id); }}
+                    title="Marquer fait"
+                    style={{
+                      marginLeft: 'auto', flexShrink: 0,
+                      width: 12, height: 12, borderRadius: '50%',
+                      border: 'none', background: 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', opacity: 0, transition: 'opacity 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
+                  >
+                    <Check size={8} color={PRIORITY_COLORS[ev.priority]} />
                   </button>
                 </div>
               ))}
               {dayEvents.length > 3 && (
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px' }}>+{dayEvents.length - 3}</span>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', paddingLeft: 4 }}>
+                  +{dayEvents.length - 3} autre{dayEvents.length - 3 > 1 ? 's' : ''}
+                </span>
               )}
             </div>
           );
@@ -220,7 +441,7 @@ function MonthView({ currentDate, events, onDayClick, selectedDate, onToggle }: 
   );
 }
 
-// ── Week View ──────────────────────────────────────────────────────────────
+// ── Week View ─────────────────────────────────────────────────────────────────
 function WeekView({ currentDate, events, onDayClick, onToggle, onDelete }: {
   currentDate: Date; events: CalendarEvent[]; onDayClick: (d: string) => void;
   onToggle: (id: string) => void; onDelete: (id: string) => void;
@@ -229,24 +450,33 @@ function WeekView({ currentDate, events, onDayClick, onToggle, onDelete }: {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   return (
-    <div className="grid grid-cols-7 gap-3">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10, height: '100%' }}>
       {days.map(day => {
         const dateStr = format(day, 'yyyy-MM-dd');
         const dayEvents = events.filter(e => e.date === dateStr);
         const isToday = isSameDay(day, new Date());
 
         return (
-          <div key={dateStr} onClick={() => onDayClick(dateStr)} className="flex flex-col gap-2 cursor-pointer">
-            <div className="text-center">
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{format(day, 'EEE', { locale: fr })}</p>
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center mx-auto mt-1 text-sm font-semibold"
-                style={{ background: isToday ? '#6366f1' : 'transparent', color: isToday ? 'white' : 'rgba(255,255,255,0.8)' }}
-              >
-                {format(day, 'd')}
+          <div key={dateStr} onClick={() => onDayClick(dateStr)} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Day header */}
+            <div style={{ textAlign: 'center', paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                {format(day, 'EEE', { locale: fr })}
+              </p>
+              <div style={{
+                width: 30, height: 30, borderRadius: '50%',
+                background: isToday ? '#6366f1' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '4px auto 0',
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: isToday ? 'white' : 'rgba(255,255,255,0.75)' }}>
+                  {format(day, 'd')}
+                </span>
               </div>
             </div>
-            <div className="flex flex-col gap-1.5 min-h-48">
+
+            {/* Events */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {dayEvents.map(ev => (
                 <EventChip key={ev.id} event={ev} onToggle={onToggle} onDelete={onDelete} />
               ))}
@@ -258,7 +488,7 @@ function WeekView({ currentDate, events, onDayClick, onToggle, onDelete }: {
   );
 }
 
-// ── Day View ───────────────────────────────────────────────────────────────
+// ── Day View ──────────────────────────────────────────────────────────────────
 function DayView({ currentDate, events, onToggle, onDelete }: {
   currentDate: Date; events: CalendarEvent[];
   onToggle: (id: string) => void; onDelete: (id: string) => void;
@@ -271,30 +501,84 @@ function DayView({ currentDate, events, onToggle, onDelete }: {
   });
 
   return (
-    <div className="flex flex-col gap-3 max-w-xl">
+    <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 10 }}>
       {dayEvents.length === 0 ? (
-        <p className="text-sm text-center py-12" style={{ color: 'rgba(255,255,255,0.3)' }}>Aucun événement ce jour</p>
+        <div style={{ textAlign: 'center', padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <CalendarDays size={36} color="rgba(255,255,255,0.1)" />
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)' }}>Aucun événement ce jour</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>Cliquez sur "+ Événement" pour en ajouter un</p>
+        </div>
       ) : (
         dayEvents.map(ev => (
-          <div key={ev.id} className="glass-card p-4 flex items-start gap-4">
+          <div key={ev.id} className="card" style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+            {/* Time */}
             {ev.startTime && (
-              <div className="text-xs font-mono shrink-0 mt-0.5" style={{ color: PRIORITY_COLORS[ev.priority] }}>
-                {ev.startTime}{ev.endTime ? `\n${ev.endTime}` : ''}
+              <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 52 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: PRIORITY_COLORS[ev.priority], fontVariantNumeric: 'tabular-nums' }}>
+                  {ev.startTime}
+                </p>
+                {ev.endTime && (
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontVariantNumeric: 'tabular-nums' }}>
+                    {ev.endTime}
+                  </p>
+                )}
               </div>
             )}
-            <div
-              className="w-0.5 self-stretch rounded-full shrink-0"
-              style={{ background: PRIORITY_COLORS[ev.priority] }}
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white" style={{ textDecoration: ev.done ? 'line-through' : 'none', opacity: ev.done ? 0.5 : 1 }}>{ev.title}</p>
-              {ev.description && <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>{ev.description}</p>}
+
+            {/* Color bar */}
+            <div style={{
+              width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0,
+              background: PRIORITY_COLORS[ev.priority],
+            }} />
+
+            {/* Content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{
+                fontSize: 14, fontWeight: 600, color: '#f1f5f9',
+                textDecoration: ev.done ? 'line-through' : 'none',
+                opacity: ev.done ? 0.5 : 1,
+              }}>
+                {ev.title}
+              </p>
+              {ev.description && (
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4, lineHeight: 1.5 }}>
+                  {ev.description}
+                </p>
+              )}
+              <span style={{
+                display: 'inline-block', marginTop: 6,
+                fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
+                background: PRIORITY_COLORS[ev.priority] + '22', color: PRIORITY_COLORS[ev.priority],
+                textTransform: 'uppercase', letterSpacing: '0.04em',
+              }}>
+                {PRIORITY_LABELS[ev.priority]}
+              </span>
             </div>
-            <div className="flex gap-1 shrink-0">
-              <button onClick={() => onToggle(ev.id)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: ev.done ? PRIORITY_COLORS[ev.priority] + '30' : 'rgba(255,255,255,0.06)' }}>
-                <Check size={13} color={ev.done ? PRIORITY_COLORS[ev.priority] : 'rgba(255,255,255,0.4)'} />
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button
+                onClick={() => onToggle(ev.id)}
+                title={ev.done ? 'Marquer non fait' : 'Marquer fait'}
+                style={{
+                  width: 30, height: 30, borderRadius: 7,
+                  border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                  background: ev.done ? PRIORITY_COLORS[ev.priority] + '25' : 'rgba(255,255,255,0.06)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Check size={13} color={ev.done ? PRIORITY_COLORS[ev.priority] : 'rgba(255,255,255,0.45)'} />
               </button>
-              <button onClick={() => onDelete(ev.id)} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)' }}>
+              <button
+                onClick={() => onDelete(ev.id)}
+                title="Supprimer"
+                style={{
+                  width: 30, height: 30, borderRadius: 7,
+                  border: 'none', cursor: 'pointer',
+                  background: 'rgba(239,68,68,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
                 <Trash2 size={13} color="#ef4444" />
               </button>
             </div>
@@ -305,25 +589,53 @@ function DayView({ currentDate, events, onToggle, onDelete }: {
   );
 }
 
-function EventChip({ event, onToggle, onDelete }: { event: CalendarEvent; onToggle: (id: string) => void; onDelete: (id: string) => void }) {
+// ── Event Chip (week view) ────────────────────────────────────────────────────
+function EventChip({ event, onToggle, onDelete }: {
+  event: CalendarEvent; onToggle: (id: string) => void; onDelete: (id: string) => void;
+}) {
   const [hovered, setHovered] = useState(false);
+  const color = PRIORITY_COLORS[event.priority];
+
   return (
     <div
-      className="rounded-lg px-2 py-1.5 flex items-center gap-1.5 relative group"
-      style={{ background: PRIORITY_COLORS[event.priority] + '20', border: `1px solid ${PRIORITY_COLORS[event.priority]}40` }}
+      style={{
+        borderRadius: 6, padding: '5px 7px',
+        background: color + '1c', border: `1px solid ${color}35`,
+        display: 'flex', alignItems: 'center', gap: 5, position: 'relative',
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PRIORITY_COLORS[event.priority] }} />
-      <p className="text-xs flex-1 truncate" style={{ color: event.done ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.85)', textDecoration: event.done ? 'line-through' : 'none', fontSize: '11px' }}>
+      <div style={{ width: 5, height: 5, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <p style={{
+        fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        color: event.done ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)',
+        textDecoration: event.done ? 'line-through' : 'none',
+      }}>
         {event.title}
       </p>
       {hovered && (
-        <div className="flex gap-0.5">
-          <button onClick={e => { e.stopPropagation(); onToggle(event.id); }} className="w-4 h-4 rounded flex items-center justify-center" style={{ background: PRIORITY_COLORS[event.priority] + '40' }}>
-            <Check size={9} color={PRIORITY_COLORS[event.priority]} />
+        <div style={{ display: 'flex', gap: 2 }}>
+          <button
+            onClick={e => { e.stopPropagation(); onToggle(event.id); }}
+            style={{
+              width: 16, height: 16, borderRadius: 4,
+              border: 'none', cursor: 'pointer',
+              background: color + '35',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Check size={9} color={color} />
           </button>
-          <button onClick={e => { e.stopPropagation(); onDelete(event.id); }} className="w-4 h-4 rounded flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.3)' }}>
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(event.id); }}
+            style={{
+              width: 16, height: 16, borderRadius: 4,
+              border: 'none', cursor: 'pointer',
+              background: 'rgba(239,68,68,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
             <Trash2 size={9} color="#ef4444" />
           </button>
         </div>

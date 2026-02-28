@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import {
   FolderOpen, Folder, FileText, Image, Film, File, Upload,
-  ChevronRight, Plus, Trash2, Eye, Home, LayoutGrid, List,
+  ChevronRight, Plus, Trash2, Eye, Home, LayoutGrid, List, FolderPlus,
 } from 'lucide-react';
 import { useDriveStore } from '../../store/driveStore';
 import type { DriveFile } from '../../types';
@@ -11,17 +11,25 @@ import { useNotesStore } from '../../store/notesStore';
 
 function formatSize(bytes?: number) {
   if (!bytes) return '';
-  if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / 1048576).toFixed(1)} MB`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} Ko`;
+  return `${(bytes / 1048576).toFixed(1)} Mo`;
 }
 
-function FileIcon({ type, size = 18 }: { type: DriveFile['type']; size?: number }) {
-  if (type === 'folder') return <Folder size={size} color="#818cf8" />;
-  if (type === 'pdf') return <FileText size={size} color="#ef4444" />;
-  if (type === 'image') return <Image size={size} color="#22c55e" />;
-  if (type === 'video') return <Film size={size} color="#f59e0b" />;
-  return <File size={size} color="rgba(255,255,255,0.5)" />;
+function FileTypeIcon({ type, size = 18 }: { type: DriveFile['type']; size?: number }) {
+  if (type === 'folder') return <FolderOpen size={size} color="#818cf8" />;
+  if (type === 'pdf')    return <FileText  size={size} color="#ef4444" />;
+  if (type === 'image')  return <Image     size={size} color="#22c55e" />;
+  if (type === 'video')  return <Film      size={size} color="#f59e0b" />;
+  return <File size={size} color="rgba(255,255,255,0.4)" />;
 }
+
+const TYPE_BG: Record<string, string> = {
+  folder: 'rgba(99,102,241,0.12)',
+  pdf:    'rgba(239,68,68,0.1)',
+  image:  'rgba(34,197,94,0.1)',
+  video:  'rgba(245,158,11,0.1)',
+  other:  'rgba(255,255,255,0.06)',
+};
 
 export default function Drive() {
   const {
@@ -30,7 +38,7 @@ export default function Drive() {
   } = useDriveStore();
   const { addSuggestion } = useCopStore();
   const { createNote } = useNotesStore();
-  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -54,10 +62,8 @@ export default function Drive() {
     );
   };
 
-  const handleFileDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    Array.from(e.dataTransfer.files).forEach(file => {
+  const handleFiles = (fileList: File[]) => {
+    fileList.forEach(file => {
       const type = file.type.startsWith('image/') ? 'image'
         : file.type === 'application/pdf' ? 'pdf'
         : file.type.startsWith('video/') ? 'video' : 'other';
@@ -65,37 +71,49 @@ export default function Drive() {
     });
   };
 
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    handleFiles(Array.from(e.dataTransfer.files));
+  };
+
   const handleFileOpen = (f: DriveFile) => {
-    if (f.type === 'folder') {
-      setCurrentFolder(f.id);
-    } else {
-      setPreviewFile(f);
-    }
+    if (f.type === 'folder') setCurrentFolder(f.id);
+    else setPreviewFile(f);
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Toolbar */}
-      <div
-        className="flex items-center gap-3 px-6 py-3 shrink-0"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-      >
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+
+      {/* ── Toolbar ──────────────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '11px 24px', flexShrink: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+      }}>
         {/* Breadcrumbs */}
-        <div className="flex items-center gap-1 flex-1 min-w-0">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
           <button
             onClick={() => setCurrentFolder(null)}
-            className="flex items-center gap-1 text-xs transition-opacity"
-            style={{ color: currentFolderId ? 'rgba(255,255,255,0.4)' : '#818cf8' }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
+              color: currentFolderId ? 'rgba(255,255,255,0.4)' : '#818cf8',
+              transition: 'color 0.15s',
+            }}
           >
             <Home size={13} /> Racine
           </button>
           {breadcrumbs.map(bc => (
-            <span key={bc.id} className="flex items-center gap-1">
-              <ChevronRight size={12} color="rgba(255,255,255,0.2)" />
+            <span key={bc.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <ChevronRight size={11} color="rgba(255,255,255,0.2)" />
               <button
                 onClick={() => setCurrentFolder(bc.id)}
-                className="text-xs transition-opacity hover:opacity-100"
-                style={{ color: bc.id === currentFolderId ? '#818cf8' : 'rgba(255,255,255,0.5)' }}
+                style={{
+                  fontSize: 12, background: 'none', border: 'none', cursor: 'pointer',
+                  color: bc.id === currentFolderId ? '#818cf8' : 'rgba(255,255,255,0.5)',
+                  fontWeight: bc.id === currentFolderId ? 600 : 400,
+                }}
               >
                 {bc.name}
               </button>
@@ -104,83 +122,155 @@ export default function Drive() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
-            onClick={() => setShowNewFolder(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.25)' }}
+            onClick={() => setShowNewFolder(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 500,
+              background: 'rgba(99,102,241,0.12)', color: '#818cf8',
+              border: '1px solid rgba(99,102,241,0.22)', cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.2)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.12)')}
           >
-            <Plus size={13} /> Nouveau dossier
+            <FolderPlus size={13} /> Nouveau dossier
           </button>
           <button
             onClick={() => inputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 500,
+              background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.75)',
+              border: '1px solid rgba(255,255,255,0.09)', cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.12)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
           >
             <Upload size={13} /> Uploader
           </button>
-          <input ref={inputRef} type="file" multiple className="hidden" onChange={e => {
-            Array.from(e.target.files || []).forEach(file => {
-              const type = file.type.startsWith('image/') ? 'image'
-                : file.type === 'application/pdf' ? 'pdf'
-                : file.type.startsWith('video/') ? 'video' : 'other';
-              addFile(file.name, type, currentFolderId, URL.createObjectURL(file), file.size);
-            });
-          }} />
-          <button
-            onClick={() => setView(v => v === 'grid' ? 'list' : 'grid')}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            {view === 'grid' ? <List size={14} color="rgba(255,255,255,0.6)" /> : <LayoutGrid size={14} color="rgba(255,255,255,0.6)" />}
-          </button>
+          <input ref={inputRef} type="file" multiple style={{ display: 'none' }}
+            onChange={e => handleFiles(Array.from(e.target.files || []))}
+          />
+
+          {/* View toggle */}
+          <div style={{
+            display: 'flex', borderRadius: 7, overflow: 'hidden',
+            border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.04)',
+          }}>
+            {(['grid', 'list'] as const).map(v => (
+              <button key={v} onClick={() => setViewMode(v)} style={{
+                width: 30, height: 30,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', border: 'none',
+                background: viewMode === v ? 'rgba(255,255,255,0.1)' : 'transparent',
+                color: viewMode === v ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
+                transition: 'all 0.15s',
+              }}>
+                {v === 'grid' ? <LayoutGrid size={13} /> : <List size={13} />}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* New folder input */}
+      {/* ── New folder input ──────────────────────────── */}
       {showNewFolder && (
-        <div className="px-6 py-2 flex items-center gap-2 animate-fadeIn shrink-0">
+        <div className="animate-fadeIn" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0,
+        }}>
+          <FolderPlus size={14} color="rgba(255,255,255,0.4)" />
           <input
             autoFocus
             value={newFolderName}
             onChange={e => setNewFolderName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleCreateFolder(); if (e.key === 'Escape') setShowNewFolder(false); }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleCreateFolder();
+              if (e.key === 'Escape') setShowNewFolder(false);
+            }}
             placeholder="Nom du dossier…"
-            className="px-3 py-2 rounded-xl text-sm outline-none flex-1"
             style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(99,102,241,0.4)',
-              color: 'white',
+              flex: 1, background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(99,102,241,0.4)', borderRadius: 7,
+              padding: '7px 12px', fontSize: 13, color: '#f1f5f9', outline: 'none',
             }}
           />
-          <button onClick={handleCreateFolder} className="px-3 py-2 rounded-xl text-xs font-medium text-white"
-            style={{ background: '#6366f1' }}>Créer</button>
-          <button onClick={() => setShowNewFolder(false)} className="px-3 py-2 rounded-xl text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Annuler</button>
+          <button
+            onClick={handleCreateFolder}
+            style={{
+              padding: '7px 14px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+              background: '#6366f1', color: 'white', border: 'none', cursor: 'pointer',
+            }}
+          >
+            Créer
+          </button>
+          <button
+            onClick={() => setShowNewFolder(false)}
+            style={{
+              padding: '7px 10px', borderRadius: 7, fontSize: 12,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'rgba(255,255,255,0.45)',
+            }}
+          >
+            Annuler
+          </button>
         </div>
       )}
 
-      {/* Drop zone + file grid */}
+      {/* ── File area ────────────────────────────────── */}
       <div
-        className="flex-1 overflow-y-auto p-6"
+        style={{
+          flex: 1, overflowY: 'auto', padding: '20px 24px',
+          background: dragging ? 'rgba(99,102,241,0.04)' : 'transparent',
+          transition: 'background 0.2s',
+        }}
         onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleFileDrop}
-        style={dragging ? { background: 'rgba(99,102,241,0.05)' } : {}}
       >
         {currentItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-3">
-            <FolderOpen size={40} color="rgba(255,255,255,0.1)" />
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Dossier vide</p>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>Glissez des fichiers ici ou cliquez sur "Uploader"</p>
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', height: 260, gap: 12,
+          }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: 16,
+              background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <FolderOpen size={28} color="rgba(99,102,241,0.5)" />
+            </div>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>Dossier vide</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>
+              Glissez des fichiers ici ou cliquez sur "Uploader"
+            </p>
           </div>
-        ) : view === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        ) : viewMode === 'grid' ? (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
+            gap: 12,
+          }}>
             {currentItems.map(f => (
               <FileCard key={f.id} file={f} onOpen={handleFileOpen} onDelete={deleteFile} />
             ))}
           </div>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* List header */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 80px 80px',
+              padding: '6px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              {['Nom', 'Type', 'Taille'].map(h => (
+                <p key={h} style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.28)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  {h}
+                </p>
+              ))}
+            </div>
             {currentItems.map(f => (
               <FileRow key={f.id} file={f} onOpen={handleFileOpen} onDelete={deleteFile} />
             ))}
@@ -193,38 +283,75 @@ export default function Drive() {
   );
 }
 
-function FileCard({ file, onOpen, onDelete }: { file: DriveFile; onOpen: (f: DriveFile) => void; onDelete: (id: string) => void }) {
+// ── Grid card ─────────────────────────────────────────────────────────────────
+function FileCard({ file, onOpen, onDelete }: {
+  file: DriveFile; onOpen: (f: DriveFile) => void; onDelete: (id: string) => void;
+}) {
   const [hovered, setHovered] = useState(false);
   const { setPreviewFile } = useDriveStore();
 
   return (
     <div
-      className="glass-card p-4 flex flex-col items-center gap-2 cursor-pointer relative"
-      style={{ aspectRatio: '1', justifyContent: 'center' }}
+      className="card"
+      style={{
+        padding: '16px 12px 12px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+        cursor: 'pointer', position: 'relative', textAlign: 'center',
+        transition: 'border-color 0.15s, transform 0.15s',
+        transform: hovered ? 'translateY(-1px)' : 'none',
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onDoubleClick={() => onOpen(file)}
       onClick={() => onOpen(file)}
     >
-      <FileIcon type={file.type} size={28} />
-      <p className="text-xs text-center font-medium text-white truncate w-full text-center">{file.name}</p>
-      {file.size && <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{formatSize(file.size)}</p>}
+      {/* Icon with type-colored bg */}
+      <div style={{
+        width: 48, height: 48, borderRadius: 12,
+        background: TYPE_BG[file.type] ?? TYPE_BG.other,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <FileTypeIcon type={file.type} size={22} />
+      </div>
 
+      <div style={{ width: '100%' }}>
+        <p style={{
+          fontSize: 12, fontWeight: 500, color: '#f1f5f9',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {file.name}
+        </p>
+        {file.size && (
+          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+            {formatSize(file.size)}
+          </p>
+        )}
+      </div>
+
+      {/* Hover actions */}
       {hovered && (
-        <div className="absolute top-2 right-2 flex gap-1">
+        <div style={{
+          position: 'absolute', top: 8, right: 8,
+          display: 'flex', gap: 4,
+        }}>
           {file.type !== 'folder' && (
             <button
               onClick={e => { e.stopPropagation(); setPreviewFile(file); }}
-              className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
-              style={{ background: 'rgba(99,102,241,0.3)' }}
+              style={{
+                width: 24, height: 24, borderRadius: 6,
+                background: 'rgba(99,102,241,0.3)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
             >
               <Eye size={11} color="#818cf8" />
             </button>
           )}
           <button
             onClick={e => { e.stopPropagation(); onDelete(file.id); }}
-            className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
-            style={{ background: 'rgba(239,68,68,0.2)' }}
+            style={{
+              width: 24, height: 24, borderRadius: 6,
+              background: 'rgba(239,68,68,0.2)', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
           >
             <Trash2 size={11} color="#ef4444" />
           </button>
@@ -234,41 +361,73 @@ function FileCard({ file, onOpen, onDelete }: { file: DriveFile; onOpen: (f: Dri
   );
 }
 
-function FileRow({ file, onOpen, onDelete }: { file: DriveFile; onOpen: (f: DriveFile) => void; onDelete: (id: string) => void }) {
+// ── List row ──────────────────────────────────────────────────────────────────
+function FileRow({ file, onOpen, onDelete }: {
+  file: DriveFile; onOpen: (f: DriveFile) => void; onDelete: (id: string) => void;
+}) {
   const [hovered, setHovered] = useState(false);
   const { setPreviewFile } = useDriveStore();
 
+  const TYPE_LABELS: Record<string, string> = {
+    folder: 'Dossier', pdf: 'PDF', image: 'Image', video: 'Vidéo', other: 'Fichier',
+  };
+
   return (
     <div
-      className="flex items-center gap-4 px-4 py-3 rounded-xl cursor-pointer transition-all"
-      style={{ background: hovered ? 'rgba(255,255,255,0.06)' : 'transparent' }}
+      style={{
+        display: 'grid', gridTemplateColumns: '1fr 80px 80px',
+        alignItems: 'center', padding: '9px 12px', borderRadius: 8,
+        cursor: 'pointer', transition: 'background 0.12s',
+        background: hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
+        gap: 0,
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => onOpen(file)}
     >
-      <FileIcon type={file.type} size={16} />
-      <p className="flex-1 text-sm text-white truncate">{file.name}</p>
-      <p className="text-xs w-20 text-right" style={{ color: 'rgba(255,255,255,0.35)' }}>{formatSize(file.size)}</p>
-      {hovered && (
-        <div className="flex gap-1">
-          {file.type !== 'folder' && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <FileTypeIcon type={file.type} size={15} />
+        <p style={{
+          fontSize: 13, fontWeight: 500, color: '#f1f5f9',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {file.name}
+        </p>
+      </div>
+      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+        {TYPE_LABELS[file.type] ?? 'Fichier'}
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+          {formatSize(file.size)}
+        </p>
+        {hovered && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            {file.type !== 'folder' && (
+              <button
+                onClick={e => { e.stopPropagation(); setPreviewFile(file); }}
+                style={{
+                  width: 26, height: 26, borderRadius: 6,
+                  background: 'rgba(99,102,241,0.2)', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Eye size={12} color="#818cf8" />
+              </button>
+            )}
             <button
-              onClick={e => { e.stopPropagation(); setPreviewFile(file); }}
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: 'rgba(99,102,241,0.2)' }}
+              onClick={e => { e.stopPropagation(); onDelete(file.id); }}
+              style={{
+                width: 26, height: 26, borderRadius: 6,
+                background: 'rgba(239,68,68,0.15)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
             >
-              <Eye size={13} color="#818cf8" />
+              <Trash2 size={12} color="#ef4444" />
             </button>
-          )}
-          <button
-            onClick={e => { e.stopPropagation(); onDelete(file.id); }}
-            className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(239,68,68,0.15)' }}
-          >
-            <Trash2 size={13} color="#ef4444" />
-          </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
