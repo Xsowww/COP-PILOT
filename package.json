@@ -10,16 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tiptap/extension-image": "^3.20.0",
-    "@tiptap/extension-link": "^3.20.0",
+    "@anthropic-ai/sdk": "^0.132.1",
+    "@tiptap/extension-highlight": "^3.31.4",
+    "@tiptap/extension-list": "^3.31.4",
     "@tiptap/extension-placeholder": "^3.20.0",
-    "@tiptap/extension-underline": "^3.20.0",
     "@tiptap/react": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.575.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.18.4",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

@@ -1,73 +1,51 @@
-# React + TypeScript + Vite
+# COP-PILOT
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Hub de productivité pour étudiants : **Drive**, **Calendrier** et **Notes** réunis dans une seule appli, avec **Copilot**, un petit robot qui se cache sur le bord de l'écran et aide l'étudiant à s'organiser.
 
-Currently, two official plugins are available:
+## Démarrer
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # build de production dans dist/
+npm run lint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Node 20+ (voir `.nvmrc`). Un devcontainer est fourni pour GitHub Codespaces.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Ce que contient l'appli
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Espace | Fonctionnalités |
+| --- | --- |
+| **Connexion / inscription** | Comptes multiples sur le même navigateur, mot de passe haché (PBKDF2), chaque compte a ses propres données. Un nouveau compte reçoit quelques éléments de départ. |
+| **Dashboard** | Widgets « à la iCloud » : accueil et actions rapides, prochain examen (compte à rebours), progression de la semaine, événements des 7 prochains jours, notes récentes, Drive (espace utilisé, favoris/récents), accès à Copilot. |
+| **Drive** | Importer des fichiers ou un dossier entier (bouton ou glisser-déposer depuis l'ordinateur), créer, renommer (F2), supprimer, copier / couper / coller (Ctrl+C / X / V), dupliquer (Ctrl+D), déplacer par glisser-déposer ou via « Déplacer vers… », Alt+glisser pour copier, sélection multiple (Ctrl / Maj + clic, Ctrl+A), clic droit, favoris, récents, vue grille ou liste avec tri, aperçu (images, PDF, vidéo, audio, texte) et téléchargement. |
+| **Calendrier** | Ajout en langage naturel (« Exam de maths vendredi 14h », « Sport demain 18h-19h »), catégorie devinée automatiquement (cours, examen, devoir, perso, sport), bande de la semaine et vue mois, agenda du jour avec cases « c'est fait », examens à venir avec J-x, devoirs à rendre, filtres par catégorie. |
+| **Notes** | Dossiers et sous-dossiers, créer / renommer / dupliquer / épingler / supprimer, glisser une note ou un dossier dans un autre dossier, recherche, éditeur riche (titres, gras, surlignage, listes, cases à cocher, citations, code, liens), sauvegarde automatique. |
+| **Copilot** | Robot 2D qui tient le bord droit de l'écran, suit la souris des yeux, cligne, passe la tête de temps en temps et fait des remarques (accueil, examen ajouté…). Clic pour lui parler, glisser pour le déplacer le long du bord. |
+
+Recherche globale dans la barre du haut (Ctrl+K) : fichiers, dossiers, notes et événements.
+
+## Copilot : deux modes
+
+- **Mode local** (par défaut, sans clé) : comprend des commandes en français et agit vraiment sur l'espace :
+  « Trouve le dossier Maths », « Analyse mon calendrier », « Crée une note Révisions : chapitre 3 », « Crée un dossier Stage dans Projets », « Ajoute Exam de physique vendredi 10h », « Qu'est-ce que j'ai demain ? », « Montre le dossier Cours ».
+- **Mode IA** : dans les réglages de Copilot (⚙️), coller une clé API Anthropic. Copilot passe alors par Claude (`claude-opus-5-5`) avec des outils pour chercher, analyser le calendrier, créer des notes, dossiers et événements, lire une note. La clé reste dans le navigateur de l'utilisateur.
+
+## Architecture
+
 ```
+src/
+  App.tsx                 routes (connexion, inscription, espace protégé)
+  layout/AppShell.tsx     barre latérale, recherche globale, navigation mobile, Copilot
+  pages/                  Dashboard, drive/, calendar/, notes/, AuthPage
+  copilot/                Character (SVG animé), Copilot (bulle de conversation),
+                          actions (ce que Copilot sait faire), localBrain, claudeBrain
+  store/                  état Zustand : auth, drive, calendar, notes, copilot, ui, session
+  lib/                    dates (analyse du langage naturel), stockage, utilitaires
+```
+
+## Limites actuelles (version de démonstration)
+
+- **Pas de serveur** : comptes et données sont stockés dans le navigateur (localStorage pour les données, IndexedDB pour le contenu des fichiers). Changer de navigateur ou vider les données du site efface tout. Le module `src/store/auth.ts` et les stores sont prévus pour être branchés plus tard sur un vrai backend (Supabase, Firebase, API maison…).
+- Le mode IA appelle l'API Claude directement depuis le navigateur avec la clé de l'utilisateur. Pour une mise en production, il faudra passer par un serveur qui garde la clé.
