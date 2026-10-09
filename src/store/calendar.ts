@@ -5,12 +5,12 @@ import { userStorage } from '../lib/userStorage';
 
 export type EventCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
 
-export const CATEGORIES: Record<EventCategory, { label: string; emoji: string; color: string; soft: string; text: string }> = {
-  cours: { label: 'Cours', emoji: '📚', color: '#3b82f6', soft: '#eff6ff', text: '#1d4ed8' },
-  examen: { label: 'Examen', emoji: '🎯', color: '#ef4444', soft: '#fef2f2', text: '#b91c1c' },
-  devoir: { label: 'Devoir', emoji: '✏️', color: '#f59e0b', soft: '#fffbeb', text: '#b45309' },
-  perso: { label: 'Perso', emoji: '🌿', color: '#10b981', soft: '#ecfdf5', text: '#047857' },
-  sport: { label: 'Sport', emoji: '⚡', color: '#8b5cf6', soft: '#f5f3ff', text: '#6d28d9' },
+export const CATEGORIES: Record<EventCategory, { label: string; color: string; soft: string; text: string }> = {
+  cours: { label: 'Cours', color: '#3b6fd8', soft: '#eef3fc', text: '#2a55b0' },
+  examen: { label: 'Examen', color: '#d9483b', soft: '#fcefed', text: '#b13428' },
+  devoir: { label: 'Devoir', color: '#d48a17', soft: '#fcf4e6', text: '#9a620c' },
+  perso: { label: 'Perso', color: '#2f9e6b', soft: '#ebf7f1', text: '#217a51' },
+  sport: { label: 'Sport', color: '#7a5ad6', soft: '#f3effc', text: '#5c3fb3' },
 };
 
 export interface CalendarEvent {

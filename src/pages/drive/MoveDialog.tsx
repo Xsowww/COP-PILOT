@@ -26,12 +26,12 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
         return (
           <div key={f.id}>
             <div
-              className={cx('flex cursor-pointer items-center gap-1.5 rounded-xl py-1.5 pr-2 text-sm', target === f.id ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50')}
+              className={cx('flex h-8 cursor-pointer items-center gap-1.5 rounded-md pr-2 text-[13px]', target === f.id ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-stone-100')}
               style={{ paddingLeft: 8 + depth * 18 }}
               onClick={() => setTarget(f.id)}
             >
               <button
-                className={cx('rounded p-0.5 text-slate-400 transition', !hasKids && 'invisible', expanded && 'rotate-90')}
+                className={cx('rounded p-0.5 text-stone-400 transition', !hasKids && 'invisible', expanded && 'rotate-90')}
                 onClick={e => {
                   e.stopPropagation();
                   setOpen(s => {
@@ -44,7 +44,7 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
               >
                 <ChevronRight size={14} />
               </button>
-              <FileIcon category="folder" size={24} />
+              <FileIcon category="folder" size={20} />
               <span className="truncate">{f.name}</span>
             </div>
             {expanded && renderLevel(f.id, depth + 1)}
@@ -54,10 +54,10 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
 
   return (
     <Modal open onClose={onClose} width={440}>
-      <h3 className="text-lg font-semibold">Déplacer vers…</h3>
-      <div className="mt-4 max-h-80 overflow-y-auto rounded-2xl border border-slate-100 p-1.5">
+      <h3 className="text-[15px] font-semibold">Déplacer vers…</h3>
+      <div className="mt-4 max-h-80 overflow-y-auto rounded-lg border border-stone-200 p-1">
         <div
-          className={cx('flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 text-sm font-medium', target === null ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50')}
+          className={cx('flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-[13px] font-medium', target === null ? 'bg-brand-50 text-brand-700' : 'hover:bg-stone-100')}
           onClick={() => setTarget(null)}
         >
           <HardDrive size={16} /> Mon Drive
@@ -65,7 +65,7 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
         {renderLevel(null, 1)}
       </div>
       <div className="mt-5 flex justify-end gap-2">
-        <button className="btn-ghost" onClick={onClose}>
+        <button className="btn-secondary" onClick={onClose}>
           Annuler
         </button>
         <button className="btn-primary" onClick={() => onMove(target)}>

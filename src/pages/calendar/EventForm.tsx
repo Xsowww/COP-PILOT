@@ -32,10 +32,10 @@ export default function EventForm({ event, date, onClose }: Props) {
   return (
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
-        <h3 className="text-lg font-semibold">{event ? "Modifier l'événement" : 'Nouvel événement'}</h3>
-        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder="Quoi ? (ex : Partiel de maths)" className="field mt-4 w-full text-base" />
+        <h3 className="text-[15px] font-semibold">{event ? "Modifier l'événement" : 'Nouvel événement'}</h3>
+        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder="Titre (ex. Partiel de maths)" className="field mt-4 h-10 w-full text-[14px]" />
 
-        <p className="mb-2 mt-4 text-xs font-medium text-slate-500">Type</p>
+        <p className="mb-2 mt-4 text-[12px] font-medium text-stone-600">Catégorie</p>
         <div className="flex flex-wrap gap-2">
           {(Object.keys(CATEGORIES) as EventCategory[]).map(k => {
             const c = CATEGORIES[k];
@@ -45,10 +45,10 @@ export default function EventForm({ event, date, onClose }: Props) {
                 key={k}
                 type="button"
                 onClick={() => setCategory(k)}
-                className={cx('rounded-full border-2 px-3 py-1.5 text-sm font-medium transition', active ? 'shadow-sm' : 'border-transparent bg-slate-50 text-slate-500 hover:bg-slate-100')}
-                style={active ? { borderColor: c.color, background: c.soft, color: c.text } : undefined}
+                className={cx('flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors', active ? 'border-stone-300 bg-stone-50 text-ink' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
               >
-                {c.emoji} {c.label}
+                <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
+                {c.label}
               </button>
             );
           })}
@@ -56,26 +56,26 @@ export default function EventForm({ event, date, onClose }: Props) {
 
         <div className="mt-4 grid grid-cols-3 gap-2">
           <label className="col-span-3 sm:col-span-1">
-            <span className="mb-1 block text-xs font-medium text-slate-500">Jour</span>
+            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Jour</span>
             <input type="date" value={day} onChange={e => setDay(e.target.value)} className="field w-full" required />
           </label>
           <label>
-            <span className="mb-1 block text-xs font-medium text-slate-500">Début</span>
+            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Début</span>
             <input type="time" value={start} onChange={e => setStart(e.target.value)} className="field w-full" />
           </label>
           <label>
-            <span className="mb-1 block text-xs font-medium text-slate-500">Fin</span>
+            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Fin</span>
             <input type="time" value={end} min={start} onChange={e => setEnd(e.target.value)} className="field w-full" />
           </label>
         </div>
 
-        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (salle, chapitres à réviser…)" rows={3} className="field mt-3 w-full resize-none" />
+        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (salle, chapitres à réviser…)" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
 
         <div className="mt-5 flex items-center gap-2">
           {event && (
             <button
               type="button"
-              className="btn-ghost text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+              className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={() => {
                 remove(event.id);
                 onClose();
@@ -84,7 +84,7 @@ export default function EventForm({ event, date, onClose }: Props) {
               <Trash2 size={15} /> Supprimer
             </button>
           )}
-          <button type="button" className="btn-ghost ml-auto" onClick={onClose}>
+          <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
             Annuler
           </button>
           <button type="submit" className="btn-primary" disabled={!title.trim()}>

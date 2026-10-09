@@ -37,8 +37,8 @@ export function seedNewAccount(name: string) {
   const nf = notes.createFolder('Cours', null);
   notes.createFolder('Perso', null);
   notes.createNote({
-    title: 'Bienvenue sur COP-PILOT 👋',
-    content: `<h2>Salut ${name} !</h2><p>Voici ton espace. Quelques astuces pour démarrer :</p><ul><li><p><strong>Drive</strong> : glisse-dépose tes fichiers, clic droit pour copier, couper, renommer…</p></li><li><p><strong>Calendrier</strong> : écris simplement « Exam de maths vendredi 14h » et c'est ajouté.</p></li><li><p><strong>Notes</strong> : range tes notes dans des dossiers, comme ici.</p></li></ul><p>Et si tu es perdu, clique sur <strong>Copilot</strong>, le petit robot qui te regarde depuis le bord de l'écran 😉</p>`,
+    title: 'Bienvenue sur COP-PILOT',
+    content: `<h2>Salut ${name}</h2><p>Voici ton espace. Quelques repères pour démarrer :</p><ul><li><p><strong>Drive</strong> : glisse tes fichiers dans la page, clic droit pour copier, couper, renommer…</p></li><li><p><strong>Calendrier</strong> : écris simplement « Partiel de maths vendredi 14h », c'est ajouté.</p></li><li><p><strong>Notes</strong> : range tes notes dans des dossiers, comme celle-ci.</p></li></ul><p>Et si tu cherches quelque chose, demande à <strong>Copilot</strong>, le petit personnage qui t'observe depuis le bord droit de l'écran.</p>`,
   });
   notes.createNote({ title: 'Méthode de révision', folderId: nf.id, content: '<p>1. Relire le cours<br>2. Faire une fiche<br>3. S\'entraîner sur les annales</p>' });
 

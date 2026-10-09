@@ -1,95 +1,57 @@
-// Optional "smart" mode: Copilot talks through Claude and acts on the site with tools.
-// The API key is entered by the user and stays in their browser.
+// AI mode: the conversation goes through our server (/api/copilot, see server/copilot.mjs),
+// which holds the API key and Copilot's personality. Tools run here, on the student's data.
 
-import Anthropic from '@anthropic-ai/sdk';
-import { todayKey, fmt } from '../lib/dates';
-import type { CopilotLink } from '../store/copilot';
+import type Anthropic from '@anthropic-ai/sdk';
+import { fmt, todayKey } from '../lib/dates';
+import { useCopilot, type CopilotLink } from '../store/copilot';
 import type { EventCategory } from '../store/calendar';
-import {
-  search,
-  analyzeCalendar,
-  eventsBetween,
-  addEvent,
-  createNote,
-  createDriveFolder,
-  listDriveFolder,
-  readNote,
-  overview,
-  linkToNote,
-  linkToDriveFolder,
-  linkToDay,
-  describeEvent,
-} from './actions';
 import { useNotes } from '../store/notes';
+import {
+  search, analyzeCalendar, eventsBetween, addEvent, createNote, createDriveFolder, listDriveFolder, readNote, overview,
+  linkToNote, linkToDriveFolder, linkToDay, describeEvent, findExam, planRevisions, appendToNote, updateEvent, goTo,
+} from './actions';
 import type { BotReply } from './localBrain';
 
-const MODEL = 'claude-opus-5-5';
+type Block = Anthropic.Beta.BetaContentBlock;
+type Param = Anthropic.Beta.BetaMessageParam;
 
-const tools: Anthropic.Beta.BetaTool[] = [
-  {
-    name: 'search_site',
-    description: "Cherche dans tout l'espace de l'étudiant : dossiers et fichiers du Drive, notes, dossiers de notes, événements du calendrier.",
-    input_schema: { type: 'object', properties: { query: { type: 'string', description: 'Mots-clés à chercher' } }, required: ['query'] },
-  },
-  {
-    name: 'get_overview',
-    description: "Vue d'ensemble : contenu de la racine du Drive, nombre de notes, dossiers de notes, analyse rapide du calendrier.",
-    input_schema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'analyze_calendar',
-    description: "Analyse le calendrier : événements du jour, charge de la semaine, examens à venir avec compte à rebours, devoirs en retard et prochains rendus.",
-    input_schema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'list_events',
-    description: 'Liste les événements entre deux dates incluses (format YYYY-MM-DD).',
-    input_schema: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } }, required: ['from', 'to'] },
-  },
-  {
-    name: 'add_event',
-    description: 'Ajoute un événement au calendrier.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        title: { type: 'string' },
-        date: { type: 'string', description: 'YYYY-MM-DD' },
-        start: { type: 'string', description: 'HH:mm, optionnel' },
-        end: { type: 'string', description: 'HH:mm, optionnel' },
-        category: { type: 'string', enum: ['cours', 'examen', 'devoir', 'perso', 'sport'] },
-      },
-      required: ['title', 'date'],
-    },
-  },
-  {
-    name: 'create_note',
-    description: "Crée une note. Le contenu est du texte simple (un paragraphe par ligne). Si un dossier est donné et n'existe pas, il est créé.",
-    input_schema: {
-      type: 'object',
-      properties: { title: { type: 'string' }, content: { type: 'string' }, folder: { type: 'string', description: 'Nom du dossier de notes, optionnel' } },
-      required: ['title'],
-    },
-  },
-  {
-    name: 'read_note',
-    description: "Lit le texte d'une note à partir de son id (obtenu via search_site).",
-    input_schema: { type: 'object', properties: { note_id: { type: 'string' } }, required: ['note_id'] },
-  },
-  {
-    name: 'create_folder',
-    description: 'Crée un dossier, soit dans le Drive (space="drive", parent optionnel), soit dans les Notes (space="notes").',
-    input_schema: {
-      type: 'object',
-      properties: { name: { type: 'string' }, space: { type: 'string', enum: ['drive', 'notes'] }, parent: { type: 'string' } },
-      required: ['name', 'space'],
-    },
-  },
-  {
-    name: 'list_drive_folder',
-    description: "Liste le contenu d'un dossier du Drive (par son nom). Sans nom : la racine.",
-    input_schema: { type: 'object', properties: { folder: { type: 'string' } } },
-  },
-];
+export class CopilotApiError extends Error {
+  code: string;
+  constructor(code: string) {
+    super(code);
+    this.code = code;
+  }
+}
+
+async function post<T>(path: string, body: unknown, timeoutMs = 60_000): Promise<T> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/api/copilot/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new CopilotApiError(data.error ?? `http_${res.status}`);
+    return data as T;
+  } catch (e) {
+    if (e instanceof CopilotApiError) throw e;
+    throw new CopilotApiError((e as Error).name === 'AbortError' ? 'timeout' : 'network');
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+export async function checkAiStatus(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/copilot/status');
+    return res.ok && Boolean((await res.json()).enabled);
+  } catch {
+    return false;
+  }
+}
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
@@ -98,17 +60,18 @@ function runTool(name: string, input: Record<string, unknown>, links: CopilotLin
     case 'search_site': {
       const hits = search(str(input.query), 10);
       links.push(...hits.slice(0, 3).map(h => ({ label: h.title, to: h.to })));
-      return hits;
+      return hits.map(({ to: _to, ...h }) => h);
     }
     case 'get_overview':
       return overview();
     case 'analyze_calendar': {
       const a = analyzeCalendar();
       links.push({ label: 'Calendrier', to: '/calendrier' });
-      return { ...a, today: a.today.map(describeEvent), exams: a.exams.map(describeEvent), lateHomework: a.lateHomework.map(describeEvent), nextDeadlines: a.nextDeadlines.map(describeEvent) };
+      const ev = (list: typeof a.today) => list.map(e => ({ id: e.id, desc: describeEvent(e) }));
+      return { ...a, today: ev(a.today), exams: ev(a.exams), lateHomework: ev(a.lateHomework), nextDeadlines: ev(a.nextDeadlines) };
     }
     case 'list_events':
-      return eventsBetween(str(input.from), str(input.to));
+      return eventsBetween(str(input.from), str(input.to)).map(e => ({ id: e.id, title: e.title, date: e.date, start: e.start, end: e.end, category: e.category, done: e.done }));
     case 'add_event': {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(str(input.date)) || !str(input.title)) throw new Error('title et date (YYYY-MM-DD) requis');
       const ev = addEvent({
@@ -119,12 +82,38 @@ function runTool(name: string, input: Record<string, unknown>, links: CopilotLin
         category: (str(input.category) as EventCategory) || undefined,
       });
       links.push({ label: 'Voir le jour', to: linkToDay(ev.date) });
-      return { created: describeEvent(ev) };
+      return { created: describeEvent(ev), id: ev.id };
+    }
+    case 'update_event': {
+      const ev = updateEvent(str(input.event_id), {
+        title: str(input.title) || undefined,
+        date: str(input.date) || undefined,
+        start: str(input.start) || undefined,
+        end: str(input.end) || undefined,
+        done: typeof input.done === 'boolean' ? input.done : undefined,
+      });
+      if (!ev) throw new Error('événement introuvable');
+      links.push({ label: 'Voir le jour', to: linkToDay(ev.date) });
+      return { updated: describeEvent(ev) };
+    }
+    case 'plan_revisions': {
+      const exam = findExam(str(input.exam));
+      if (!exam) throw new Error('examen introuvable');
+      const res = planRevisions(exam.id, typeof input.sessions === 'number' ? input.sessions : 3)!;
+      links.push({ label: 'Voir le planning', to: linkToDay(res.created[0].date) });
+      if (res.note) links.push({ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) });
+      return { exam: describeEvent(exam), sessions: res.created.map(describeEvent), note: res.note?.title };
     }
     case 'create_note': {
-      const n = createNote(str(input.title) || 'Note de Copilot', str(input.content), str(input.folder) || undefined);
+      const n = createNote(str(input.title) || 'Note', str(input.content), str(input.folder) || undefined);
       links.push({ label: `Ouvrir « ${n.title} »`, to: linkToNote(n.id) });
       return { created: n.title, id: n.id };
+    }
+    case 'append_to_note': {
+      const n = appendToNote(str(input.note_id), str(input.content));
+      if (!n) throw new Error('note introuvable');
+      links.push({ label: `Ouvrir « ${n.title} »`, to: linkToNote(n.id) });
+      return { updated: n.title };
     }
     case 'read_note':
       return readNote(str(input.note_id)) ?? { error: 'note introuvable' };
@@ -143,84 +132,91 @@ function runTool(name: string, input: Record<string, unknown>, links: CopilotLin
       if (res) links.push({ label: res.folder, to: res.link });
       return res ?? { error: 'dossier introuvable' };
     }
+    case 'open_page':
+      goTo(str(input.path) || '/');
+      return { opened: str(input.path) };
     default:
       throw new Error(`outil inconnu : ${name}`);
   }
 }
 
-let history: Anthropic.Beta.BetaMessageParam[] = [];
+let history: Param[] = [];
 export const resetClaudeHistory = () => {
   history = [];
 };
 
-function systemPrompt(userName: string) {
-  return `Tu es Copilot, le petit robot assistant de COP-PILOT, un hub de productivité pour étudiants (Drive, Calendrier, Notes). Tu passes la tête depuis le bord de l'écran pour aider ${userName}.
-Nous sommes le ${fmt(new Date(), 'EEEE d MMMM yyyy')} (${todayKey()}).
-Réponds en français, tutoie l'étudiant, sois chaleureux, drôle avec modération et surtout bref : 1 à 4 phrases, pas de titres markdown, pas de tableaux.
-Utilise les outils pour consulter ou modifier son espace plutôt que de deviner. Quand tu crées quelque chose, dis-le clairement. Des boutons de lien vers les éléments concernés s'affichent automatiquement sous ton message, inutile d'écrire des URL.
-Aide l'étudiant à rester concentré : propose des actions concrètes (planifier une révision, créer une fiche, etc.).`;
+const PAGES: Record<string, string> = { '/': 'Accueil', '/drive': 'Drive', '/calendrier': 'Calendrier', '/notes': 'Notes' };
+
+/** Facts from the app that Claude can't see otherwise, prepended to each user turn. */
+function contextBlock(): string {
+  const now = new Date();
+  const msgs = useCopilot.getState().messages;
+  const lastUser = msgs.map(m => m.role).lastIndexOf('user', msgs.length - 2);
+  const recentProactive = msgs.slice(lastUser + 1, -1).filter(m => m.role === 'bot' && m.proactive).map(m => `« ${m.text} »`);
+  const lines = [
+    `Date : ${fmt(now, "EEEE d MMMM yyyy 'à' HH:mm")} (${todayKey()})`,
+    `Page ouverte : ${PAGES[location.pathname] ?? location.pathname}`,
+  ];
+  if (recentProactive.length) lines.push(`Tu lui as dit récemment, de toi-même : ${recentProactive.join(' ')}`);
+  if (history.length === 0) {
+    const earlier = msgs.slice(-9, -1).filter(m => !m.proactive);
+    if (earlier.length) lines.push(`Fin de votre conversation précédente : ${earlier.map(m => `${m.role === 'user' ? 'Lui' : 'Toi'}: ${m.text}`).join(' | ').slice(0, 1500)}`);
+  }
+  return `[Contexte]\n${lines.join('\n')}`;
 }
 
-export async function claudeReply(text: string, apiKey: string, userName: string): Promise<BotReply> {
-  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+export async function claudeReply(text: string, userName: string): Promise<BotReply> {
   const links: CopilotLink[] = [];
   const before = history.length;
-  history.push({ role: 'user', content: text });
+  history.push({ role: 'user', content: [{ type: 'text', text: contextBlock() }, { type: 'text', text }] });
   try {
-    return await runLoop(client, links, userName);
+    for (let step = 0; step < 10; step++) {
+      const res = await post<{ content: Block[]; stop_reason: string }>('chat', { messages: history, userName });
+      history.push({ role: 'assistant', content: res.content as Anthropic.Beta.BetaContentBlockParam[] });
+      if (res.stop_reason === 'refusal') return { text: "Là je préfère ne pas m'aventurer. On parle d'autre chose ?" };
+      if (res.stop_reason === 'pause_turn') continue;
+
+      const toolUses = res.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
+      if (toolUses.length === 0) {
+        const answer = res.content
+          .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
+          .map(b => b.text)
+          .join('\n')
+          .trim();
+        const unique = links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4);
+        return { text: answer || "C'est fait.", links: unique };
+      }
+      const results: Anthropic.Beta.BetaToolResultBlockParam[] = toolUses.map(tu => {
+        try {
+          return { type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, links)) };
+        } catch (e) {
+          return { type: 'tool_result', tool_use_id: tu.id, content: (e as Error).message, is_error: true };
+        }
+      });
+      history.push({ role: 'user', content: results });
+    }
+    return { text: "J'ai fait plusieurs choses, jette un œil.", links };
   } catch (e) {
     history = history.slice(0, before); // keep the conversation valid for the next try
     throw e;
   }
 }
 
-async function runLoop(client: Anthropic, links: CopilotLink[], userName: string): Promise<BotReply> {
-  for (let step = 0; step < 8; step++) {
-    const response = await client.beta.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      output_config: { effort: 'low' },
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      system: systemPrompt(userName),
-      tools,
-      messages: history,
-    });
-    history.push({ role: 'assistant', content: response.content });
-
-    if (response.stop_reason === 'refusal') {
-      return { text: "Désolé, je ne peux pas t'aider sur ce point-là. Demande-moi autre chose 🙂" };
-    }
-    if (response.stop_reason === 'pause_turn') continue;
-
-    const toolUses = response.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
-    if (toolUses.length === 0) {
-      const answer = response.content
-        .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
-        .map(b => b.text)
-        .join('\n')
-        .trim();
-      const unique = links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4);
-      return { text: answer || 'C\'est fait ✅', links: unique };
-    }
-
-    const results: Anthropic.Beta.BetaToolResultBlockParam[] = toolUses.map(tu => {
-      try {
-        const out = runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, links);
-        return { type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) };
-      } catch (e) {
-        return { type: 'tool_result', tool_use_id: tu.id, content: String((e as Error).message), is_error: true };
-      }
-    });
-    history.push({ role: 'user', content: results });
+/** Lets Claude phrase a proactive remark in Copilot's voice. Returns null on any problem. */
+export async function aiNudge(situation: Record<string, unknown>, userName: string): Promise<string | null> {
+  try {
+    const res = await post<{ text: string }>('nudge', { situation: { ...situation, maintenant: fmt(new Date(), "EEEE d MMMM 'à' HH:mm") }, userName }, 9000);
+    const t = res.text?.trim();
+    return t && t.length <= 320 ? t : null;
+  } catch {
+    return null;
   }
-  return { text: "J'ai fait plusieurs actions, jette un œil 👀", links };
 }
 
-export function describeClaudeError(e: unknown): string {
-  if (e instanceof Anthropic.AuthenticationError) return 'Ta clé API Claude est refusée 🔑 Vérifie-la dans mes réglages (⚙️).';
-  if (e instanceof Anthropic.RateLimitError) return 'Trop de demandes d\'un coup, réessaie dans quelques secondes ⏳';
-  if (e instanceof Anthropic.APIConnectionError) return "Je n'arrive pas à joindre Claude (connexion). Je repasse en mode local pour cette fois.";
-  if (e instanceof Anthropic.APIError) return `Erreur de l'API Claude (${e.status}). Je repasse en mode local pour cette fois.`;
-  return "Oups, quelque chose s'est mal passé 😵";
+export function describeApiError(e: unknown): string {
+  const code = e instanceof CopilotApiError ? e.code : 'unknown';
+  if (code === 'rate_limited') return 'Doucement, je reprends mon souffle deux secondes. Réessaie juste après.';
+  if (code === 'network' || code === 'timeout') return "J'ai perdu la connexion une seconde.";
+  return "J'ai un petit souci technique de mon côté.";
 }
+

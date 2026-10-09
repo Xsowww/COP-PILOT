@@ -358,16 +358,19 @@ export default function DrivePage() {
 
   const sortBtn = (key: SortKey, label: string) => (
     <button
-      className={cx('flex items-center gap-1 hover:text-slate-700', sort.key === key && 'text-slate-700')}
+      className={cx('flex items-center gap-1 transition-colors hover:text-ink', sort.key === key && 'text-stone-700')}
       onClick={() => setSort(s => ({ key, asc: s.key === key ? !s.asc : true }))}
     >
       {label} {sort.key === key && <ArrowUpDown size={11} />}
     </button>
   );
 
+  const extOf = (item: DriveItem) => (item.kind === 'file' ? item.name.split('.').pop() : undefined);
+  const bar = selectedIds.length > 1 || (selectedIds.length === 1 && !previewItem);
+
   return (
     <div
-      className="flex h-full flex-col px-4 pb-4 pt-2 md:px-8"
+      className="flex h-full flex-col px-4 pb-4 md:px-8"
       onDragEnter={e => {
         if (!tabAll || (!isExternal(e) && !isInternal(e))) return;
         dragDepth.current++;
@@ -396,9 +399,9 @@ export default function DrivePage() {
       />
 
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-2 py-2">
-        <h1 className="mr-2 text-2xl font-bold tracking-tight">Drive</h1>
-        <div className="flex rounded-xl bg-white/60 p-1 text-sm">
+      <div className="flex flex-wrap items-center gap-2 pb-4 pt-2">
+        <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">Drive</h1>
+        <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px]">
           {([
             ['all', 'Mon Drive', HardDrive],
             ['starred', 'Favoris', Star],
@@ -407,25 +410,16 @@ export default function DrivePage() {
             <button
               key={k}
               onClick={() => { setTab(k); setSelected(new Set()); }}
-              className={cx('flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition', tab === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800')}
+              className={cx('flex h-7 items-center gap-1.5 rounded-md px-2.5 font-medium transition-colors', tab === k ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
-              <Icon size={14} />
+              <Icon size={13} />
               <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button className="btn-soft" onClick={() => void newFolder()}>
-            <FolderPlus size={16} /> <span className="hidden sm:inline">Dossier</span>
-          </button>
-          <button className="btn-primary" onClick={() => fileInput.current?.click()} disabled={busy}>
-            <Upload size={16} /> <span className="hidden sm:inline">{busy ? 'Import…' : 'Importer'}</span>
-          </button>
-          <button className="icon-btn h-9 w-9" title="Importer un dossier" onClick={() => folderInput.current?.click()}>
-            <FolderUp size={17} />
-          </button>
+        <div className="ml-auto flex items-center gap-1.5">
           <button
-            className="icon-btn h-9 w-9"
+            className="icon-btn"
             title={view === 'grid' ? 'Affichage liste' : 'Affichage grille'}
             onClick={() => setView(v => {
               const n = v === 'grid' ? 'list' : 'grid';
@@ -433,19 +427,29 @@ export default function DrivePage() {
               return n;
             })}
           >
-            {view === 'grid' ? <List size={17} /> : <LayoutGrid size={17} />}
+            {view === 'grid' ? <List size={16} /> : <LayoutGrid size={16} />}
+          </button>
+          <button className="icon-btn" title="Importer un dossier" onClick={() => folderInput.current?.click()}>
+            <FolderUp size={16} />
+          </button>
+          <button className="btn-secondary" onClick={() => void newFolder()}>
+            <FolderPlus size={15} /> <span className="hidden sm:inline">Nouveau dossier</span>
+          </button>
+          <button className="btn-primary" onClick={() => fileInput.current?.click()} disabled={busy}>
+            <Upload size={15} /> <span className="hidden sm:inline">{busy ? 'Import…' : 'Importer'}</span>
           </button>
         </div>
       </div>
 
       {/* Breadcrumb / selection bar */}
-      <div className="flex min-h-11 items-center gap-1 rounded-2xl px-1 text-sm">
-        {selectedIds.length > 1 || (selectedIds.length === 1 && !previewItem) ? (
-          <div className="fade-up flex w-full flex-wrap items-center gap-1 rounded-2xl bg-indigo-600 px-2 py-1 text-white shadow-lg shadow-indigo-600/20">
-            <button className="rounded-lg p-1.5 hover:bg-white/15" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)">
+      <div className="flex h-10 items-center gap-1 text-[13px]">
+        {bar ? (
+          <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-ink px-1.5 text-white shadow-pop">
+            <button className="rounded-md p-1.5 hover:bg-white/10" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)">
               <X size={15} />
             </button>
-            <span className="mr-2 font-medium">{selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
+            <span className="mr-2 whitespace-nowrap px-1 font-medium">{selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
+            <span className="mr-1 h-4 w-px bg-white/15" />
             {[
               { icon: Copy, label: 'Copier', fn: () => copy(selectedIds) },
               { icon: Scissors, label: 'Couper', fn: () => cut(selectedIds) },
@@ -455,8 +459,8 @@ export default function DrivePage() {
               ...(single?.kind === 'file' ? [{ icon: Download, label: 'Télécharger', fn: () => downloadItem(single) }] : []),
               { icon: Trash2, label: 'Supprimer', fn: () => void remove(selectedIds) },
             ].map(a => (
-              <button key={a.label} onClick={a.fn} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-white/15" title={a.label}>
-                <a.icon size={15} /> <span className="hidden lg:inline">{a.label}</span>
+              <button key={a.label} onClick={a.fn} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-white/85 hover:bg-white/10 hover:text-white" title={a.label}>
+                <a.icon size={14} /> <span className="hidden lg:inline">{a.label}</span>
               </button>
             ))}
           </div>
@@ -465,20 +469,20 @@ export default function DrivePage() {
             <button
               onClick={() => openFolder(null)}
               {...folderDropProps(null, 'crumb-root')}
-              className={cx('rounded-lg px-2 py-1 font-medium text-slate-500 hover:bg-white/70 hover:text-slate-900', dropTarget === 'crumb-root' && 'bg-indigo-100 text-indigo-700')}
+              className={cx('rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100', breadcrumb.length ? 'text-stone-500' : 'text-ink', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
             >
               Mon Drive
             </button>
             {breadcrumb.map(b => (
-              <span key={b.id} className="flex items-center gap-1">
-                <ChevronRight size={14} className="text-slate-300" />
+              <span key={b.id} className="flex min-w-0 items-center gap-1">
+                <ChevronRight size={14} className="shrink-0 text-stone-300" />
                 <button
                   onClick={() => openFolder(b.id)}
                   {...folderDropProps(b.id, `crumb-${b.id}`)}
                   className={cx(
-                    'max-w-48 truncate rounded-lg px-2 py-1 font-medium hover:bg-white/70',
-                    b.id === parentId ? 'text-slate-900' : 'text-slate-500',
-                    dropTarget === `crumb-${b.id}` && 'bg-indigo-100 text-indigo-700',
+                    'max-w-48 truncate rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100',
+                    b.id === parentId ? 'text-ink' : 'text-stone-500',
+                    dropTarget === `crumb-${b.id}` && 'bg-brand-50 text-brand-700',
                   )}
                 >
                   {b.name}
@@ -486,21 +490,21 @@ export default function DrivePage() {
               </span>
             ))}
             {clipboard?.ids.length ? (
-              <button className="btn-ghost ml-auto py-1 text-xs" onClick={() => void paste(parentId)}>
+              <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => void paste(parentId)}>
                 <ClipboardPaste size={14} /> Coller ici ({clipboard.ids.length})
               </button>
             ) : null}
           </>
         ) : (
-          <p className="px-2 font-medium text-slate-500">{tab === 'starred' ? 'Tes éléments favoris' : 'Fichiers modifiés récemment'}</p>
+          <p className="px-1.5 font-medium text-stone-500">{tab === 'starred' ? 'Éléments favoris' : 'Fichiers modifiés récemment'}</p>
         )}
       </div>
 
       {/* Content */}
       <div
         className={cx(
-          'relative mt-2 min-h-0 flex-1 overflow-y-auto rounded-[28px] border-2 border-transparent p-2 transition',
-          dropTarget === 'here' && 'border-dashed border-indigo-400 bg-indigo-50/60',
+          'relative mt-2 min-h-0 flex-1 overflow-y-auto rounded-xl border p-2 transition-colors',
+          dropTarget === 'here' ? 'border-dashed border-brand-500 bg-brand-50/50' : 'border-transparent',
         )}
         onClick={() => setSelected(new Set())}
         onContextMenu={e => {
@@ -511,16 +515,14 @@ export default function DrivePage() {
       >
         {visible.length === 0 ? (
           <div className="flex h-full min-h-72 flex-col items-center justify-center text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-[28px] bg-white/80 shadow-sm">
-              {tab === 'starred' ? <Star size={34} className="text-amber-400" /> : <Upload size={34} className="text-indigo-400" />}
-            </div>
-            <p className="font-semibold text-slate-700">{tab === 'starred' ? 'Aucun favori' : tab === 'recent' ? 'Aucun fichier récent' : 'Ce dossier est vide'}</p>
-            <p className="mt-1 max-w-xs text-sm text-slate-400">
-              {tab === 'all' ? 'Glisse-dépose des fichiers ou des dossiers ici, ou utilise le bouton Importer.' : 'Clic droit sur un élément › Ajouter aux favoris.'}
+            {tab === 'starred' ? <Star size={28} strokeWidth={1.5} className="text-stone-300" /> : <FileIcon category="folder" size={56} />}
+            <p className="mt-3 text-[14px] font-medium">{tab === 'starred' ? 'Aucun favori' : tab === 'recent' ? 'Aucun fichier récent' : 'Ce dossier est vide'}</p>
+            <p className="mt-1 max-w-xs text-[13px] text-stone-500">
+              {tab === 'all' ? 'Dépose des fichiers ou des dossiers ici, ou utilise le bouton Importer.' : 'Clic droit sur un élément, puis « Ajouter aux favoris ».'}
             </p>
           </div>
         ) : view === 'grid' ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-1.5">
             {visible.map(item => {
               const sel = selected.has(item.id);
               return (
@@ -528,26 +530,26 @@ export default function DrivePage() {
                   key={item.id}
                   {...itemProps(item)}
                   className={cx(
-                    'group relative flex cursor-default select-none flex-col items-center rounded-3xl p-3 pt-4 text-center transition',
-                    sel ? 'bg-indigo-100/80 ring-2 ring-indigo-400' : 'hover:bg-white/70',
-                    dropTarget === item.id && 'scale-105 bg-indigo-100 ring-2 ring-indigo-500',
-                    cutIds.has(item.id) && 'opacity-45',
+                    'group relative flex cursor-default select-none flex-col items-center rounded-lg px-2 pb-2.5 pt-3.5 text-center transition-colors',
+                    sel ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-stone-100/70',
+                    dropTarget === item.id && 'bg-brand-50 ring-2 ring-brand-500',
+                    cutIds.has(item.id) && 'opacity-40',
                   )}
                   title={item.name}
                 >
-                  {item.starred && <Star size={12} className="absolute right-3 top-3 fill-amber-400 text-amber-400" />}
-                  <FileIcon category={categoryOf(item)} size={64} />
-                  <p className="mt-2 line-clamp-2 w-full break-words text-[13px] font-medium leading-tight text-slate-800">{item.name}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-400">
-                    {item.kind === 'folder' ? `${items.filter(i => i.parentId === item.id).length} élément(s)` : formatBytes(item.size)}
+                  {item.starred && <Star size={11} className="absolute right-2.5 top-2.5 fill-amber-400 text-amber-400" />}
+                  <FileIcon category={categoryOf(item)} size={56} ext={extOf(item)} />
+                  <p className="mt-2 line-clamp-2 w-full break-words text-[12.5px] font-medium leading-tight">{item.name}</p>
+                  <p className="tabular mt-0.5 text-[11px] text-stone-400">
+                    {item.kind === 'folder' ? `${items.filter(i => i.parentId === item.id).length} élément${items.filter(i => i.parentId === item.id).length > 1 ? 's' : ''}` : formatBytes(item.size)}
                   </p>
                 </div>
               );
             })}
           </div>
         ) : (
-          <div className="rounded-2xl bg-white/50">
-            <div className="grid grid-cols-[1fr_120px_90px] gap-3 border-b border-slate-100 px-4 py-2 text-xs font-medium text-slate-400 md:grid-cols-[1fr_180px_140px_100px]">
+          <div className="card overflow-hidden">
+            <div className="grid grid-cols-[1fr_110px_80px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-400 md:grid-cols-[1fr_200px_130px_90px]">
               {sortBtn('name', 'Nom')}
               <span className="hidden md:block">Emplacement</span>
               {sortBtn('date', 'Modifié')}
@@ -560,20 +562,20 @@ export default function DrivePage() {
                   key={item.id}
                   {...itemProps(item)}
                   className={cx(
-                    'grid cursor-default select-none grid-cols-[1fr_120px_90px] items-center gap-3 border-b border-slate-50 px-4 py-2 text-sm transition last:border-0 md:grid-cols-[1fr_180px_140px_100px]',
-                    sel ? 'bg-indigo-100/80' : 'hover:bg-white/80',
-                    dropTarget === item.id && 'bg-indigo-100 ring-2 ring-inset ring-indigo-400',
-                    cutIds.has(item.id) && 'opacity-45',
+                    'grid h-11 cursor-default select-none grid-cols-[1fr_110px_80px] items-center gap-3 border-b border-stone-100 px-4 text-[13px] transition-colors last:border-0 md:grid-cols-[1fr_200px_130px_90px]',
+                    sel ? 'bg-brand-50' : 'hover:bg-stone-50',
+                    dropTarget === item.id && 'bg-brand-50 ring-2 ring-inset ring-brand-500',
+                    cutIds.has(item.id) && 'opacity-40',
                   )}
                 >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <FileIcon category={categoryOf(item)} size={30} />
-                    <span className="truncate font-medium text-slate-800">{item.name}</span>
-                    {item.starred && <Star size={12} className="shrink-0 fill-amber-400 text-amber-400" />}
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} />
+                    <span className="truncate font-medium">{item.name}</span>
+                    {item.starred && <Star size={11} className="shrink-0 fill-amber-400 text-amber-400" />}
                   </span>
-                  <span className="hidden truncate text-xs text-slate-400 md:block">{['Drive', ...pathOf(items, item.parentId).map(p => p.name)].join(' › ')}</span>
-                  <span className="text-xs text-slate-500">{relativeTime(item.updatedAt)}</span>
-                  <span className="text-xs text-slate-500">{item.kind === 'folder' ? formatBytes(folderSize(items, item.id)) : formatBytes(item.size)}</span>
+                  <span className="hidden truncate text-[12px] text-stone-500 md:block">{['Drive', ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}</span>
+                  <span className="text-[12px] text-stone-500">{relativeTime(item.updatedAt)}</span>
+                  <span className="tabular text-[12px] text-stone-500">{item.kind === 'folder' ? formatBytes(folderSize(items, item.id)) : formatBytes(item.size)}</span>
                 </div>
               );
             })}
@@ -581,14 +583,14 @@ export default function DrivePage() {
         )}
 
         {dropTarget === 'here' && (
-          <div className="pointer-events-none sticky bottom-4 mx-auto mt-4 w-fit rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
-            Dépose pour importer dans « {current?.name ?? 'Mon Drive'} »
+          <div className="pointer-events-none sticky bottom-4 mx-auto mt-4 w-fit rounded-lg bg-ink px-3.5 py-2 text-[13px] font-medium text-white shadow-pop">
+            Déposer dans « {current?.name ?? 'Mon Drive'} »
           </div>
         )}
       </div>
 
-      <p className="hidden pt-2 text-center text-[11px] text-slate-400 lg:block">
-        Double-clic pour ouvrir · Clic droit pour plus d'options · {MOD}C / {MOD}X / {MOD}V · {MOD}D dupliquer · F2 renommer · Suppr · Alt + glisser pour copier
+      <p className="hidden pt-2.5 text-center text-[11px] text-stone-400 lg:block">
+        Double-clic pour ouvrir · Clic droit pour plus d'options · <span className="font-mono">{MOD}C {MOD}X {MOD}V</span> copier, couper, coller · <span className="font-mono">{MOD}D</span> dupliquer · <span className="font-mono">F2</span> renommer · Alt + glisser pour copier
       </p>
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}

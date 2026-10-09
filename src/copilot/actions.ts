@@ -83,7 +83,7 @@ export function eventsBetween(from: string, to: string) {
 export function describeEvent(e: { title: string; date: string; start?: string; end?: string; category: EventCategory; done?: boolean }) {
   const c = CATEGORIES[e.category];
   const time = e.start ? ` à ${e.start.replace(':', 'h')}${e.end ? `–${e.end.replace(':', 'h')}` : ''}` : '';
-  return `${c.emoji} ${e.title} — ${fmt(fromKey(e.date), 'EEEE d MMM')}${time}${e.done ? ' ✅' : ''}`;
+  return `${e.title} (${c.label.toLowerCase()}) — ${fmt(fromKey(e.date), 'EEEE d MMM')}${time}${e.done ? ' · fait' : ''}`;
 }
 
 export function analyzeCalendar() {
@@ -118,19 +118,19 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
   lines.push(
     a.today.length
       ? `Aujourd'hui tu as ${a.today.length} chose${a.today.length > 1 ? 's' : ''} : ${a.today.map(e => e.title).join(', ')}.`
-      : "Rien de prévu aujourd'hui, profites-en 😌",
+      : "Rien de prévu aujourd'hui, profites-en.",
   );
   lines.push(`Cette semaine : ${a.weekCount} événement${a.weekCount > 1 ? 's' : ''}, ${a.weekDone} déjà fait${a.weekDone > 1 ? 's' : ''}.`);
   if (a.busiestDay && a.busiestDay.count > 1) {
     lines.push(`Ta journée la plus chargée : ${fmt(fromKey(a.busiestDay.date), 'EEEE')} (${a.busiestDay.count} trucs).`);
   }
   if (a.exams.length) {
-    lines.push(`🎯 Examens à venir : ${a.exams.map(e => `${e.title} (${countdownLabel(e.date)})`).join(', ')}.`);
+    lines.push(`Examens à venir : ${a.exams.map(e => `${e.title} (${countdownLabel(e.date)})`).join(', ')}.`);
     const soon = a.exams.find(e => daysUntil(e.date) <= 7);
     if (soon) lines.push(`Conseil : commence à réviser « ${soon.title} » dès maintenant, un peu chaque jour.`);
   }
-  if (a.lateHomework.length) lines.push(`⚠️ ${a.lateHomework.length} devoir(s) en retard : ${a.lateHomework.map(e => e.title).join(', ')}.`);
-  else if (a.nextDeadlines.length) lines.push(`✏️ Prochain rendu : ${a.nextDeadlines[0].title} (${countdownLabel(a.nextDeadlines[0].date)}).`);
+  if (a.lateHomework.length) lines.push(`Attention, ${a.lateHomework.length} devoir(s) en retard : ${a.lateHomework.map(e => e.title).join(', ')}.`);
+  else if (a.nextDeadlines.length) lines.push(`Prochain rendu : ${a.nextDeadlines[0].title} (${countdownLabel(a.nextDeadlines[0].date)}).`);
   return { text: lines.join('\n'), links: [{ label: 'Ouvrir le calendrier', to: '/calendrier' }] };
 }
 
@@ -151,13 +151,7 @@ export function createNote(title: string, content = '', folderName?: string) {
   if (folderName) {
     folderId = (findNoteFolderByName(folderName) ?? useNotes.getState().createFolder(folderName, null)).id;
   }
-  const html = content
-    ? content
-        .split(/\n+/)
-        .map(l => `<p>${l.replace(/</g, '&lt;')}</p>`)
-        .join('')
-    : '';
-  return useNotes.getState().createNote({ title, content: html, folderId });
+  return useNotes.getState().createNote({ title, content: textToHtml(content), folderId });
 }
 
 export function createDriveFolder(name: string, parentName?: string) {
@@ -210,4 +204,124 @@ export function listDriveFolder(folderName?: string) {
 export function readNote(id: string) {
   const n = useNotes.getState().notes.find(x => x.id === id);
   return n ? { title: n.title, text: stripHtml(n.content) } : null;
+}
+
+const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+/** Plain text → note HTML: "# " = heading, "- " = bullet, "[ ] " = checkbox, other lines = paragraphs. */
+export function textToHtml(text: string): string {
+  const out: string[] = [];
+  let list: 'ul' | 'task' | null = null;
+  const close = () => {
+    if (list) out.push('</ul>');
+    list = null;
+  };
+  for (const raw of text.split(/\n/)) {
+    const line = raw.trim();
+    if (!line) {
+      close();
+      continue;
+    }
+    const task = line.match(/^[-*]?\s*\[( |x)\]\s+(.*)$/i);
+    if (task) {
+      if (list !== 'task') {
+        close();
+        out.push('<ul data-type="taskList">');
+        list = 'task';
+      }
+      out.push(`<li data-type="taskItem" data-checked="${task[1].toLowerCase() === 'x'}"><p>${esc(task[2])}</p></li>`);
+    } else if (/^[-*•]\s+/.test(line)) {
+      if (list !== 'ul') {
+        close();
+        out.push('<ul>');
+        list = 'ul';
+      }
+      out.push(`<li><p>${esc(line.replace(/^[-*•]\s+/, ''))}</p></li>`);
+    } else if (/^#{1,3}\s+/.test(line)) {
+      close();
+      out.push(`<h2>${esc(line.replace(/^#{1,3}\s+/, ''))}</h2>`);
+    } else {
+      close();
+      out.push(`<p>${esc(line)}</p>`);
+    }
+  }
+  close();
+  return out.join('');
+}
+
+export function appendToNote(id: string, text: string) {
+  const n = useNotes.getState().notes.find(x => x.id === id);
+  if (!n) return null;
+  useNotes.getState().updateNote(id, { content: n.content + textToHtml(text) });
+  return n;
+}
+
+export function findExam(query: string) {
+  const events = useCalendar.getState().events.filter(e => e.category === 'examen');
+  const byId = events.find(e => e.id === query);
+  if (byId) return byId;
+  const q = normalize(query);
+  const upcoming = events.filter(e => e.date >= todayKey()).sort(sortEvents);
+  return upcoming.find(e => normalize(e.title).includes(q)) ?? (q ? undefined : upcoming[0]);
+}
+
+const revisionTitle = (examTitle: string) => `Révision · ${examTitle}`;
+
+export function hasRevisionPlan(examTitle: string) {
+  return useCalendar.getState().events.some(e => e.title === revisionTitle(examTitle));
+}
+
+/** Creates (or reuses) a revision sheet for an exam, in the "Révisions" notes folder. */
+export function createRevisionNote(examId: string) {
+  const exam = useCalendar.getState().events.find(e => e.id === examId);
+  if (!exam) return null;
+  const title = `Fiche · ${exam.title}`;
+  const existing = useNotes.getState().notes.find(n => n.title === title);
+  if (existing) return existing;
+  return createNote(
+    title,
+    `# Ce qui tombe\n- Chapitres à revoir :\n- Type d'épreuve :\n# À retenir\n- \n# Mes points faibles\n[ ] \n# Questions à poser au prof\n- `,
+    'Révisions',
+  );
+}
+
+/** Spreads revision sessions over the days before an exam, at 18:00, skipping days already taken. */
+export function planRevisions(examId: string, sessions = 3) {
+  const exam = useCalendar.getState().events.find(e => e.id === examId);
+  if (!exam) return null;
+  const n = Math.min(6, Math.max(1, Math.round(sessions)));
+  const until = daysUntil(exam.date);
+  const today = new Date();
+  const candidates: string[] = [];
+  // Prefer J-1, J-3, J-5… then fill remaining days, never in the past.
+  const order = [1, 3, 5, 2, 4, 6, 7, 9, 11, 13];
+  for (const d of order) {
+    if (d < until || (d === until && until === 0)) {
+      const key = toKey(addDays(fromKey(exam.date), -d));
+      if (key >= toKey(today)) candidates.push(key);
+    }
+  }
+  if (candidates.length === 0) candidates.push(todayKey());
+  const chosen = [...new Set(candidates)].slice(0, n).sort();
+  const nowHm = fmt(today, 'HH:mm');
+  const created = chosen.map(date =>
+    useCalendar.getState().add({
+      title: revisionTitle(exam.title),
+      date,
+      start: date === todayKey() && nowHm > '18:00' ? undefined : '18:00',
+      end: date === todayKey() && nowHm > '18:00' ? undefined : '19:30',
+      category: 'devoir',
+      details: `Préparation de l'examen du ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`,
+    }),
+  );
+  const note = createRevisionNote(exam.id);
+  return { exam, created, note };
+}
+
+export function updateEvent(id: string, patch: { title?: string; date?: string; start?: string; end?: string; done?: boolean }) {
+  const ev = useCalendar.getState().events.find(e => e.id === id);
+  if (!ev) return null;
+  const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined && v !== ''));
+  useCalendar.getState().update(id, clean);
+  return useCalendar.getState().events.find(e => e.id === id)!;
 }

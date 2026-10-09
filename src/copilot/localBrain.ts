@@ -2,8 +2,7 @@
 
 import { addDays } from 'date-fns';
 import { normalize } from '../lib/utils';
-import { parseQuickAdd, toKey, todayKey, fmt, fromKey } from '../lib/dates';
-import { CATEGORIES } from '../store/calendar';
+import { parseQuickAdd, toKey, todayKey } from '../lib/dates';
 import type { CopilotLink } from '../store/copilot';
 import {
   search,
@@ -20,6 +19,9 @@ import {
   overview,
 } from './actions';
 import { useNotes } from '../store/notes';
+import { useCopilot } from '../store/copilot';
+import { runOffer } from './offers';
+import { findExam, planRevisions } from './actions';
 
 export interface BotReply {
   text: string;
@@ -33,6 +35,42 @@ const unquote = (s: string) => s.trim().replace(/^["'«“]\s*|\s*["'»”]$/g, 
 export function localReply(raw: string): BotReply {
   const input = raw.trim();
   const q = normalize(input);
+
+  // ── Answer to Copilot's last proposal ─────────────────────────────────────
+  const offer = useCopilot.getState().pendingOffer;
+  if (offer && /^(oui|ouais|ouep|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|let'?s go|avec plaisir|je veux bien|volontiers|bonne idee)\b/.test(q)) {
+    return runOffer(offer);
+  }
+  if (offer && /^(non|nan|pas maintenant|plus tard|laisse|nope|non merci)\b/.test(q)) {
+    return { text: pick(["Ok, je n'insiste pas. Je reste dans le coin.", 'Pas de souci, on verra plus tard.']) };
+  }
+
+  // ── Plan revisions ────────────────────────────────────────────────────────
+  if (/(planifi|organis|prepar|cale|programm).*(revision|revis)|(revision|reviser).*(planifi|organis)/.test(q)) {
+    const subject = q.replace(/.*\b(pour|de|du|d')\s*(l'|le |la |mon |ma )?/, '').replace(/(examen|exam|partiel|controle|\?)/g, '').trim();
+    const exam = findExam(subject.length > 2 ? subject : '') ?? findExam('');
+    if (!exam) return { text: "Je ne vois aucun examen à venir dans ton calendrier. Ajoute-le et je m'occupe du reste." };
+    const res = planRevisions(exam.id)!;
+    return {
+      text: `Pour « ${exam.title} », je t'ai calé ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision et une fiche pour t'organiser.`,
+      links: [
+        { label: 'Voir le planning', to: linkToDay(res.created[0].date) },
+        ...(res.note ? [{ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) }] : []),
+      ],
+    };
+  }
+
+  // ── Jokes ─────────────────────────────────────────────────────────────────
+  if (/(blague|fais[- ]moi rire|raconte.*(truc|histoire) drole|une vanne)/.test(q)) {
+    return {
+      text: pick([
+        "Pourquoi les étudiants aiment les ascenseurs ? Parce que c'est le seul endroit où ils prennent de l'avance.",
+        "J'ai voulu réviser avec toi, mais j'ai paniqué en voyant le programme. Je suis qu'un petit casque, moi.",
+        "Un partiel, c'est comme une série : tu ne regardes pas le dernier épisode sans avoir vu les précédents. Enfin… en théorie.",
+        "Mon prof de maths m'a dit que j'étais moyen. C'était méchant, mais statistiquement juste.",
+      ]),
+    };
+  }
 
   // ── Create a note ─────────────────────────────────────────────────────────
   let m = input.match(/(?:cr[ée]e|cr[ée]er|fais|faire|[ée]cris|ajoute|nouvelle)\s+(?:moi\s+)?(?:une\s+)?note\s*(?:qui s'appelle|appel[ée]e|intitul[ée]e|nomm[ée]e|sur|:)?\s*(.*)$/i);
@@ -53,7 +91,7 @@ export function localReply(raw: string): BotReply {
     const title = unquote(rest) || 'Note de Copilot';
     const note = createNote(title, content, folder);
     return {
-      text: `C'est fait ✍️ J'ai créé la note « ${note.title} »${folder ? ` dans le dossier « ${folder} »` : ''}.${content ? '' : ' Tu peux écrire dedans maintenant !'}`,
+      text: `C'est fait. J'ai créé la note « ${note.title} »${folder ? ` dans le dossier « ${folder} »` : ''}.${content ? '' : ' Tu peux écrire dedans maintenant !'}`,
       links: [{ label: 'Ouvrir la note', to: linkToNote(note.id) }],
     };
   }
@@ -73,10 +111,10 @@ export function localReply(raw: string): BotReply {
     const name = unquote(rest) || 'Nouveau dossier';
     if (forNotes) {
       const f = useNotes.getState().createFolder(name, null);
-      return { text: `Dossier de notes « ${f.name} » créé 📂`, links: [{ label: 'Voir mes notes', to: `/notes?dossier=${f.id}` }] };
+      return { text: `Dossier de notes « ${f.name} »`, links: [{ label: 'Voir mes notes', to: `/notes?dossier=${f.id}` }] };
     }
     const f = createDriveFolder(name, parent);
-    return { text: `Dossier « ${f.name} » créé dans le Drive 📁`, links: [{ label: 'Ouvrir le dossier', to: linkToDriveFolder(f.id) }] };
+    return { text: `Dossier « ${f.name} » créé dans le Drive`, links: [{ label: 'Ouvrir le dossier', to: linkToDriveFolder(f.id) }] };
   }
 
   // ── Add an event ──────────────────────────────────────────────────────────
@@ -87,7 +125,7 @@ export function localReply(raw: string): BotReply {
       const date = parsed.date ?? todayKey();
       const ev = addEvent({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined });
       return {
-        text: `Ajouté au calendrier ! ${describeEvent(ev)}${parsed.date ? '' : "\n(Pas de date trouvée, je l'ai mis aujourd'hui — tu peux le déplacer.)"}`,
+        text: `Ajouté au calendrier : ${describeEvent(ev)}${parsed.date ? '' : "\n(Pas de date trouvée, je l'ai mis aujourd'hui — tu peux le déplacer.)"}`,
         links: [{ label: 'Voir le jour', to: linkToDay(ev.date) }],
       };
     }
@@ -102,19 +140,19 @@ export function localReply(raw: string): BotReply {
   if (/(qu'?est-ce que|quoi|j'ai quoi|programme|prevu|au menu).*(aujourd'?hui|ce jour)|^aujourd'?hui\s*\??$/.test(q)) {
     const list = eventsBetween(todayKey(), todayKey());
     return {
-      text: list.length ? `Aujourd'hui :\n${list.map(describeEvent).join('\n')}` : "Rien de prévu aujourd'hui 🎉",
+      text: list.length ? `Aujourd'hui :\n${list.map(describeEvent).join('\n')}` : "Rien de prévu aujourd'hui.",
       links: [{ label: "Voir aujourd'hui", to: linkToDay(todayKey()) }],
     };
   }
   if (/(qu'?est-ce que|quoi|j'ai quoi|programme|prevu).*demain|^demain\s*\??$/.test(q)) {
     const d = toKey(addDays(new Date(), 1));
     const list = eventsBetween(d, d);
-    return { text: list.length ? `Demain :\n${list.map(describeEvent).join('\n')}` : 'Demain est libre pour le moment 👌', links: [{ label: 'Voir demain', to: linkToDay(d) }] };
+    return { text: list.length ? `Demain :\n${list.map(describeEvent).join('\n')}` : 'Demain est libre pour le moment.', links: [{ label: 'Voir demain', to: linkToDay(d) }] };
   }
   if (/(examen|exam|partiel|controle)s?/.test(q) && /(quand|prochain|liste|quels|mes|a venir)/.test(q)) {
     const exams = eventsBetween(todayKey(), '9999-12-31').filter(e => e.category === 'examen');
     return {
-      text: exams.length ? `Tes prochains examens ${CATEGORIES.examen.emoji} :\n${exams.slice(0, 6).map(describeEvent).join('\n')}` : "Aucun examen à l'horizon. Ajoute-les pour que je t'aide à t'organiser !",
+      text: exams.length ? `Tes prochains examens :\n${exams.slice(0, 6).map(describeEvent).join('\n')}` : "Aucun examen à l'horizon. Ajoute-les pour que je t'aide à t'organiser !",
       links: [{ label: 'Calendrier', to: '/calendrier' }],
     };
   }
@@ -139,7 +177,7 @@ export function localReply(raw: string): BotReply {
   if (m) {
     const term = unquote(m[1].replace(/\?$/, ''));
     const hits = search(term);
-    if (!hits.length) return { text: `Je n'ai rien trouvé pour « ${term} » 🤔 Essaie avec un autre mot ?` };
+    if (!hits.length) return { text: `Je n'ai rien trouvé pour « ${term} ». Essaie avec un autre mot ?` };
     return {
       text: `J'ai trouvé ${hits.length} résultat${hits.length > 1 ? 's' : ''} pour « ${term} » :\n${hits.map(h => `• ${h.title} (${h.type}) — ${h.where}`).join('\n')}`,
       links: hits.slice(0, 4).map(h => ({ label: h.title, to: h.to })),
@@ -147,10 +185,10 @@ export function localReply(raw: string): BotReply {
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────
-  if (/(ouvre|va|aller|emmene|montre).*(drive|fichiers)/.test(q)) return { text: 'On y va 🚀', links: [{ label: 'Drive', to: '/drive' }] };
-  if (/(ouvre|va|aller|emmene|montre).*(calendrier|agenda|planning)/.test(q)) return { text: 'Direction le calendrier 📅', links: [{ label: 'Calendrier', to: '/calendrier' }] };
-  if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: 'Tes notes t\'attendent 📝', links: [{ label: 'Notes', to: '/notes' }] };
-  if (/(ouvre|va|aller|emmene|montre).*(dashboard|accueil|tableau)/.test(q)) return { text: 'Retour au QG 🏠', links: [{ label: 'Dashboard', to: '/' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(drive|fichiers)/.test(q)) return { text: 'On y va.', links: [{ label: 'Drive', to: '/drive' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(calendrier|agenda|planning)/.test(q)) return { text: 'Direction le calendrier.', links: [{ label: 'Calendrier', to: '/calendrier' }] };
+  if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: 'Tes notes t\'attendent.', links: [{ label: 'Notes', to: '/notes' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(dashboard|accueil|tableau)/.test(q)) return { text: 'Retour au QG.', links: [{ label: 'Dashboard', to: '/' }] };
 
   // ── Overview ──────────────────────────────────────────────────────────────
   if (/(resume|bilan|vue d'ensemble|etat|statistiques|stats)/.test(q)) {
@@ -176,11 +214,4 @@ export function localReply(raw: string): BotReply {
     text:
       "Je n'ai pas tout compris 😅 Voilà ce que je sais faire :\n• « Trouve le dossier Maths »\n• « Analyse mon calendrier »\n• « Crée une note Révisions histoire : chapitre 3 »\n• « Ajoute Exam de physique vendredi 10h »\n• « Crée un dossier Stage dans Projets »\n• « Qu'est-ce que j'ai demain ? »",
   };
-}
-
-export function welcomeLine(name: string): string {
-  const h = new Date().getHours();
-  const hello = h < 6 ? 'Encore debout' : h < 12 ? 'Bonjour' : h < 18 ? 'Hello' : 'Bonsoir';
-  const today = eventsBetween(todayKey(), todayKey()).filter(e => !e.done);
-  return `${hello} ${name} ! ${today.length ? `Tu as ${today.length} truc${today.length > 1 ? 's' : ''} aujourd'hui (${fmt(fromKey(todayKey()), 'EEEE')}).` : "Journée libre aujourd'hui 😎"} Clique-moi si tu as besoin.`;
 }

@@ -34,19 +34,19 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-slate-950/80 backdrop-blur-md" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[60] flex flex-col bg-stone-950/85" onMouseDown={onClose}>
       <header className="flex items-center gap-3 px-5 py-3 text-white" onMouseDown={e => e.stopPropagation()}>
-        <FileIcon category={cat} size={34} />
+        <FileIcon category={cat} size={30} ext={item.name.split('.').pop()} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{item.name}</p>
-          <p className="text-xs text-white/50">
+          <p className="truncate text-[13px] font-medium">{item.name}</p>
+          <p className="text-[12px] text-white/50">
             {formatBytes(item.size)} · modifié {relativeTime(item.updatedAt)}
           </p>
         </div>
-        <button onClick={() => downloadItem(item)} className="btn bg-white/10 text-white hover:bg-white/20">
+        <button onClick={() => downloadItem(item)} className="btn h-8 bg-white/10 text-white hover:bg-white/20">
           <Download size={15} /> Télécharger
         </button>
-        <button onClick={onClose} className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white" title="Fermer (Échap)">
+        <button onClick={onClose} className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white" title="Fermer (Échap)">
           <X size={18} />
         </button>
       </header>
@@ -57,19 +57,19 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
           ) : !url ? (
             <Loader2 className="animate-spin text-white/70" />
           ) : cat === 'image' ? (
-            <img src={url} alt={item.name} className="max-h-[80vh] max-w-full rounded-xl object-contain shadow-2xl" />
+            <img src={url} alt={item.name} className="max-h-[80vh] max-w-full rounded-md object-contain shadow-2xl" />
           ) : cat === 'pdf' ? (
-            <iframe src={url} title={item.name} className="h-[82vh] w-[min(1000px,92vw)] rounded-xl bg-white" />
+            <iframe src={url} title={item.name} className="h-[82vh] w-[min(1000px,92vw)] rounded-md bg-white" />
           ) : cat === 'video' ? (
-            <video src={url} controls autoPlay className="max-h-[80vh] max-w-full rounded-xl" />
+            <video src={url} controls autoPlay className="max-h-[80vh] max-w-full rounded-md" />
           ) : cat === 'audio' ? (
             <audio src={url} controls autoPlay />
           ) : cat === 'text' ? (
-            <pre className="max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-xl bg-white p-5 text-xs text-slate-800">{text}</pre>
+            <pre className="max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md bg-white p-5 font-mono text-[12px] text-stone-800">{text}</pre>
           ) : (
-            <div className="rounded-3xl bg-white p-10 text-center">
-              <FileIcon category={cat} size={72} />
-              <p className="mt-4 font-semibold text-slate-800">Pas d'aperçu pour ce type de fichier</p>
+            <div className="rounded-xl bg-white p-10 text-center">
+              <FileIcon category={cat} size={64} />
+              <p className="mt-4 text-[14px] font-medium">Pas d'aperçu pour ce type de fichier</p>
               <button onClick={() => downloadItem(item)} className="btn-primary mt-4">
                 <Download size={15} /> Télécharger
               </button>

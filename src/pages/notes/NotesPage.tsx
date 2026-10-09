@@ -148,16 +148,16 @@ export default function NotesPage() {
       onClick={() => { openNote(n.id); setFocusFolder(null); }}
       onContextMenu={e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, items: noteMenu(n) }); }}
       className={cx(
-        'group flex cursor-pointer items-center gap-2 rounded-xl py-1.5 pr-1 text-sm transition',
-        n.id === noteId ? 'bg-white font-medium text-indigo-700 shadow-sm' : 'text-slate-600 hover:bg-white/60',
+        'group flex h-8 cursor-pointer items-center gap-2 rounded-md pr-1 text-[13px] transition-colors',
+        n.id === noteId ? 'bg-stone-100 font-medium text-ink' : 'text-stone-600 hover:bg-stone-50 hover:text-ink',
       )}
       style={{ paddingLeft: 10 + depth * 16 }}
     >
-      <FileText size={15} className="shrink-0 opacity-60" />
+      <FileText size={14} className="shrink-0 text-stone-400" />
       <span className="flex-1 truncate">{n.title}</span>
-      {n.pinned && <Pin size={11} className="shrink-0 text-amber-500" />}
+      {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" />}
       <button
-        className="rounded p-0.5 text-slate-400 opacity-0 hover:text-slate-700 group-hover:opacity-100"
+        className="rounded p-0.5 text-stone-400 opacity-0 hover:text-ink group-hover:opacity-100"
         onClick={e => { e.stopPropagation(); setMenu({ x: e.clientX, y: e.clientY, items: noteMenu(n) }); }}
       >
         <MoreHorizontal size={14} />
@@ -187,24 +187,24 @@ export default function NotesPage() {
           onDoubleClick={() => void renameFolder(f)}
           onContextMenu={e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, items: folderMenu(f) }); }}
           className={cx(
-            'group flex cursor-pointer items-center gap-1.5 rounded-xl py-1.5 pr-1 text-sm font-medium transition',
-            dropOn === f.id ? 'bg-indigo-100 ring-2 ring-indigo-400' : focusFolder === f.id ? 'bg-white/80 text-slate-900' : 'text-slate-700 hover:bg-white/60',
+            'group flex h-8 cursor-pointer items-center gap-1.5 rounded-md pr-1 text-[13px] font-medium transition-colors',
+            dropOn === f.id ? 'bg-brand-50 ring-1 ring-brand-500' : focusFolder === f.id ? 'bg-stone-100 text-ink' : 'text-stone-700 hover:bg-stone-50',
           )}
           style={{ paddingLeft: 4 + depth * 16 }}
         >
-          <ChevronRight size={14} className={cx('shrink-0 text-slate-400 transition', open && 'rotate-90')} />
-          {open ? <FolderOpen size={15} className="shrink-0 text-amber-500" /> : <Folder size={15} className="shrink-0 text-amber-500" />}
+          <ChevronRight size={13} className={cx('shrink-0 text-stone-400 transition-transform', open && 'rotate-90')} />
+          {open ? <FolderOpen size={15} className="shrink-0 text-stone-500" /> : <Folder size={15} className="shrink-0 text-stone-500" />}
           <span className="flex-1 truncate">{f.name}</span>
-          <span className="text-[11px] font-normal text-slate-400 group-hover:hidden">{fnotes.length || ''}</span>
+          <span className="tabular text-[11px] font-normal text-stone-400 group-hover:hidden">{fnotes.length || ''}</span>
           <button
-            className="hidden rounded p-0.5 text-slate-400 hover:text-slate-700 group-hover:block"
+            className="hidden rounded p-0.5 text-stone-400 hover:text-ink group-hover:block"
             title="Nouvelle note dans ce dossier"
             onClick={e => { e.stopPropagation(); newNote(f.id); }}
           >
             <FilePlus2 size={14} />
           </button>
           <button
-            className="hidden rounded p-0.5 text-slate-400 hover:text-slate-700 group-hover:block"
+            className="hidden rounded p-0.5 text-stone-400 hover:text-ink group-hover:block"
             onClick={e => { e.stopPropagation(); setMenu({ x: e.clientX, y: e.clientY, items: folderMenu(f) }); }}
           >
             <MoreHorizontal size={14} />
@@ -215,7 +215,7 @@ export default function NotesPage() {
             {kids.map(k => renderFolder(k, depth + 1))}
             {fnotes.map(n => renderNote(n, depth + 1))}
             {kids.length === 0 && fnotes.length === 0 && (
-              <p className="py-1 text-xs italic text-slate-400" style={{ paddingLeft: 30 + depth * 16 }}>
+              <p className="py-1.5 text-[12px] text-stone-400" style={{ paddingLeft: 30 + depth * 16 }}>
                 Dossier vide
               </p>
             )}
@@ -229,57 +229,57 @@ export default function NotesPage() {
   const rootNotes = sortNotes(notes.filter(n => n.folderId === null));
 
   return (
-    <div className="flex h-full gap-4 px-4 pb-4 pt-2 md:px-8">
+    <div className="flex h-full gap-4 px-4 pb-4 md:px-8">
       {/* Sidebar */}
-      <aside className={cx('w-full shrink-0 flex-col md:flex md:w-72', active ? 'hidden' : 'flex')}>
-        <div className="flex items-center gap-2 py-2">
-          <h1 className="text-2xl font-bold tracking-tight">Notes</h1>
-          <button className="icon-btn ml-auto h-9 w-9" title="Nouveau dossier" onClick={() => void newFolder(null)}>
-            <FolderPlus size={18} />
+      <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[268px]', active ? 'hidden' : 'flex')}>
+        <div className="flex items-center gap-1.5 pb-4 pt-2">
+          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Notes</h1>
+          <button className="icon-btn ml-auto" title="Nouveau dossier" onClick={() => void newFolder(null)}>
+            <FolderPlus size={16} />
           </button>
-          <button className="btn-primary px-3" onClick={() => newNote()} title="Nouvelle note">
-            <FilePlus2 size={16} /> Note
+          <button className="btn-primary h-8 px-3" onClick={() => newNote()} title="Nouvelle note">
+            <FilePlus2 size={14} /> Nouvelle note
           </button>
         </div>
-        <div className="relative mb-3">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Chercher dans les notes…" className="field w-full rounded-2xl bg-white/70 py-2 pl-9" />
+        <div className="relative mb-2">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher dans les notes" className="field w-full pl-8" />
         </div>
         <div
-          className={cx('glass min-h-0 flex-1 overflow-y-auto rounded-[24px] p-2', dropOn === 'root' && 'ring-2 ring-indigo-400')}
+          className={cx('min-h-0 flex-1 overflow-y-auto rounded-lg p-1', dropOn === 'root' && 'ring-1 ring-brand-500')}
           {...dropProps(null, 'root')}
           onClick={() => setFocusFolder(null)}
         >
           {q ? (
             results.length ? (
               results.map(n => (
-                <button key={n.id} onClick={() => openNote(n.id)} className={cx('block w-full rounded-xl px-3 py-2 text-left hover:bg-white/70', n.id === noteId && 'bg-white')}>
-                  <p className="truncate text-sm font-medium text-slate-800">{n.title}</p>
-                  <p className="truncate text-xs text-slate-400">{stripHtml(n.content) || 'Note vide'}</p>
+                <button key={n.id} onClick={() => openNote(n.id)} className={cx('block w-full rounded-md px-2.5 py-2 text-left hover:bg-stone-50', n.id === noteId && 'bg-stone-100')}>
+                  <p className="truncate text-[13px] font-medium">{n.title}</p>
+                  <p className="truncate text-[12px] text-stone-500">{stripHtml(n.content) || 'Note vide'}</p>
                 </button>
               ))
             ) : (
-              <p className="p-4 text-center text-sm text-slate-400">Aucune note trouvée</p>
+              <p className="p-4 text-center text-[13px] text-stone-400">Aucune note trouvée</p>
             )
           ) : (
             <div onClick={e => e.stopPropagation()}>
               {rootFolders.map(f => renderFolder(f, 0))}
-              {rootNotes.length > 0 && rootFolders.length > 0 && <div className="mx-2 my-2 h-px bg-slate-200/70" />}
+              {rootNotes.length > 0 && rootFolders.length > 0 && <div className="mx-2 my-2 h-px bg-stone-200/70" />}
               {rootNotes.map(n => renderNote(n, 0))}
-              {notes.length === 0 && folders.length === 0 && <p className="p-6 text-center text-sm text-slate-400">Crée ta première note ✨</p>}
+              {notes.length === 0 && folders.length === 0 && <p className="p-6 text-center text-[13px] text-stone-400">Aucune note pour l'instant.</p>}
             </div>
           )}
         </div>
-        <p className="hidden pt-2 text-center text-[11px] text-slate-400 md:block">Glisse une note sur un dossier pour la ranger · clic droit pour plus d'options</p>
+        <p className="hidden pt-2 text-[11px] text-stone-400 md:block">Glisse une note sur un dossier pour la ranger.</p>
       </aside>
 
       {/* Editor */}
-      <section className={cx('glass min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] bg-white/85', active ? 'flex' : 'hidden md:flex')}>
+      <section className={cx('card min-w-0 flex-1 flex-col overflow-hidden md:mt-2', active ? 'flex' : 'hidden md:flex')}>
         {active ? (
           <>
-            <div className="flex items-start gap-2 px-4 pt-5 md:px-10">
+            <div className="flex items-start gap-1 px-4 pt-6 md:px-12">
               <button className="icon-btn mt-1 md:hidden" onClick={() => openNote(null)} title="Retour">
-                <ArrowLeft size={18} />
+                <ArrowLeft size={17} />
               </button>
               <div className="min-w-0 flex-1">
                 <input
@@ -289,14 +289,14 @@ export default function NotesPage() {
                   placeholder="Sans titre"
                   onChange={e => store.updateNote(active.id, { title: e.target.value.trim() || 'Sans titre' })}
                   onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), document.querySelector<HTMLElement>('.prose-note')?.focus())}
-                  className="w-full bg-transparent text-3xl font-bold tracking-tight text-slate-900 outline-none placeholder:text-slate-300"
+                  className="w-full bg-transparent text-[26px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-300"
                 />
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-[12px] text-stone-400">
                   {folders.find(f => f.id === active.folderId)?.name ?? 'Sans dossier'} · modifiée {relativeTime(active.updatedAt)}
                 </p>
               </div>
               <button className="icon-btn mt-1" title={active.pinned ? 'Désépingler' : 'Épingler'} onClick={() => store.updateNote(active.id, { pinned: !active.pinned })}>
-                {active.pinned ? <PinOff size={16} /> : <Pin size={16} />}
+                {active.pinned ? <PinOff size={15} /> : <Pin size={15} />}
               </button>
               <button className="icon-btn mt-1" title="Plus" onClick={e => setMenu({ x: e.clientX - 180, y: e.clientY + 10, items: noteMenu(active) })}>
                 <MoreHorizontal size={16} />
@@ -306,12 +306,11 @@ export default function NotesPage() {
           </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-[28px] bg-amber-50">
-              <NotebookPen size={34} className="text-amber-500" />
-            </div>
-            <p className="mt-4 font-semibold text-slate-700">Choisis une note ou crée-en une nouvelle</p>
-            <button className="btn-primary mt-4" onClick={() => newNote()}>
-              <FilePlus2 size={16} /> Nouvelle note
+            <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
+            <p className="mt-3 text-[14px] font-medium">Aucune note ouverte</p>
+            <p className="mt-1 text-[13px] text-stone-500">Choisis une note à gauche ou crée-en une.</p>
+            <button className="btn-secondary mt-4" onClick={() => newNote()}>
+              <FilePlus2 size={15} /> Nouvelle note
             </button>
           </div>
         )}

@@ -56,8 +56,12 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
     if (t && Number(t[1]) < 24) start = `${t[1].padStart(2, '0')}:${t[2] ?? '00'}`;
   }
 
-  // Relative days
-  if (cut(/\s(?:apres-demain|apres demain)(?=\s)/)) date = addDays(base, 2);
+  // Relative days: "dans 5 jours", "dans une semaine", "demain"…
+  const rel = cut(/\sdans\s(\d{1,3}|une|deux|trois)\s(jours?|semaines?)(?=\s)/);
+  if (rel) {
+    const n = ({ une: 1, deux: 2, trois: 3 } as Record<string, number>)[rel[1]] ?? Number(rel[1]);
+    date = addDays(base, rel[2].startsWith('semaine') ? n * 7 : n);
+  } else if (cut(/\s(?:apres-demain|apres demain)(?=\s)/)) date = addDays(base, 2);
   else if (cut(/\sdemain(?=\s)/)) date = addDays(base, 1);
   else if (cut(/\s(?:aujourd'hui|aujourdhui|ce soir|ce matin|cet aprem)(?=\s)/)) date = base;
 

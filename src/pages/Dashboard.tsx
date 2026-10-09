@@ -1,57 +1,57 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
-import { CalendarDays, ChevronRight, FolderOpen, NotebookPen, Plus, Star, Target, Upload, Sparkles, Check } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Check, FolderClosed, NotebookText, Plus, Upload, Target, ListTodo, CalendarRange } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useDrive, categoryOf, pathOf } from '../store/drive';
 import { useNotes } from '../store/notes';
-import { useCalendar, CATEGORIES, sortEvents } from '../store/calendar';
-import { useCopilot } from '../store/copilot';
-import { fmt, toKey, todayKey, fromKey, countdownLabel, weekStart } from '../lib/dates';
+import { useCalendar, CATEGORIES, sortEvents, type CalendarEvent } from '../store/calendar';
+import { fmt, toKey, todayKey, fromKey, weekStart, daysUntil } from '../lib/dates';
 import { formatBytes, relativeTime, stripHtml, cx } from '../lib/utils';
 import FileIcon from '../components/FileIcon';
-import { linkToDay, linkToDriveFolder, linkToNote } from '../copilot/actions';
+import { hasRevisionPlan, linkToDay, linkToDriveFolder, linkToNote } from '../copilot/actions';
+import { runOffer } from '../copilot/offers';
+import { toast } from '../store/ui';
 
-function WidgetTitle({ icon: Icon, title, to, color }: { icon: typeof CalendarDays; title: string; to?: string; color: string }) {
+function Widget({ icon: Icon, title, to, className, children }: { icon: typeof CalendarDays; title: string; to?: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className="mb-3 flex items-center gap-2">
-      <span className="flex h-7 w-7 items-center justify-center rounded-lg text-white" style={{ background: color }}>
-        <Icon size={15} />
-      </span>
-      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
-      {to && (
-        <Link to={to} className="ml-auto flex items-center text-xs font-medium text-slate-400 hover:text-indigo-600">
-          Tout voir <ChevronRight size={14} />
-        </Link>
-      )}
-    </div>
+    <section className={cx('card enter flex flex-col p-4', className)}>
+      <header className="mb-3 flex items-center gap-2">
+        <Icon size={15} className="text-stone-400" strokeWidth={1.9} />
+        <h2 className="text-[13px] font-medium text-stone-600">{title}</h2>
+        {to && (
+          <Link to={to} className="ml-auto flex items-center gap-0.5 rounded px-1 text-[12px] text-stone-400 transition-colors hover:text-ink">
+            Ouvrir <ArrowUpRight size={13} />
+          </Link>
+        )}
+      </header>
+      {children}
+    </section>
   );
 }
 
-function ProgressRing({ value, size = 92 }: { value: number; size?: number }) {
-  const r = size / 2 - 8;
-  const c = 2 * Math.PI * r;
+const hm = (t?: string) => t ?? '';
+
+function EventRow({ e, showDay }: { e: CalendarEvent; showDay?: boolean }) {
+  const toggleDone = useCalendar(s => s.toggleDone);
+  const c = CATEGORIES[e.category];
   return (
-    <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} stroke="#e2e8f0" strokeWidth="9" fill="none" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke="url(#ring)"
-        strokeWidth="9"
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={c * (1 - value)}
-        style={{ transition: 'stroke-dashoffset .6s ease' }}
-      />
-      <defs>
-        <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#6366f1" />
-          <stop offset="1" stopColor="#ec4899" />
-        </linearGradient>
-      </defs>
-    </svg>
+    <li className="group flex items-center gap-3 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50">
+      <button
+        onClick={() => toggleDone(e.id)}
+        className={cx('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', e.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
+        title={e.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
+      >
+        {e.done && <Check size={10} strokeWidth={3} className="text-white" />}
+      </button>
+      <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: c.color }} />
+      <Link to={linkToDay(e.date)} className="min-w-0 flex-1">
+        <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-400 line-through' : 'font-medium')}>{e.title}</span>
+      </Link>
+      <span className="tabular shrink-0 text-[12px] text-stone-400">
+        {showDay && <span className="capitalize">{e.date === todayKey() ? "Auj." : fmt(fromKey(e.date), 'EEE d')} </span>}
+        {hm(e.start)}
+      </span>
+    </li>
   );
 }
 
@@ -60,219 +60,191 @@ export default function Dashboard() {
   const user = useAuth(s => s.user)!;
   const items = useDrive(s => s.items);
   const { notes, folders } = useNotes();
-  const { events, toggleDone } = useCalendar();
+  const events = useCalendar(s => s.events);
 
-  const today = todayKey();
   const now = new Date();
+  const today = todayKey();
   const hour = now.getHours();
-  const hello = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
+  const hello = hour < 5 ? 'Bonne nuit' : hour < 18 ? 'Bonjour' : 'Bonsoir';
 
   const todayEvents = events.filter(e => e.date === today).sort(sortEvents);
-  const nowHm = fmt(now, 'HH:mm');
-  const nextToday = todayEvents.find(e => !e.done && (!e.start || e.start >= nowHm));
-  const upcoming = events.filter(e => e.date >= today && e.date <= toKey(addDays(now, 7))).sort(sortEvents);
+  const upcoming = events.filter(e => e.date > today && e.date <= toKey(addDays(now, 7))).sort(sortEvents);
   const nextExam = events.filter(e => e.category === 'examen' && e.date >= today && !e.done).sort(sortEvents)[0];
-  const ws = toKey(weekStart(now));
-  const we = toKey(addDays(weekStart(now), 6));
-  const week = events.filter(e => e.date >= ws && e.date <= we);
+  const ws = weekStart(now);
+  const weekDays = Array.from({ length: 7 }, (_, i) => toKey(addDays(ws, i)));
+  const week = events.filter(e => e.date >= weekDays[0] && e.date <= weekDays[6]);
   const weekDone = week.filter(e => e.done).length;
+  const perDay = weekDays.map(d => events.filter(e => e.date === d).length);
+  const maxPerDay = Math.max(1, ...perDay);
 
-  const recentNotes = [...notes].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
+  const recentNotes = [...notes].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
   const files = items.filter(i => i.kind === 'file');
   const recentFiles = [...files].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
-  const starred = items.filter(i => i.starred).slice(0, 4);
   const used = files.reduce((s, f) => s + (f.size ?? 0), 0);
-  const quota = 1024 ** 3; // 1 Go symbolique (stockage du navigateur)
+  const quota = 1024 ** 3;
+
+  const planExam = () => {
+    if (!nextExam) return;
+    const r = runOffer({ label: 'Planifier', kind: 'plan_revisions', payload: { eventId: nextExam.id } });
+    toast(r.links?.length ? 'Révisions planifiées et fiche créée' : r.text, 'success');
+  };
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-10 pt-4 md:px-8">
-      <div className="mx-auto grid max-w-6xl auto-rows-[minmax(170px,auto)] grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {/* Greeting */}
-        <section className="widget fade-up relative overflow-hidden bg-gradient-to-br from-indigo-500/90 via-violet-500/90 to-fuchsia-500/80 text-white sm:col-span-2">
-          <p className="text-sm font-medium capitalize text-white/80">{fmt(now, 'EEEE d MMMM')}</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">
-            {hello} {user.name} 👋
-          </h1>
-          <p className="mt-2 max-w-sm text-sm text-white/85">
-            {todayEvents.length === 0
-              ? "Rien au programme aujourd'hui. Parfait pour avancer sur tes projets."
-              : `Tu as ${todayEvents.length} chose${todayEvents.length > 1 ? 's' : ''} aujourd'hui${nextToday ? `, la prochaine : ${nextToday.title}${nextToday.start ? ` à ${nextToday.start.replace(':', 'h')}` : ''}` : ''}.`}
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button onClick={() => navigate('/notes?nouvelle=1')} className="btn bg-white/20 text-white backdrop-blur hover:bg-white/30">
-              <Plus size={15} /> Note
-            </button>
-            <button onClick={() => navigate('/calendrier?ajout=1')} className="btn bg-white/20 text-white backdrop-blur hover:bg-white/30">
-              <CalendarDays size={15} /> Événement
-            </button>
-            <button onClick={() => navigate('/drive?import=1')} className="btn bg-white/20 text-white backdrop-blur hover:bg-white/30">
-              <Upload size={15} /> Importer
-            </button>
+    <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
+      <div className="mx-auto max-w-[1180px]">
+        <div className="flex flex-wrap items-end gap-3 pb-6 pt-2">
+          <div className="mr-auto">
+            <p className="eyebrow first-letter:uppercase">{fmt(now, 'EEEE d MMMM')}</p>
+            <h1 className="mt-0.5 text-[24px] font-semibold tracking-[-0.02em]">
+              {hello}, {user.name}
+            </h1>
           </div>
-          <div className="pointer-events-none absolute -bottom-10 -right-10 h-44 w-44 rounded-full bg-white/10" />
-          <div className="pointer-events-none absolute -right-4 -top-12 h-32 w-32 rounded-full bg-white/10" />
-        </section>
+          <button onClick={() => navigate('/notes?nouvelle=1')} className="btn-secondary">
+            <Plus size={15} /> Note
+          </button>
+          <button onClick={() => navigate('/calendrier?ajout=1')} className="btn-secondary">
+            <CalendarDays size={15} /> Événement
+          </button>
+          <button onClick={() => navigate('/drive?import=1')} className="btn-primary">
+            <Upload size={15} /> Importer
+          </button>
+        </div>
 
-        {/* Next exam */}
-        <Link to={nextExam ? linkToDay(nextExam.date) : '/calendrier'} className="widget fade-up flex flex-col" style={{ animationDelay: '40ms' }}>
-          <WidgetTitle icon={Target} title="Prochain examen" color={CATEGORIES.examen.color} />
-          {nextExam ? (
-            <div className="flex flex-1 flex-col justify-between">
-              <p className="text-5xl font-bold tracking-tight text-rose-500">{countdownLabel(nextExam.date)}</p>
-              <div>
-                <p className="truncate font-semibold text-slate-800">{nextExam.title}</p>
-                <p className="text-xs capitalize text-slate-400">
-                  {fmt(fromKey(nextExam.date), 'EEEE d MMMM')}
-                  {nextExam.start && ` · ${nextExam.start.replace(':', 'h')}`}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="flex flex-1 items-center text-sm text-slate-400">Aucun examen prévu. Respire 😌</p>
-          )}
-        </Link>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+          {/* Today */}
+          <Widget icon={ListTodo} title="Aujourd'hui" to={linkToDay(today)} className="xl:col-span-5">
+            {todayEvents.length === 0 ? (
+              <p className="flex flex-1 items-center py-6 text-[13px] text-stone-400">Rien de prévu aujourd'hui.</p>
+            ) : (
+              <ul className="-mx-1.5">
+                {todayEvents.map(e => (
+                  <EventRow key={e.id} e={e} />
+                ))}
+              </ul>
+            )}
+          </Widget>
 
-        {/* Week progress */}
-        <Link to="/calendrier" className="widget fade-up flex flex-col" style={{ animationDelay: '80ms' }}>
-          <WidgetTitle icon={Check} title="Ma semaine" color="#10b981" />
-          <div className="flex flex-1 items-center gap-4">
-            <div className="relative">
-              <ProgressRing value={week.length ? weekDone / week.length : 0} />
-              <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-slate-800">
-                {week.length ? Math.round((weekDone / week.length) * 100) : 0}%
-              </span>
-            </div>
-            <div className="text-sm text-slate-500">
-              <p>
-                <span className="font-semibold text-slate-800">{weekDone}</span> / {week.length} fait{weekDone > 1 ? 's' : ''}
-              </p>
-              <p className="mt-1 text-xs">{week.length - weekDone > 0 ? 'Continue comme ça 💪' : week.length ? 'Semaine bouclée 🎉' : 'Semaine vide'}</p>
-            </div>
-          </div>
-        </Link>
-
-        {/* Upcoming events */}
-        <section className="widget fade-up sm:col-span-2 xl:row-span-2" style={{ animationDelay: '120ms' }}>
-          <WidgetTitle icon={CalendarDays} title="À venir (7 jours)" to="/calendrier" color="#3b82f6" />
-          {upcoming.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-400">Rien de prévu cette semaine.</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {upcoming.slice(0, 8).map(e => {
-                const c = CATEGORIES[e.category];
-                return (
-                  <li key={e.id} className="group flex items-center gap-3 rounded-2xl px-2 py-2 transition hover:bg-white/80">
-                    <button
-                      onClick={() => toggleDone(e.id)}
-                      className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition', e.done ? 'border-transparent' : 'hover:scale-110')}
-                      style={{ borderColor: e.done ? undefined : c.color, background: e.done ? c.color : undefined }}
-                      title={e.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
-                    >
-                      {e.done && <Check size={12} className="text-white" />}
+          {/* Next exam */}
+          <Widget icon={Target} title="Prochain examen" className="xl:col-span-3">
+            {nextExam ? (
+              <div className="flex flex-1 flex-col">
+                <Link to={linkToDay(nextExam.date)} className="group">
+                  <p className="tabular text-[40px] font-semibold leading-none tracking-[-0.03em]">
+                    {daysUntil(nextExam.date) === 0 ? "Aujourd'hui" : `J-${daysUntil(nextExam.date)}`}
+                  </p>
+                  <p className="mt-2 truncate text-[13px] font-medium group-hover:underline">{nextExam.title}</p>
+                  <p className="text-[12px] first-letter:uppercase text-stone-500">
+                    {fmt(fromKey(nextExam.date), 'EEEE d MMMM')}
+                    {nextExam.start && ` · ${nextExam.start}`}
+                  </p>
+                </Link>
+                <div className="mt-auto pt-4">
+                  {hasRevisionPlan(nextExam.title) ? (
+                    <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
+                      <Check size={13} className="text-emerald-600" /> Révisions planifiées
+                    </p>
+                  ) : (
+                    <button onClick={planExam} className="btn-secondary h-8 w-full text-[12px]">
+                      Planifier les révisions
                     </button>
-                    <Link to={linkToDay(e.date)} className="min-w-0 flex-1">
-                      <p className={cx('truncate text-sm font-medium', e.done ? 'text-slate-400 line-through' : 'text-slate-800')}>
-                        {c.emoji} {e.title}
-                      </p>
-                      <p className="text-xs capitalize text-slate-400">
-                        {e.date === today ? "Aujourd'hui" : fmt(fromKey(e.date), 'EEEE d')}
-                        {e.start && ` · ${e.start.replace(':', 'h')}`}
-                      </p>
-                    </Link>
-                    <span className="chip" style={{ background: c.soft, color: c.text }}>
-                      {c.label}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="flex flex-1 items-center text-[13px] text-stone-400">Aucun examen à venir.</p>
+            )}
+          </Widget>
 
-        {/* Notes */}
-        <section className="widget fade-up sm:col-span-2" style={{ animationDelay: '160ms' }}>
-          <WidgetTitle icon={NotebookPen} title="Notes récentes" to="/notes" color="#f59e0b" />
-          {recentNotes.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-400">Pas encore de notes.</p>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {recentNotes.map(n => (
-                <Link key={n.id} to={linkToNote(n.id)} className="rounded-2xl bg-amber-50/70 p-3 transition hover:bg-amber-50">
-                  <p className="truncate text-sm font-semibold text-slate-800">
-                    {n.pinned && '📌 '}
-                    {n.title}
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-xs text-slate-500">{stripHtml(n.content) || 'Note vide'}</p>
-                  <p className="mt-2 text-[11px] text-slate-400">
-                    {folders.find(f => f.id === n.folderId)?.name ?? 'Notes'} · {relativeTime(n.updatedAt)}
-                  </p>
+          {/* Week */}
+          <Widget icon={CalendarRange} title="Cette semaine" to="/calendrier" className="md:col-span-2 xl:col-span-4">
+            <div className="flex items-baseline gap-1.5">
+              <span className="tabular text-[28px] font-semibold leading-none tracking-tight">{weekDone}</span>
+              <span className="text-[13px] text-stone-500">/ {week.length} terminé{weekDone > 1 ? 's' : ''}</span>
+            </div>
+            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-stone-100">
+              <div className="h-full rounded-full bg-ink transition-all" style={{ width: `${week.length ? (weekDone / week.length) * 100 : 0}%` }} />
+            </div>
+            <div className="mt-auto grid grid-cols-7 items-end gap-1.5 pt-5">
+              {weekDays.map((d, i) => (
+                <Link key={d} to={linkToDay(d)} className="group flex flex-col items-center gap-1.5">
+                  <span className="flex h-12 w-full items-end justify-center">
+                    <span
+                      className={cx('w-full max-w-6 rounded-[4px] transition-colors', d === today ? 'bg-brand-500' : 'bg-stone-200 group-hover:bg-stone-300')}
+                      style={{ height: `${Math.max(8, (perDay[i] / maxPerDay) * 100)}%` }}
+                    />
+                  </span>
+                  <span className={cx('text-[11px] capitalize', d === today ? 'font-semibold text-ink' : 'text-stone-400')}>{fmt(fromKey(d), 'EEEEE')}</span>
                 </Link>
               ))}
             </div>
-          )}
-        </section>
+          </Widget>
 
-        {/* Drive */}
-        <section className="widget fade-up sm:col-span-2" style={{ animationDelay: '200ms' }}>
-          <WidgetTitle icon={FolderOpen} title="Drive" to="/drive" color="#6366f1" />
-          <div className="mb-3">
-            <div className="flex justify-between text-xs text-slate-500">
-              <span>
-                {files.length} fichier{files.length > 1 ? 's' : ''} · {items.length - files.length} dossier{items.length - files.length > 1 ? 's' : ''}
-              </span>
-              <span>{formatBytes(used)} utilisés</span>
-            </div>
-            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500" style={{ width: `${Math.max(2, Math.min(100, (used / quota) * 100))}%` }} />
-            </div>
-          </div>
-          {(starred.length ? starred : recentFiles).length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400">Importe ton premier fichier depuis le Drive.</p>
-          ) : (
-            <>
-              <p className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                {starred.length ? (
-                  <>
-                    <Star size={11} /> Favoris
-                  </>
-                ) : (
-                  'Récents'
-                )}
-              </p>
-              <ul className="space-y-1">
-                {(starred.length ? starred : recentFiles).map(f => (
-                  <li key={f.id}>
-                    <Link
-                      to={f.kind === 'folder' ? linkToDriveFolder(f.id) : `${linkToDriveFolder(f.parentId)}${f.parentId ? '&' : '?'}fichier=${f.id}`}
-                      className="flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-white/80"
-                    >
-                      <FileIcon category={categoryOf(f)} size={32} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-slate-800">{f.name}</span>
-                        <span className="block truncate text-[11px] text-slate-400">{['Drive', ...pathOf(items, f.parentId).map(p => p.name)].join(' › ')}</span>
+          {/* Upcoming */}
+          <Widget icon={CalendarDays} title="À venir" to="/calendrier" className="xl:col-span-5">
+            {upcoming.length === 0 ? (
+              <p className="py-6 text-[13px] text-stone-400">Rien dans les 7 prochains jours.</p>
+            ) : (
+              <ul className="-mx-1.5">
+                {upcoming.slice(0, 7).map(e => (
+                  <EventRow key={e.id} e={e} showDay />
+                ))}
+              </ul>
+            )}
+          </Widget>
+
+          {/* Notes */}
+          <Widget icon={NotebookText} title="Notes récentes" to="/notes" className="xl:col-span-4">
+            {recentNotes.length === 0 ? (
+              <p className="py-6 text-[13px] text-stone-400">Aucune note pour l'instant.</p>
+            ) : (
+              <ul className="-mx-1.5 divide-y divide-stone-100">
+                {recentNotes.map(n => (
+                  <li key={n.id}>
+                    <Link to={linkToNote(n.id)} className="block rounded-lg px-1.5 py-2 transition-colors hover:bg-stone-50">
+                      <span className="flex items-baseline gap-2">
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{n.title}</span>
+                        <span className="shrink-0 text-[11px] text-stone-400">{relativeTime(n.updatedAt)}</span>
                       </span>
-                      {f.kind === 'file' && <span className="text-[11px] text-slate-400">{formatBytes(f.size)}</span>}
+                      <span className="mt-0.5 block truncate text-[12px] text-stone-500">
+                        {folders.find(f => f.id === n.folderId)?.name ?? 'Notes'} · {stripHtml(n.content) || 'Vide'}
+                      </span>
                     </Link>
                   </li>
                 ))}
               </ul>
-            </>
-          )}
-        </section>
+            )}
+          </Widget>
 
-        {/* Copilot */}
-        <button
-          onClick={() => useCopilot.getState().setPose('open')}
-          className="widget fade-up flex flex-col text-left sm:col-span-2 xl:col-span-2"
-          style={{ animationDelay: '240ms' }}
-        >
-          <WidgetTitle icon={Sparkles} title="Copilot" color="#8b5cf6" />
-          <p className="text-sm text-slate-600">
-            Le petit robot qui se cache sur le bord droit de ton écran. Demande-lui de <b>trouver un dossier</b>, d'<b>analyser ton calendrier</b> ou de{' '}
-            <b>créer une note</b>.
-          </p>
-          <span className="mt-auto pt-3 text-sm font-semibold text-violet-600">Lui parler →</span>
-        </button>
+          {/* Drive */}
+          <Widget icon={FolderClosed} title="Drive" to="/drive" className="xl:col-span-3">
+            <div className="flex items-baseline justify-between text-[12px] text-stone-500">
+              <span>
+                <span className="tabular font-medium text-ink">{files.length}</span> fichier{files.length > 1 ? 's' : ''}
+              </span>
+              <span className="tabular">{formatBytes(used)}</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-stone-100">
+              <div className="h-full rounded-full bg-stone-400" style={{ width: `${Math.max(1, Math.min(100, (used / quota) * 100))}%` }} />
+            </div>
+            {recentFiles.length === 0 ? (
+              <p className="mt-auto pt-6 text-[13px] text-stone-400">Importe ton premier fichier.</p>
+            ) : (
+              <ul className="-mx-1.5 mt-3">
+                {recentFiles.map(f => (
+                  <li key={f.id}>
+                    <Link to={`${linkToDriveFolder(f.parentId)}${f.parentId ? '&' : '?'}fichier=${f.id}`} className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50">
+                      <FileIcon category={categoryOf(f)} size={28} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium">{f.name}</span>
+                        <span className="block truncate text-[11px] text-stone-400">{['Drive', ...pathOf(items, f.parentId).map(p => p.name)].join(' / ')}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Widget>
+        </div>
       </div>
     </div>
   );

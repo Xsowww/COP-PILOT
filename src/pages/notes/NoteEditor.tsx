@@ -18,19 +18,19 @@ function Toolbar({ editor }: { editor: Editor }) {
       title={label}
       onMouseDown={e => e.preventDefault()}
       onClick={run}
-      className={cx('flex h-8 w-8 items-center justify-center rounded-lg transition', active ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800')}
+      className={cx('flex h-7 w-7 items-center justify-center rounded-md transition-colors', active ? 'bg-stone-200/70 text-ink' : 'text-stone-500 hover:bg-stone-100 hover:text-ink')}
     >
-      <Icon size={16} />
+      <Icon size={15} />
     </button>
   );
   const c = () => editor.chain().focus();
-  const sep = (k: string) => <span key={k} className="mx-1 h-5 w-px bg-slate-200" />;
+  const sep = (k: string) => <span key={k} className="mx-1 h-4 w-px bg-stone-200" />;
 
   return (
     <div className="flex flex-wrap items-center gap-0.5">
       {btn('Titre 1', Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run())}
       {btn('Titre 2', Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
-      {sep('s1')}
+      {sep("s1")}
       {btn('Gras (Ctrl+B)', Bold, editor.isActive('bold'), () => c().toggleBold().run())}
       {btn('Italique (Ctrl+I)', Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
       {btn('Souligné (Ctrl+U)', Underline, editor.isActive('underline'), () => c().toggleUnderline().run())}
@@ -91,10 +91,10 @@ export default function NoteEditor({ note }: { note: Note }) {
   if (!editor) return null;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/90 px-4 py-2 backdrop-blur md:px-10">
+      <div className="sticky top-0 z-10 border-b border-stone-100 bg-white px-4 py-1.5 md:px-11">
         <Toolbar editor={editor} />
       </div>
-      <div className="min-h-0 flex-1 cursor-text overflow-y-auto px-4 py-6 md:px-10" onClick={() => !editor.isFocused && editor.commands.focus('end')}>
+      <div className="min-h-0 flex-1 cursor-text overflow-y-auto px-4 py-6 md:px-12" onClick={() => !editor.isFocused && editor.commands.focus('end')}>
         <EditorContent editor={editor} onClick={e => e.stopPropagation()} />
       </div>
     </div>
