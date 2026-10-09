@@ -8,6 +8,7 @@ import { useCalendar, CATEGORIES, guessCategory, sortEvents, type EventCategory 
 import { normalize, stripHtml, formatBytes } from '../lib/utils';
 import { toKey, todayKey, daysUntil, fromKey, fmt, weekStart, countdownLabel } from '../lib/dates';
 import type { CopilotLink } from '../store/copilot';
+import { getSettings } from '../store/settings';
 
 let navigateFn: ((to: string) => void) | null = null;
 export const registerNavigate = (fn: (to: string) => void) => {
@@ -286,7 +287,7 @@ export function createRevisionNote(examId: string) {
 }
 
 /** Spreads revision sessions over the days before an exam, at 18:00, skipping days already taken. */
-export function planRevisions(examId: string, sessions = 3) {
+export function planRevisions(examId: string, sessions = getSettings().revisionSessions) {
   const exam = useCalendar.getState().events.find(e => e.id === examId);
   if (!exam) return null;
   const n = Math.min(6, Math.max(1, Math.round(sessions)));
@@ -304,12 +305,17 @@ export function planRevisions(examId: string, sessions = 3) {
   if (candidates.length === 0) candidates.push(todayKey());
   const chosen = [...new Set(candidates)].slice(0, n).sort();
   const nowHm = fmt(today, 'HH:mm');
+  const at = getSettings().revisionTime || '18:00';
+  const [h, m] = at.split(':').map(Number);
+  const endMin = Math.min(23 * 60 + 59, h * 60 + m + 90); // 1h30 sessions
+  const endAt = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`;
+  const later = (d: string) => d === todayKey() && nowHm > at;
   const created = chosen.map(date =>
     useCalendar.getState().add({
       title: revisionTitle(exam.title),
       date,
-      start: date === todayKey() && nowHm > '18:00' ? undefined : '18:00',
-      end: date === todayKey() && nowHm > '18:00' ? undefined : '19:30',
+      start: later(date) ? undefined : at,
+      end: later(date) ? undefined : endAt,
       category: 'devoir',
       details: `Préparation de l'examen du ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`,
     }),

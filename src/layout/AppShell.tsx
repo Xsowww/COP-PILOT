@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { House, FolderClosed, CalendarDays, NotebookText, LogOut, Search, FileText, Folder, CalendarClock, ChevronsUpDown } from 'lucide-react';
+import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
-import { loadUserData } from '../store/session';
 import Copilot from '../copilot/Copilot';
 import { startProactive } from '../copilot/proactive';
 import { registerNavigate, search, type SearchHit } from '../copilot/actions';
 import Logo from '../components/Logo';
+import Avatar from '../components/Avatar';
+import FocusTimer from '../components/FocusTimer';
 import { cx } from '../lib/utils';
 
+const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
+
 const NAV = [
-  { to: '/', label: 'Accueil', icon: House, end: true },
-  { to: '/drive', label: 'Drive', icon: FolderClosed },
-  { to: '/calendrier', label: 'Calendrier', icon: CalendarDays },
-  { to: '/notes', label: 'Notes', icon: NotebookText },
+  { to: '/', label: 'Accueil', icon: House, end: true, color: SPACE_COLORS.home },
+  { to: '/drive', label: 'Drive', icon: FolderClosed, color: SPACE_COLORS.drive },
+  { to: '/calendrier', label: 'Calendrier', icon: CalendarDays, color: SPACE_COLORS.calendar },
+  { to: '/notes', label: 'Notes', icon: NotebookText, color: SPACE_COLORS.notes },
 ];
 
 const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
@@ -105,18 +108,9 @@ function GlobalSearch() {
 export default function AppShell() {
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
-  const logout = useAuth(s => s.logout);
-  const [menu, setMenu] = useState(false);
 
   useEffect(() => registerNavigate(navigate), [navigate]);
   useEffect(() => startProactive(), []);
-
-  const onLogout = async () => {
-    logout();
-    sessionStorage.removeItem('cop:greeted');
-    await loadUserData();
-    navigate('/connexion');
-  };
 
   return (
     <div className="flex h-full">
@@ -138,31 +132,28 @@ export default function AppShell() {
                 )
               }
             >
-              <n.icon size={16} strokeWidth={1.9} />
-              {n.label}
+              {({ isActive }) => (
+                <>
+                  <n.icon size={16} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
+                  {n.label}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
-        <div className="relative">
-          {menu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
-              <div className="enter absolute bottom-12 left-0 right-0 z-20 rounded-xl border border-stone-200 bg-white p-1 shadow-pop">
-                <p className="truncate px-2.5 pb-1.5 pt-1 text-[12px] text-stone-500">{user.email}</p>
-                <button onClick={onLogout} className="flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-[13px] text-stone-700 hover:bg-stone-100">
-                  <LogOut size={14} /> Se déconnecter
-                </button>
-              </div>
-            </>
-          )}
-          <button onClick={() => setMenu(m => !m)} className="flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-stone-100">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-200 text-[12px] font-semibold text-stone-700">
-              {user.name.charAt(0).toUpperCase()}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{user.name}</span>
-            <ChevronsUpDown size={14} className="text-stone-400" />
-          </button>
-        </div>
+        <FocusTimer />
+        <NavLink
+          to="/profil"
+          className={({ isActive }) => cx('group flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-stone-100', isActive && 'bg-stone-100')}
+          title="Profil et réglages"
+        >
+          <Avatar size={28} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-medium">{user.name}</span>
+            <span className="block truncate text-[11px] text-stone-400">Profil et réglages</span>
+          </span>
+          <Settings2 size={15} className="text-stone-400 transition-colors group-hover:text-ink" />
+        </NavLink>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -173,9 +164,9 @@ export default function AppShell() {
           <div className="hidden flex-1 md:block">
             <GlobalSearch />
           </div>
-          <button onClick={onLogout} className="icon-btn ml-auto md:hidden" title="Se déconnecter">
-            <LogOut size={17} />
-          </button>
+          <NavLink to="/profil" className="ml-auto md:hidden" title="Profil et réglages">
+            <Avatar size={30} />
+          </NavLink>
         </header>
         <main className="min-h-0 flex-1 overflow-hidden pb-14 md:pb-0">
           <Outlet />
@@ -191,8 +182,12 @@ export default function AppShell() {
             end={n.end}
             className={({ isActive }) => cx('flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive ? 'text-ink' : 'text-stone-400')}
           >
-            <n.icon size={19} strokeWidth={1.9} />
-            {n.label}
+            {({ isActive }) => (
+              <>
+                <n.icon size={19} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
+                {n.label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

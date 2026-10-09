@@ -11,12 +11,15 @@ import FileIcon from '../components/FileIcon';
 import { hasRevisionPlan, linkToDay, linkToDriveFolder, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
 import { toast } from '../store/ui';
+import { useSettings } from '../store/settings';
 
-function Widget({ icon: Icon, title, to, className, children }: { icon: typeof CalendarDays; title: string; to?: string; className?: string; children: React.ReactNode }) {
+function Widget({ icon: Icon, title, to, className, color, children }: { icon: typeof CalendarDays; title: string; to?: string; className?: string; color: string; children: React.ReactNode }) {
   return (
     <section className={cx('card enter flex flex-col p-4', className)}>
       <header className="mb-3 flex items-center gap-2">
-        <Icon size={15} className="text-stone-400" strokeWidth={1.9} />
+        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, white)`, color }}>
+          <Icon size={14} strokeWidth={2} />
+        </span>
         <h2 className="text-[13px] font-medium text-stone-600">{title}</h2>
         {to && (
           <Link to={to} className="ml-auto flex items-center gap-0.5 rounded px-1 text-[12px] text-stone-400 transition-colors hover:text-ink">
@@ -61,6 +64,7 @@ export default function Dashboard() {
   const items = useDrive(s => s.items);
   const { notes, folders } = useNotes();
   const events = useCalendar(s => s.events);
+  const weeklyGoal = useSettings(s => s.weeklyGoal);
 
   const now = new Date();
   const today = todayKey();
@@ -112,7 +116,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
           {/* Today */}
-          <Widget icon={ListTodo} title="Aujourd'hui" to={linkToDay(today)} className="xl:col-span-5">
+          <Widget icon={ListTodo} title="Aujourd'hui" to={linkToDay(today)} className="xl:col-span-5" color="var(--color-brand-500)">
             {todayEvents.length === 0 ? (
               <p className="flex flex-1 items-center py-6 text-[13px] text-stone-400">Rien de prévu aujourd'hui.</p>
             ) : (
@@ -125,11 +129,11 @@ export default function Dashboard() {
           </Widget>
 
           {/* Next exam */}
-          <Widget icon={Target} title="Prochain examen" className="xl:col-span-3">
+          <Widget icon={Target} title="Prochain examen" className="xl:col-span-3" color="#d9483b">
             {nextExam ? (
               <div className="flex flex-1 flex-col">
                 <Link to={linkToDay(nextExam.date)} className="group">
-                  <p className="tabular text-[40px] font-semibold leading-none tracking-[-0.03em]">
+                  <p className={cx('tabular text-[40px] font-semibold leading-none tracking-[-0.03em]', daysUntil(nextExam.date) <= 3 ? 'text-[#d9483b]' : daysUntil(nextExam.date) <= 7 ? 'text-[#c47a10]' : 'text-ink')}>
                     {daysUntil(nextExam.date) === 0 ? "Aujourd'hui" : `J-${daysUntil(nextExam.date)}`}
                   </p>
                   <p className="mt-2 truncate text-[13px] font-medium group-hover:underline">{nextExam.title}</p>
@@ -156,13 +160,14 @@ export default function Dashboard() {
           </Widget>
 
           {/* Week */}
-          <Widget icon={CalendarRange} title="Cette semaine" to="/calendrier" className="md:col-span-2 xl:col-span-4">
+          <Widget icon={CalendarRange} title="Cette semaine" to="/calendrier" className="md:col-span-2 xl:col-span-4" color="#2f9e6b">
             <div className="flex items-baseline gap-1.5">
               <span className="tabular text-[28px] font-semibold leading-none tracking-tight">{weekDone}</span>
-              <span className="text-[13px] text-stone-500">/ {week.length} terminé{weekDone > 1 ? 's' : ''}</span>
+              <span className="text-[13px] text-stone-500">/ {weeklyGoal} objectif{weekDone >= weeklyGoal ? ' atteint' : ''}</span>
+              <span className="tabular ml-auto text-[12px] text-stone-400">{week.length} prévu{week.length > 1 ? 's' : ''}</span>
             </div>
             <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-stone-100">
-              <div className="h-full rounded-full bg-ink transition-all" style={{ width: `${week.length ? (weekDone / week.length) * 100 : 0}%` }} />
+              <div className="h-full rounded-full bg-[#2f9e6b] transition-all" style={{ width: `${Math.min(100, (weekDone / Math.max(1, weeklyGoal)) * 100)}%` }} />
             </div>
             <div className="mt-auto grid grid-cols-7 items-end gap-1.5 pt-5">
               {weekDays.map((d, i) => (
@@ -180,7 +185,7 @@ export default function Dashboard() {
           </Widget>
 
           {/* Upcoming */}
-          <Widget icon={CalendarDays} title="À venir" to="/calendrier" className="xl:col-span-5">
+          <Widget icon={CalendarDays} title="À venir" to="/calendrier" className="xl:col-span-5" color="#7a5ad6">
             {upcoming.length === 0 ? (
               <p className="py-6 text-[13px] text-stone-400">Rien dans les 7 prochains jours.</p>
             ) : (
@@ -193,7 +198,7 @@ export default function Dashboard() {
           </Widget>
 
           {/* Notes */}
-          <Widget icon={NotebookText} title="Notes récentes" to="/notes" className="xl:col-span-4">
+          <Widget icon={NotebookText} title="Notes récentes" to="/notes" className="xl:col-span-4" color="#d48a17">
             {recentNotes.length === 0 ? (
               <p className="py-6 text-[13px] text-stone-400">Aucune note pour l'instant.</p>
             ) : (
@@ -216,7 +221,7 @@ export default function Dashboard() {
           </Widget>
 
           {/* Drive */}
-          <Widget icon={FolderClosed} title="Drive" to="/drive" className="xl:col-span-3">
+          <Widget icon={FolderClosed} title="Drive" to="/drive" className="xl:col-span-3" color="#3b6fd8">
             <div className="flex items-baseline justify-between text-[12px] text-stone-500">
               <span>
                 <span className="tabular font-medium text-ink">{files.length}</span> fichier{files.length > 1 ? 's' : ''}
@@ -224,7 +229,7 @@ export default function Dashboard() {
               <span className="tabular">{formatBytes(used)}</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-stone-100">
-              <div className="h-full rounded-full bg-stone-400" style={{ width: `${Math.max(1, Math.min(100, (used / quota) * 100))}%` }} />
+              <div className="h-full rounded-full bg-[#3b6fd8]" style={{ width: `${Math.max(1, Math.min(100, (used / quota) * 100))}%` }} />
             </div>
             {recentFiles.length === 0 ? (
               <p className="mt-auto pt-6 text-[13px] text-stone-400">Importe ton premier fichier.</p>

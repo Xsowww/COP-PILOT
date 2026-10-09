@@ -7,6 +7,7 @@ import { useAuth } from '../store/auth';
 import { localReply, type BotReply } from './localBrain';
 import { acceptOffer, runOffer } from './offers';
 import { normalize, cx } from '../lib/utils';
+import { useSettings } from '../store/settings';
 
 // The AI part (and the Anthropic types it uses) is loaded on first use.
 const brain = () => import('./claudeBrain');
@@ -48,6 +49,7 @@ export default function Copilot() {
   const navigate = useNavigate();
   const user = useAuth(s => s.user);
   const { messages, pose, bubble, thinking, aiEnabled, offsetY } = useCopilot();
+  const visible = useSettings(s => s.copilotVisible);
   const { push, setPose, clearBubble, setThinking, setOffsetY, clearHistory } = useCopilot.getState();
 
   const [look, setLook] = useState({ x: -1, y: 0 });
@@ -217,6 +219,8 @@ export default function Copilot() {
       else open();
     }
   };
+
+  if (!visible) return null;
 
   const mood: CopilotMood = thinking ? 'think' : talking ? 'talk' : bubble ? (bubble.mood ?? 'happy') : asleep && pose === 'hidden' ? 'sleep' : 'idle';
   const isOpen = pose === 'open';

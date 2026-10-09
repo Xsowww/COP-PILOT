@@ -3,6 +3,7 @@ import { useDrive } from './drive';
 import { useCalendar } from './calendar';
 import { useNotes } from './notes';
 import { useCopilot } from './copilot';
+import { useSettings, applyAppearance } from './settings';
 import { toKey } from '../lib/dates';
 import { getStorageUser, setStorageUser } from '../lib/userStorage';
 
@@ -15,14 +16,20 @@ export async function loadUserData() {
   useCalendar.setState({ events: [] });
   useNotes.setState({ folders: [], notes: [] });
   useCopilot.getState().reset();
+  useSettings.getState().reset();
   setStorageUser(userId);
-  if (!userId) return;
+  if (!userId) {
+    applyAppearance(useSettings.getState());
+    return;
+  }
   await Promise.all([
     useDrive.persist.rehydrate(),
     useCalendar.persist.rehydrate(),
     useNotes.persist.rehydrate(),
     useCopilot.persist.rehydrate(),
+    useSettings.persist.rehydrate(),
   ]);
+  applyAppearance(useSettings.getState());
 }
 
 /** A few starter items so a brand-new account doesn't open on an empty screen. */

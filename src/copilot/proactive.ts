@@ -10,8 +10,11 @@ import { useAuth } from '../store/auth';
 import { toKey, todayKey, daysUntil, fmt, fromKey } from '../lib/dates';
 import { hasRevisionPlan, linkToDay, linkToNote } from './actions';
 import { aiNudge } from './claudeBrain';
+import { getSettings } from '../store/settings';
+import { notify } from '../lib/notify';
 
-const MIN_GAP = 75_000; // never two remarks within 75 s
+/** minimum delay between two spontaneous remarks, depending on the student's preference */
+const MIN_GAP = { calme: 5 * 60_000, normal: 75_000, bavard: 30_000 };
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
@@ -32,10 +35,13 @@ interface Nudge {
 
 function canSpeak(n: Nudge) {
   const s = useCopilot.getState();
-  if (s.thinking) return false;
+  const settings = getSettings();
+  if (s.thinking || !settings.copilotVisible) return false;
+  const isReminder = n.key.startsWith('starting:');
+  if (isReminder ? !settings.eventReminders : !settings.proactive) return false;
   const last = s.memory[n.key];
   if (last && Date.now() - last < n.every) return false;
-  if (!n.urgent && Date.now() - lastNudge < MIN_GAP) return false;
+  if (!n.urgent && Date.now() - lastNudge < MIN_GAP[settings.chattiness]) return false;
   return true;
 }
 
@@ -51,6 +57,7 @@ async function nudge(n: Nudge) {
       if (ai) text = ai;
     }
     useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy') });
+    notify('Copilot', text);
   } finally {
     busy = false;
   }

@@ -62,6 +62,8 @@ interface AuthState {
   login: (email: string, password: string) => Promise<User>;
   logout: () => void;
   updateName: (name: string) => void;
+  changePassword: (current: string, next: string) => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 function startSession(user: User) {
@@ -115,6 +117,25 @@ export const useAuth = create<AuthState>((set, get) => ({
     localStorage.removeItem(SESSION_KEY);
     setStorageUser(null);
     set({ user: null });
+  },
+
+  async changePassword(current, next) {
+    const user = get().user;
+    const users = readUsers();
+    const found = users.find(u => u.id === user?.id);
+    if (!found || (await hashPassword(current, found.salt)) !== found.hash) throw new Error('Mot de passe actuel incorrect.');
+    const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
+    const hash = await hashPassword(next, salt);
+    writeUsers(users.map(u => (u.id === found.id ? { ...u, salt, hash } : u)));
+  },
+
+  async deleteAccount(password) {
+    const user = get().user;
+    const found = readUsers().find(u => u.id === user?.id);
+    if (!found || (await hashPassword(password, found.salt)) !== found.hash) throw new Error('Mot de passe incorrect.');
+    writeUsers(readUsers().filter(u => u.id !== found.id));
+    for (const key of Object.keys(localStorage)) if (key.startsWith(`cop:${found.id}:`)) localStorage.removeItem(key);
+    get().logout();
   },
 
   updateName(name) {

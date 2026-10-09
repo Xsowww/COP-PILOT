@@ -6,6 +6,7 @@ import { fmt, todayKey } from '../lib/dates';
 import { useCopilot, type CopilotLink } from '../store/copilot';
 import type { EventCategory } from '../store/calendar';
 import { useNotes } from '../store/notes';
+import { getSettings } from '../store/settings';
 import {
   search, analyzeCalendar, eventsBetween, addEvent, createNote, createDriveFolder, listDriveFolder, readNote, overview,
   linkToNote, linkToDriveFolder, linkToDay, describeEvent, findExam, planRevisions, appendToNote, updateEvent, goTo,
@@ -145,7 +146,7 @@ export const resetClaudeHistory = () => {
   history = [];
 };
 
-const PAGES: Record<string, string> = { '/': 'Accueil', '/drive': 'Drive', '/calendrier': 'Calendrier', '/notes': 'Notes' };
+const PAGES: Record<string, string> = { '/': 'Accueil', '/drive': 'Drive', '/calendrier': 'Calendrier', '/notes': 'Notes', '/profil': 'Profil et réglages' };
 
 /** Facts from the app that Claude can't see otherwise, prepended to each user turn. */
 function contextBlock(): string {
@@ -157,6 +158,9 @@ function contextBlock(): string {
     `Date : ${fmt(now, "EEEE d MMMM yyyy 'à' HH:mm")} (${todayKey()})`,
     `Page ouverte : ${PAGES[location.pathname] ?? location.pathname}`,
   ];
+  const { school, program, year } = getSettings();
+  const profile = [year, program, school].filter(Boolean).join(', ');
+  if (profile) lines.push(`Profil de l'étudiant : ${profile}`);
   if (recentProactive.length) lines.push(`Tu lui as dit récemment, de toi-même : ${recentProactive.join(' ')}`);
   if (history.length === 0) {
     const earlier = msgs.slice(-9, -1).filter(m => !m.proactive);

@@ -11,7 +11,7 @@ interface Props {
 }
 
 const INK = '#1c1b19';
-const ORANGE = '#e8613c';
+const ORANGE = 'var(--color-brand-500)'; // follows the accent colour chosen in settings
 
 // Copilot is a small round character wearing a pilot headset. He hides behind the
 // right edge of the screen: his hands hold the edge, his head slides out.

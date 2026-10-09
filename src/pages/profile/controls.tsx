@@ -1,0 +1,73 @@
+import { Minus, Plus } from 'lucide-react';
+import { cx } from '../../lib/utils';
+
+export function Section({ title, description, children, danger }: { title: string; description?: string; children: React.ReactNode; danger?: boolean }) {
+  return (
+    <section className={cx('card enter', danger && 'border-red-200')}>
+      <header className="border-b border-stone-100 px-5 py-4">
+        <h2 className={cx('text-[14px] font-semibold', danger && 'text-red-700')}>{title}</h2>
+        {description && <p className="mt-0.5 text-[13px] text-stone-500">{description}</p>}
+      </header>
+      <div className="divide-y divide-stone-100">{children}</div>
+    </section>
+  );
+}
+
+export function Row({ label, hint, children }: { label: string; hint?: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-medium">{label}</p>
+        {hint && <p className="mt-0.5 text-[12px] leading-relaxed text-stone-500">{hint}</p>}
+      </div>
+      {children && <div className="flex shrink-0 items-center gap-2">{children}</div>}
+    </div>
+  );
+}
+
+export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={cx('relative h-[22px] w-[38px] shrink-0 rounded-full p-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40', checked ? 'bg-brand-500' : 'bg-stone-300')}
+    >
+      <span className={cx('absolute left-0 top-[3px] h-4 w-4 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-[19px]' : 'translate-x-[3px]')} />
+    </button>
+  );
+}
+
+export function Segmented<T extends string | number>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[12px]">
+      {options.map(o => (
+        <button
+          key={String(o.value)}
+          onClick={() => onChange(o.value)}
+          className={cx('h-7 rounded-md px-2.5 font-medium transition-colors', value === o.value ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function Stepper({ value, min, max, onChange, suffix }: { value: number; min: number; max: number; onChange: (v: number) => void; suffix?: string }) {
+  return (
+    <div className="flex h-8 items-center rounded-lg border border-stone-200 bg-white shadow-card">
+      <button className="flex h-full w-8 items-center justify-center text-stone-500 hover:text-ink disabled:opacity-30" disabled={value <= min} onClick={() => onChange(value - 1)} aria-label="Moins">
+        <Minus size={13} />
+      </button>
+      <span className="tabular min-w-12 text-center text-[13px] font-medium">
+        {value}
+        {suffix && <span className="font-normal text-stone-400"> {suffix}</span>}
+      </span>
+      <button className="flex h-full w-8 items-center justify-center text-stone-500 hover:text-ink disabled:opacity-30" disabled={value >= max} onClick={() => onChange(value + 1)} aria-label="Plus">
+        <Plus size={13} />
+      </button>
+    </div>
+  );
+}
