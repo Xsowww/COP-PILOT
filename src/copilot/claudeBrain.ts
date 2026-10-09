@@ -7,6 +7,7 @@ import { useCopilot, type CopilotLink } from '../store/copilot';
 import type { EventCategory } from '../store/calendar';
 import { useNotes } from '../store/notes';
 import { getSettings } from '../store/settings';
+import { accessToken } from '../lib/supabase';
 import {
   search, analyzeCalendar, eventsBetween, addEvent, createNote, createDriveFolder, listDriveFolder, readNote, overview,
   linkToNote, linkToDriveFolder, linkToDay, describeEvent, findExam, planRevisions, appendToNote, updateEvent, goTo,
@@ -28,9 +29,10 @@ async function post<T>(path: string, body: unknown, timeoutMs = 60_000): Promise
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
+    const token = await accessToken();
     const res = await fetch(`/api/copilot/${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });

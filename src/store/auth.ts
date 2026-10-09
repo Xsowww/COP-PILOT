@@ -1,9 +1,14 @@
 import { create } from 'zustand';
 import { uid, nowIso } from '../lib/utils';
 import { setStorageUser } from '../lib/userStorage';
+import { supabase } from '../lib/supabase';
+import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
-// Accounts live in this browser only (no server yet). Passwords are never stored
-// in clear: we keep a salted PBKDF2 hash. Swap this module for a real backend later.
+// Two modes:
+// - cloud (Supabase configured): real accounts, e-mail confirmation, password reset,
+//   sessions handled by Supabase (passwords never touch our code).
+// - local (no configuration): accounts live in this browser only, passwords kept as a
+//   salted PBKDF2 hash. Handy for development or a demo.
 
 export interface User {
   id: string;
@@ -58,20 +63,28 @@ function publicUser({ salt: _s, hash: _h, ...u }: StoredUser): User {
 
 interface AuthState {
   user: User | null;
-  register: (name: string, email: string, password: string) => Promise<User>;
+  /** Restores the session when the app starts. */
+  init: () => Promise<void>;
+  /** Returns null when the account must first be confirmed by e-mail (cloud mode). */
+  register: (name: string, email: string, password: string) => Promise<User | null>;
   login: (email: string, password: string) => Promise<User>;
-  logout: () => void;
-  updateName: (name: string) => void;
+  logout: () => Promise<void>;
+  updateName: (name: string) => Promise<void>;
+  verifyPassword: (password: string) => Promise<void>;
   changePassword: (current: string, next: string) => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  setNewPassword: (password: string) => Promise<void>;
 }
+
+// ── Local mode helpers ──────────────────────────────────────────────────────
 
 function startSession(user: User) {
   localStorage.setItem(SESSION_KEY, user.id);
   setStorageUser(user.id);
 }
 
-function restoreSession(): User | null {
+function restoreLocalSession(): User | null {
   const id = localStorage.getItem(SESSION_KEY);
   const found = id ? readUsers().find(u => u.id === id) : undefined;
   if (!found) return null;
@@ -79,22 +92,87 @@ function restoreSession(): User | null {
   return publicUser(found);
 }
 
+async function checkLocalPassword(userId: string | undefined, password: string) {
+  const found = readUsers().find(u => u.id === userId);
+  if (!found || (await hashPassword(password, found.salt)) !== found.hash) throw new Error('Mot de passe incorrect.');
+  return found;
+}
+
+function clearLocalCache(userId: string) {
+  for (const key of Object.keys(localStorage)) if (key.startsWith(`cop:${userId}:`)) localStorage.removeItem(key);
+}
+
+// ── Cloud mode helpers ──────────────────────────────────────────────────────
+
+function fromSupabase(u: SupabaseUser): User {
+  return {
+    id: u.id,
+    email: u.email ?? '',
+    name: (u.user_metadata?.name as string | undefined) || (u.email ?? '').split('@')[0],
+    createdAt: u.created_at,
+  };
+}
+
+/** Supabase error → message an étudiant can understand. */
+function authMessage(e: AuthError | Error): string {
+  const code = (e as AuthError).code ?? '';
+  const msg = e.message.toLowerCase();
+  if (code === 'invalid_credentials' || msg.includes('invalid login')) return 'E-mail ou mot de passe incorrect.';
+  if (code === 'email_not_confirmed' || msg.includes('not confirmed')) return "Confirme d'abord ton adresse : clique sur le lien reçu par e-mail.";
+  if (code === 'user_already_exists' || code === 'email_exists' || msg.includes('already registered')) return 'Un compte existe déjà avec cet e-mail.';
+  if (code === 'weak_password' || msg.includes('password should')) return 'Mot de passe trop faible : au moins 8 caractères, avec lettres et chiffres.';
+  if (code.startsWith('over_') || msg.includes('rate limit')) return 'Trop de tentatives, réessaie dans quelques minutes.';
+  if (code === 'same_password') return "Le nouveau mot de passe doit être différent de l'ancien.";
+  if (msg.includes('fetch') || msg.includes('network')) return 'Connexion impossible, vérifie ton accès à internet.';
+  return "Une erreur est survenue, réessaie dans un instant.";
+}
+
+async function cloud<R extends { data: unknown; error: AuthError | null }>(p: Promise<R>): Promise<R['data']> {
+  let res;
+  try {
+    res = await p;
+  } catch (e) {
+    throw new Error(authMessage(e as Error));
+  }
+  if (res.error) throw new Error(authMessage(res.error));
+  return res.data;
+}
+
 export const useAuth = create<AuthState>((set, get) => ({
-  user: restoreSession(),
+  user: supabase ? null : restoreLocalSession(),
+
+  async init() {
+    if (!supabase) return;
+    const { data } = await supabase.auth.getSession();
+    const user = data.session ? fromSupabase(data.session.user) : null;
+    setStorageUser(user?.id ?? null);
+    set({ user });
+    supabase.auth.onAuthStateChange((event, session) => {
+      // Session expired or signed out in another tab.
+      if (event === 'SIGNED_OUT' && get().user) {
+        setStorageUser(null);
+        set({ user: null });
+      }
+      if (event === 'USER_UPDATED' && session) set({ user: fromSupabase(session.user) });
+    });
+  },
 
   async register(name, email, password) {
-    const users = readUsers();
     const mail = email.trim().toLowerCase();
+    if (supabase) {
+      const data = await cloud(
+        supabase.auth.signUp({ email: mail, password, options: { data: { name: name.trim() }, emailRedirectTo: `${location.origin}/connexion` } }),
+      );
+      if (!data.session || !data.user) return null; // confirmation e-mail sent
+      const user = fromSupabase(data.user);
+      setStorageUser(user.id);
+      set({ user });
+      return user;
+    }
+    const users = readUsers();
     if (users.some(u => u.email === mail)) throw new Error('Un compte existe déjà avec cet e-mail.');
     const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
-    const stored: StoredUser = {
-      id: uid(),
-      name: name.trim(),
-      email: mail,
-      createdAt: nowIso(),
-      salt,
-      hash: await hashPassword(password, salt),
-    };
+    const stored: StoredUser = { id: uid(), name: name.trim(), email: mail, createdAt: nowIso(), salt, hash: await hashPassword(password, salt) };
     writeUsers([...users, stored]);
     const user = publicUser(stored);
     startSession(user);
@@ -103,45 +181,103 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   async login(email, password) {
-    const found = readUsers().find(u => u.email === email.trim().toLowerCase());
-    if (!found || (await hashPassword(password, found.salt)) !== found.hash) {
-      throw new Error('E-mail ou mot de passe incorrect.');
+    const mail = email.trim().toLowerCase();
+    if (supabase) {
+      const data = await cloud(supabase.auth.signInWithPassword({ email: mail, password }));
+      const user = fromSupabase(data.user!);
+      setStorageUser(user.id);
+      set({ user });
+      return user;
     }
+    const found = readUsers().find(u => u.email === mail);
+    if (!found || (await hashPassword(password, found.salt)) !== found.hash) throw new Error('E-mail ou mot de passe incorrect.');
     const user = publicUser(found);
     startSession(user);
     set({ user });
     return user;
   },
 
-  logout() {
-    localStorage.removeItem(SESSION_KEY);
+  async logout() {
+    if (supabase) {
+      const { flushNow, stopSync } = await import('../lib/cloudSync');
+      await flushNow().catch(() => undefined);
+      stopSync();
+      await supabase.auth.signOut().catch(() => undefined);
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+    }
     setStorageUser(null);
     set({ user: null });
   },
 
-  async changePassword(current, next) {
+  async updateName(name) {
     const user = get().user;
+    if (!user) return;
+    if (supabase) {
+      await cloud(supabase.auth.updateUser({ data: { name } }));
+      const { updateCloudProfile } = await import('../lib/cloudSync');
+      await updateCloudProfile(user.id, { name });
+    } else {
+      writeUsers(readUsers().map(u => (u.id === user.id ? { ...u, name } : u)));
+    }
+    set({ user: { ...user, name } });
+  },
+
+  async verifyPassword(password) {
+    const user = get().user;
+    if (supabase) {
+      try {
+        await cloud(supabase.auth.signInWithPassword({ email: user?.email ?? '', password }));
+      } catch {
+        throw new Error('Mot de passe incorrect.');
+      }
+      return;
+    }
+    await checkLocalPassword(user?.id, password);
+  },
+
+  async changePassword(current, next) {
+    try {
+      await get().verifyPassword(current);
+    } catch {
+      throw new Error('Mot de passe actuel incorrect.');
+    }
+    if (supabase) {
+      await cloud(supabase.auth.updateUser({ password: next }));
+      return;
+    }
     const users = readUsers();
-    const found = users.find(u => u.id === user?.id);
-    if (!found || (await hashPassword(current, found.salt)) !== found.hash) throw new Error('Mot de passe actuel incorrect.');
     const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
     const hash = await hashPassword(next, salt);
-    writeUsers(users.map(u => (u.id === found.id ? { ...u, salt, hash } : u)));
+    writeUsers(users.map(u => (u.id === get().user?.id ? { ...u, salt, hash } : u)));
   },
 
   async deleteAccount(password) {
     const user = get().user;
-    const found = readUsers().find(u => u.id === user?.id);
-    if (!found || (await hashPassword(password, found.salt)) !== found.hash) throw new Error('Mot de passe incorrect.');
-    writeUsers(readUsers().filter(u => u.id !== found.id));
-    for (const key of Object.keys(localStorage)) if (key.startsWith(`cop:${found.id}:`)) localStorage.removeItem(key);
-    get().logout();
+    if (!user) return;
+    await get().verifyPassword(password);
+    if (supabase) {
+      const { error } = await supabase.rpc('delete_my_account');
+      if (error) throw new Error("La suppression a échoué, réessaie plus tard.");
+      const { stopSync } = await import('../lib/cloudSync');
+      stopSync();
+      await supabase.auth.signOut().catch(() => undefined);
+    } else {
+      writeUsers(readUsers().filter(u => u.id !== user.id));
+      localStorage.removeItem(SESSION_KEY);
+    }
+    clearLocalCache(user.id);
+    setStorageUser(null);
+    set({ user: null });
   },
 
-  updateName(name) {
-    const user = get().user;
-    if (!user) return;
-    writeUsers(readUsers().map(u => (u.id === user.id ? { ...u, name } : u)));
-    set({ user: { ...user, name } });
+  async requestPasswordReset(email) {
+    if (!supabase) throw new Error("La réinitialisation par e-mail n'est disponible qu'avec la version en ligne.");
+    await cloud(supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: `${location.origin}/reinitialisation` }));
+  },
+
+  async setNewPassword(password) {
+    if (!supabase) return;
+    await cloud(supabase.auth.updateUser({ password }));
   },
 }));

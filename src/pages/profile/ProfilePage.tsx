@@ -21,6 +21,7 @@ import { fmt, toKey, todayKey } from '../../lib/dates';
 import Avatar from '../../components/Avatar';
 import Character from '../../copilot/Character';
 import { Section, Row, Toggle, Segmented, Stepper } from './controls';
+import { cloudEnabled } from '../../lib/supabase';
 
 const TABS = [
   { key: 'profil', label: 'Profil', icon: User },
@@ -138,8 +139,13 @@ function ProfileTab() {
             onChange={e => setName(e.target.value)}
             onBlur={() => {
               if (name.trim().length >= 2 && name.trim() !== user.name) {
-                updateName(name.trim());
-                toast('Prénom enregistré', 'success');
+                updateName(name.trim()).then(
+                  () => toast('Prénom enregistré', 'success'),
+                  (e: Error) => {
+                    toast(e.message, 'error');
+                    setName(user.name);
+                  },
+                );
               } else setName(user.name);
             }}
           />
@@ -435,7 +441,7 @@ function DataTab() {
 
   return (
     <div className="space-y-5">
-      <Section title="Sauvegarde" description="Tes données sont enregistrées sur cet appareil. Garde une copie de temps en temps.">
+      <Section title="Sauvegarde" description={cloudEnabled ? 'Tes données sont enregistrées dans ton compte en ligne. Tu peux aussi en garder une copie.' : 'Tes données sont enregistrées sur cet appareil. Garde une copie de temps en temps.'}>
         <Row label="Exporter mes données" hint="Notes, calendrier, dossiers et réglages dans un fichier .json (sans le contenu des fichiers du Drive).">
           <button className="btn-secondary h-8" onClick={exportBackup}>
             <Download size={14} /> Exporter
@@ -454,7 +460,7 @@ function DataTab() {
         </Row>
       </Section>
 
-      {usage && usage.quota > 0 && (
+      {!cloudEnabled && usage && usage.quota > 0 && (
         <Section title="Stockage">
           <div className="px-5 py-4">
             <div className="flex items-center gap-2 text-[13px]">
@@ -491,7 +497,7 @@ function DataTab() {
 
 function AccountTab() {
   const navigate = useNavigate();
-  const { changePassword, deleteAccount, logout } = useAuth.getState();
+  const { changePassword, deleteAccount, verifyPassword, logout } = useAuth.getState();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
@@ -500,7 +506,7 @@ function AccountTab() {
 
   const onChange = async (e: FormEvent) => {
     e.preventDefault();
-    if (next.length < 6) return toast('Le nouveau mot de passe doit faire au moins 6 caractères', 'error');
+    if (next.length < 8) return toast('Le nouveau mot de passe doit faire au moins 8 caractères', 'error');
     if (next !== confirmPw) return toast('Les deux mots de passe ne correspondent pas', 'error');
     setBusy(true);
     try {
@@ -538,15 +544,15 @@ function AccountTab() {
       </Section>
 
       <Section title="Session">
-        <Row label="Se déconnecter" hint="Tes données restent sur cet appareil, tu les retrouveras en te reconnectant.">
-          <button className="btn-secondary h-8" onClick={() => { logout(); void leave(); }}>
+        <Row label="Se déconnecter" hint={cloudEnabled ? 'Tes données restent en sécurité dans ton compte.' : 'Tes données restent sur cet appareil, tu les retrouveras en te reconnectant.'}>
+          <button className="btn-secondary h-8" onClick={() => void logout().then(leave)}>
             <LogOut size={14} /> Se déconnecter
           </button>
         </Row>
       </Section>
 
       <Section title="Supprimer le compte" danger>
-        <Row label="Supprimer définitivement mon compte" hint="Le compte et toutes ses données seront effacés de cet appareil. Pense à exporter une sauvegarde avant.">
+        <Row label="Supprimer définitivement mon compte" hint="Le compte, tes fichiers, notes et événements seront définitivement effacés. Pense à exporter une sauvegarde avant.">
           <input type="password" className="field w-44" placeholder="Mot de passe" value={deletePw} onChange={e => setDeletePw(e.target.value)} />
           <button
             className="btn-danger h-8"
@@ -554,6 +560,7 @@ function AccountTab() {
             onClick={async () => {
               if (!(await confirmAction('Supprimer ton compte ?', 'Cette action est irréversible.', 'Supprimer'))) return;
               try {
+                await verifyPassword(deletePw); // check first: never wipe data on a wrong password
                 await wipeUserData();
                 await deleteAccount(deletePw);
                 await leave();

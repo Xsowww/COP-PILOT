@@ -76,17 +76,21 @@ export default function NoteEditor({ note }: { note: Note }) {
     },
   });
 
-  // Flush pending save when switching notes / leaving the page.
-  useEffect(
-    () => () => {
+  // Flush pending save when switching notes, leaving the page or closing the tab.
+  useEffect(() => {
+    const flush = () => {
       clearTimeout(saveTimer.current);
       if (editor && !editor.isDestroyed) {
         const html = editor.getHTML();
         if (html !== useNotes.getState().notes.find(n => n.id === note.id)?.content) useNotes.getState().updateNote(note.id, { content: html });
       }
-    },
-    [editor, note.id],
-  );
+    };
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, [editor, note.id]);
 
   if (!editor) return null;
   return (

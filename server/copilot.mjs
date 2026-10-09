@@ -141,6 +141,30 @@ function getClient(env) {
   return client;
 }
 
+// ── Who is calling? (cloud mode only) ───────────────────────────────────────
+// With Supabase configured, only signed-in students can talk to Copilot: the page sends
+// its session token and we ask Supabase who it belongs to (cached one minute).
+const tokenCache = new Map();
+async function authenticate(req, env) {
+  const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
+  const key = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return { id: null }; // local mode: no accounts on the server
+  const token = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+  const cached = tokenCache.get(token);
+  if (cached && cached.until > Date.now()) return cached.user;
+  try {
+    const r = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${token}` } });
+    if (!r.ok) return null;
+    const user = { id: (await r.json()).id };
+    tokenCache.set(token, { user, until: Date.now() + 60_000 });
+    if (tokenCache.size > 5000) tokenCache.clear();
+    return user;
+  } catch {
+    return null;
+  }
+}
+
 const hits = new Map();
 function rateLimited(ip) {
   const now = Date.now();
@@ -193,11 +217,16 @@ export async function handleCopilot(req, res, env = process.env) {
     send(res, 404, { error: 'not_found' });
     return true;
   }
+  const caller = await authenticate(req, env);
+  if (!caller) {
+    send(res, 401, { error: 'unauthorized' });
+    return true;
+  }
   if (!copilotEnabled(env)) {
     send(res, 503, { error: 'disabled' });
     return true;
   }
-  if (rateLimited(req.socket?.remoteAddress ?? 'unknown')) {
+  if (rateLimited(caller.id ?? req.socket?.remoteAddress ?? 'unknown')) {
     send(res, 429, { error: 'rate_limited' });
     return true;
   }

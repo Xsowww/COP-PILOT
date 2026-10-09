@@ -44,6 +44,19 @@ Petit personnage (casque de pilote) accroché au bord droit de l'écran : il sui
 - **Avec une clé API** (`ANTHROPIC_API_KEY` dans `.env`) : Copilot passe par Claude via le serveur (`server/copilot.mjs`). Sa personnalité (meilleur pote, drôle mais sérieux quand il faut) et ses outils sont définis côté serveur : chercher, analyser le calendrier, créer/modifier des événements, planifier des révisions, créer/compléter des notes, créer des dossiers, ouvrir une page. Ses remarques spontanées sont aussi rédigées par Claude. La clé n'est jamais envoyée au navigateur.
 - **Sans clé** : il comprend des commandes en français (« Trouve le dossier Maths », « Analyse ma semaine », « Planifie mes révisions », « Crée une note Révisions : chapitre 3 », « Ajoute Partiel de chimie dans 5 jours à 10h », « Raconte une blague »…). En cas de souci avec l'API, il bascule automatiquement sur ce mode.
 
+## Base de données en ligne (Supabase)
+
+Sans configuration, comptes et données restent dans le navigateur. Avec Supabase (gratuit), tout est en ligne et sécurisé : vrais comptes avec confirmation par e-mail et mot de passe oublié, données accessibles depuis n'importe quel appareil, fichiers du Drive dans un stockage privé, et chaque étudiant ne peut accéder qu'à ses propres données (Row Level Security).
+
+1. Crée un compte sur [supabase.com](https://supabase.com), puis **New project** (région Europe : Paris ou Francfort).
+2. **SQL Editor › New query** : colle le contenu de `supabase/schema.sql` et clique sur **Run**. Ça crée les tables, la sécurité, le stockage des fichiers et la suppression de compte.
+3. **Project Settings › API** : copie l'URL du projet et la clé `anon` / `publishable` dans `.env` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
+4. **Authentication › URL Configuration** : *Site URL* = l'adresse du site (`http://localhost:5173` en développement), et ajoute `http://localhost:5173/**` dans *Redirect URLs* (et l'adresse de production plus tard).
+5. **Authentication › Providers › Email** : laisse « Confirm email » activé, mot de passe de 8 caractères minimum.
+6. Relance `npm run dev`. Crée un compte, confirme l'e-mail, connecte-toi.
+
+Comment ça marche : l'appli garde une copie locale pour rester instantanée ; chaque modification est envoyée à Supabase en arrière-plan (`src/lib/cloudSync.ts`), regroupée et renvoyée automatiquement en cas de coupure, y compris si l'onglet est fermé juste après. En revenant sur l'onglet, les changements faits sur un autre appareil sont récupérés. En mode en ligne, l'API de Copilot n'accepte que les étudiants connectés.
+
 ## Architecture
 
 ```
@@ -63,5 +76,6 @@ server/
 
 ## Limites actuelles (version de démonstration)
 
-- **Pas de serveur** : comptes et données sont stockés dans le navigateur (localStorage pour les données, IndexedDB pour le contenu des fichiers). Changer de navigateur ou vider les données du site efface tout. Le module `src/store/auth.ts` et les stores sont prévus pour être branchés plus tard sur un vrai backend (Supabase, Firebase, API maison…).
-- L'API de Copilot a une limite de requêtes par adresse IP mais pas encore d'authentification : à ajouter avec le vrai backend avant une mise en ligne publique, pour que personne d'autre ne consomme ta clé.
+- **En mode local** (sans Supabase), comptes et données sont stockés dans le navigateur : changer de navigateur ou vider les données du site efface tout. Configure Supabase (voir plus haut) pour un usage réel.
+- En mode local, l'API de Copilot n'a qu'une limite par adresse IP : active Supabase avant une mise en ligne publique pour qu'elle soit réservée aux comptes connectés.
+- Les modifications faites en même temps sur deux appareils : la dernière enregistrée l'emporte.

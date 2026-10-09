@@ -6,10 +6,15 @@ import { useCopilot } from './copilot';
 import { useSettings, applyAppearance } from './settings';
 import { toKey } from '../lib/dates';
 import { getStorageUser, setStorageUser } from '../lib/userStorage';
+import { cloudEnabled } from '../lib/supabase';
+import { pullAll, pushLeftovers, startSync, stopSync, updateCloudProfile } from '../lib/cloudSync';
+import { useAuth } from './auth';
+import { toast } from './ui';
 
 /** Load the signed-in user's data (or reset everything when signed out). */
 export async function loadUserData() {
   const userId = getStorageUser();
+  if (cloudEnabled) stopSync();
   // Detach storage while clearing memory, otherwise the reset would overwrite the saved data.
   setStorageUser(null);
   useDrive.setState({ items: [], clipboard: null });
@@ -29,6 +34,23 @@ export async function loadUserData() {
     useCopilot.persist.rehydrate(),
     useSettings.persist.rehydrate(),
   ]);
+
+  // Cloud mode: the local copy above is only a cache, the truth is in Supabase.
+  if (cloudEnabled) {
+    try {
+      await pushLeftovers(userId); // never let the cloud copy overwrite unsent local changes
+      const profile = await pullAll(userId);
+      startSync(userId);
+      if (!profile.onboarded) {
+        seedNewAccount(profile.name || useAuth.getState().user?.name || '');
+        await updateCloudProfile(userId, { onboarded: true });
+      }
+    } catch (e) {
+      console.error('[sync] chargement', e);
+      startSync(userId);
+      toast('Impossible de charger tes données en ligne. Tu vois la dernière version enregistrée sur cet appareil.', 'error');
+    }
+  }
   applyAppearance(useSettings.getState());
 }
 

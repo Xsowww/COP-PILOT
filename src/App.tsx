@@ -26,7 +26,11 @@ export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    void loadUserData().then(() => setReady(true));
+    void useAuth
+      .getState()
+      .init()
+      .then(loadUserData)
+      .finally(() => setReady(true));
   }, []);
 
   if (!ready) return null;
@@ -36,6 +40,8 @@ export default function App() {
       <Routes>
         <Route path="/connexion" element={<GuestOnly><AuthPage mode="login" /></GuestOnly>} />
         <Route path="/inscription" element={<GuestOnly><AuthPage mode="register" /></GuestOnly>} />
+        <Route path="/mot-de-passe-oublie" element={<GuestOnly><AuthPage mode="forgot" /></GuestOnly>} />
+        <Route path="/reinitialisation" element={<AuthPage mode="reset" />} />
         <Route element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route index element={<Dashboard />} />
           <Route path="drive" element={<DrivePage />} />

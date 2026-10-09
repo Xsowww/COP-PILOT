@@ -1,4 +1,7 @@
-// Minimal IndexedDB key/value store for file contents (localStorage is too small for files).
+// File contents of the Drive: IndexedDB in local mode (localStorage is too small for files),
+// Supabase Storage in cloud mode.
+
+import { supabase } from './supabase';
 
 const DB_NAME = 'cop-pilot';
 const STORE = 'blobs';
@@ -29,12 +32,42 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
   );
 }
 
-export const blobStore = {
+const local = {
   put: (key: string, blob: Blob) => run('readwrite', s => s.put(blob, key)),
   get: (key: string) => run<Blob | undefined>('readonly', s => s.get(key)),
   delete: (key: string) => run('readwrite', s => s.delete(key)),
+};
+
+// Cloud mode: files go to the private Supabase Storage bucket "drive", under "<userId>/<itemId>".
+const BUCKET = 'drive';
+const path = (key: string) => key.replace(':', '/');
+
+const cloud = {
+  async put(key: string, blob: Blob) {
+    const { error } = await supabase!.storage.from(BUCKET).upload(path(key), blob, { upsert: true, contentType: blob.type || undefined });
+    if (error) throw error;
+  },
+  async get(key: string) {
+    const { data, error } = await supabase!.storage.from(BUCKET).download(path(key));
+    return error ? undefined : data;
+  },
+  async delete(key: string) {
+    await supabase!.storage.from(BUCKET).remove([path(key)]);
+  },
+};
+
+const backend = supabase ? cloud : local;
+
+export const blobStore = {
+  put: (key: string, blob: Blob) => backend.put(key, blob),
+  get: (key: string): Promise<Blob | undefined> => backend.get(key),
+  delete: (key: string) => backend.delete(key),
   async copy(from: string, to: string) {
-    const blob = await blobStore.get(from);
-    if (blob) await blobStore.put(to, blob);
+    if (supabase) {
+      await supabase.storage.from(BUCKET).copy(path(from), path(to));
+      return;
+    }
+    const blob = await local.get(from);
+    if (blob) await local.put(to, blob);
   },
 };

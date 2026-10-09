@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { loadUserData, seedNewAccount } from '../store/session';
+import { cloudEnabled } from '../lib/supabase';
 import Character from '../copilot/Character';
 import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
@@ -79,29 +80,59 @@ function Showcase() {
   );
 }
 
-export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
+type Mode = 'login' | 'register' | 'forgot' | 'reset';
+
+const COPY: Record<Mode, { title: string; subtitle: string; submit: string }> = {
+  login: { title: 'Connexion', subtitle: 'Retrouve ton espace là où tu l’as laissé.', submit: 'Se connecter' },
+  register: { title: 'Créer un compte', subtitle: 'Gratuit, et prêt en quelques secondes.', submit: 'Créer mon compte' },
+  forgot: { title: 'Mot de passe oublié', subtitle: 'On t’envoie un lien pour en choisir un nouveau.', submit: 'Envoyer le lien' },
+  reset: { title: 'Nouveau mot de passe', subtitle: 'Choisis ton nouveau mot de passe.', submit: 'Enregistrer' },
+};
+
+export default function AuthPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate();
-  const { login, register } = useAuth.getState();
+  const { login, register, requestPasswordReset, setNewPassword } = useAuth.getState();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [busy, setBusy] = useState(false);
   const isRegister = mode === 'register';
+  const needsEmail = mode !== 'reset';
+  const needsPassword = mode !== 'forgot';
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    setInfo('');
     if (isRegister && name.trim().length < 2) return setError('Ton prénom doit contenir au moins 2 caractères.');
-    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Adresse e-mail invalide.');
-    if (password.length < 6) return setError('Le mot de passe doit contenir au moins 6 caractères.');
+    if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return setError('Adresse e-mail invalide.');
+    if ((isRegister || mode === 'reset') && password.length < 8) return setError('Le mot de passe doit contenir au moins 8 caractères.');
+    if (mode === 'login' && !password) return setError('Entre ton mot de passe.');
     setBusy(true);
     try {
+      if (mode === 'forgot') {
+        await requestPasswordReset(email);
+        setInfo('Si un compte existe avec cette adresse, un e-mail vient de partir. Pense à regarder dans les spams.');
+        return;
+      }
+      if (mode === 'reset') {
+        await setNewPassword(password);
+        await loadUserData();
+        navigate('/');
+        return;
+      }
       if (isRegister) {
         const user = await register(name, email, password);
+        if (!user) {
+          setInfo(`Presque fini ! Clique sur le lien envoyé à ${email.trim()} pour activer ton compte, puis connecte-toi.`);
+          setPassword('');
+          return;
+        }
         await loadUserData();
-        seedNewAccount(user.name);
+        if (!cloudEnabled) seedNewAccount(user.name); // cloud mode seeds on first load
       } else {
         await login(email, password);
         await loadUserData();
@@ -114,16 +145,16 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     }
   }
 
+  const copy = COPY[mode];
+
   return (
     <div className="flex h-full overflow-y-auto">
       <main className="flex flex-1 flex-col px-6 py-6 sm:px-10">
         <Logo />
         <div className="flex flex-1 items-center justify-center py-10">
           <form onSubmit={onSubmit} className="enter w-full max-w-[340px]">
-            <h1 className="text-[22px] font-semibold tracking-[-0.015em]">{isRegister ? 'Créer un compte' : 'Connexion'}</h1>
-            <p className="mt-1 text-[13px] text-stone-500">
-              {isRegister ? 'Gratuit, et prêt en quelques secondes.' : 'Retrouve ton espace là où tu l’as laissé.'}
-            </p>
+            <h1 className="text-[22px] font-semibold tracking-[-0.015em]">{copy.title}</h1>
+            <p className="mt-1 text-[13px] text-stone-500">{copy.subtitle}</p>
 
             <div className="mt-7 space-y-3.5">
               {isRegister && (
@@ -132,44 +163,59 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                   <input className="field w-full" value={name} onChange={e => setName(e.target.value)} autoComplete="given-name" autoFocus />
                 </label>
               )}
-              <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-stone-600">E-mail</span>
-                <input className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" autoFocus={!isRegister} placeholder="prenom@universite.fr" />
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Mot de passe</span>
-                <span className="relative block">
-                  <input
-                    className="field w-full pr-10"
-                    type={show ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    autoComplete={isRegister ? 'new-password' : 'current-password'}
-                    placeholder={isRegister ? '6 caractères minimum' : undefined}
-                  />
-                  <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1.5 text-stone-400 hover:text-stone-700" title={show ? 'Masquer' : 'Afficher'}>
-                    {show ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </span>
-              </label>
+              {needsEmail && (
+                <label className="block">
+                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">E-mail</span>
+                  <input className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" autoFocus={!isRegister} placeholder="prenom@universite.fr" />
+                </label>
+              )}
+              {needsPassword && (
+                <label className="block">
+                  <span className="mb-1.5 flex items-center text-[12px] font-medium text-stone-600">
+                    {mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}
+                    {mode === 'login' && cloudEnabled && (
+                      <Link to="/mot-de-passe-oublie" className="ml-auto font-normal text-stone-500 hover:text-ink">
+                        Oublié ?
+                      </Link>
+                    )}
+                  </span>
+                  <span className="relative block">
+                    <input
+                      className="field w-full pr-10"
+                      type={show ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                      placeholder={mode === 'login' ? undefined : '8 caractères minimum'}
+                      autoFocus={mode === 'reset'}
+                    />
+                    <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1.5 text-stone-400 hover:text-stone-700" title={show ? 'Masquer' : 'Afficher'}>
+                      {show ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </span>
+                </label>
+              )}
             </div>
 
             {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
+            {info && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">{info}</p>}
 
             <button type="submit" disabled={busy} className="btn-primary mt-6 w-full">
               {busy && <Loader2 size={15} className="animate-spin" />}
-              {isRegister ? 'Créer mon compte' : 'Se connecter'}
+              {copy.submit}
             </button>
 
             <p className="mt-6 text-center text-[13px] text-stone-500">
-              {isRegister ? 'Déjà inscrit ?' : 'Pas encore de compte ?'}{' '}
-              <Link to={isRegister ? '/connexion' : '/inscription'} className="font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink">
-                {isRegister ? 'Se connecter' : 'Créer un compte'}
+              {mode === 'login' ? 'Pas encore de compte ?' : mode === 'register' ? 'Déjà inscrit ?' : null}{' '}
+              <Link to={mode === 'login' ? '/inscription' : '/connexion'} className="font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink">
+                {mode === 'login' ? 'Créer un compte' : mode === 'register' ? 'Se connecter' : 'Retour à la connexion'}
               </Link>
             </p>
           </form>
         </div>
-        <p className="text-[11px] text-stone-400">Tes données restent enregistrées sur cet appareil.</p>
+        <p className="text-[11px] text-stone-400">
+          {cloudEnabled ? 'Tes données sont chiffrées en transit et protégées : toi seul y as accès.' : 'Tes données restent enregistrées sur cet appareil.'}
+        </p>
       </main>
       <aside className="hidden flex-1 border-l border-stone-200/80 bg-stone-100/60 lg:block">
         <Showcase />
