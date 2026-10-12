@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn } from 'lucide-react';
+import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, Trophy } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
 import { startProactive } from '../copilot/proactive';
@@ -18,6 +18,7 @@ const NAV = [
   { to: '/drive', label: 'Drive', icon: FolderClosed, color: SPACE_COLORS.drive },
   { to: '/calendrier', label: 'Calendrier', icon: CalendarDays, color: SPACE_COLORS.calendar },
   { to: '/notes', label: 'Notes', icon: NotebookText, color: SPACE_COLORS.notes },
+  { to: '/progression', label: 'Progression', icon: Trophy, color: '#2f9e6b' },
 ];
 
 const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {

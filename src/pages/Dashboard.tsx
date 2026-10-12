@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
-import { ArrowUpRight, CalendarDays, Check, FolderClosed, NotebookText, Plus, Upload, Target, ListTodo, CalendarRange } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Check, FolderClosed, NotebookText, Plus, Upload, Target, ListTodo, CalendarRange, SquareCheckBig, Clock3, Award } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useDrive, categoryOf, pathOf } from '../store/drive';
 import { useNotes } from '../store/notes';
@@ -11,6 +11,11 @@ import FileIcon from '../components/FileIcon';
 import { hasRevisionPlan, linkToDay, linkToDriveFolder, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
 import { toast } from '../store/ui';
+import { useFocusLog } from '../store/focusLog';
+import { useBadges } from '../lib/badges';
+import TodoList from './progress/TodoList';
+import { dailyMinutes, formatMinutes, minutesBySubject, weekMinutes } from './progress/focusStats';
+import { FOCUS_COLOR } from './progress/FocusCharts';
 
 function Widget({ icon: Icon, title, to, className, color, children }: { icon: typeof CalendarDays; title: string; to?: string; className?: string; color: string; children: React.ReactNode }) {
   return (
@@ -84,6 +89,15 @@ export default function Dashboard() {
   const recentFiles = [...files].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
   const used = files.reduce((s, f) => s + (f.size ?? 0), 0);
   const quota = 1024 ** 3;
+
+  const sessions = useFocusLog(s => s.sessions);
+  const focusWeek = weekMinutes(sessions);
+  const focusDays = dailyMinutes(sessions, 7);
+  const focusMax = Math.max(1, ...focusDays.map(d => d.minutes));
+  const topSubjects = minutesBySubject(sessions, weekDays[0]).slice(0, 3);
+  const badges = useBadges();
+  const earnedBadges = badges.filter(b => b.earned).sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? ''));
+  const nextBadge = badges.filter(b => !b.earned).sort((a, b) => b.current / b.target - a.current / a.target)[0];
 
   const planExam = () => {
     if (!nextExam) return;
@@ -249,6 +263,80 @@ export default function Dashboard() {
                   </li>
                 ))}
               </ul>
+            )}
+          </Widget>
+
+          {/* To-do */}
+          <Widget icon={SquareCheckBig} title="À faire" to="/progression#taches" className="xl:col-span-5" color="var(--color-brand-500)">
+            <TodoList limit={6} />
+          </Widget>
+
+          {/* Focus time */}
+          <Widget icon={Clock3} title="Temps de travail" to="/progression#travail" className="xl:col-span-4" color={FOCUS_COLOR}>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[28px] font-semibold leading-none tracking-tight">{formatMinutes(focusWeek)}</span>
+              <span className="text-[13px] text-stone-500">cette semaine</span>
+            </div>
+            {topSubjects.length > 0 ? (
+              <ul className="mt-3 space-y-1">
+                {topSubjects.map(r => (
+                  <li key={r.subject} className="flex items-center gap-2 text-[12px]">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: FOCUS_COLOR }} />
+                    <span className="min-w-0 flex-1 truncate text-stone-600">{r.subject}</span>
+                    <span className="tabular text-stone-500">{formatMinutes(r.minutes)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-[13px] text-stone-400">Lance une session focus pour suivre ton temps par matière.</p>
+            )}
+            <div className="mt-auto grid grid-cols-7 items-end gap-1.5 pt-4" role="img" aria-label="Minutes de focus sur les 7 derniers jours">
+              {focusDays.map(d => (
+                <span key={d.day} className="flex flex-col items-center gap-1.5" title={`${fmt(fromKey(d.day), 'EEEE d')} : ${d.minutes ? formatMinutes(d.minutes) : 'pas de session'}`}>
+                  <span className="flex h-10 w-full items-end justify-center">
+                    <span className="w-full max-w-6 rounded-t-[4px]" style={{ height: d.minutes ? `${Math.max(8, (d.minutes / focusMax) * 100)}%` : 2, background: d.minutes ? FOCUS_COLOR : '#e7e5e4' }} />
+                  </span>
+                  <span className={cx('text-[11px] capitalize', d.day === today ? 'font-semibold text-ink' : 'text-stone-400')}>{fmt(fromKey(d.day), 'EEEEE')}</span>
+                </span>
+              ))}
+            </div>
+          </Widget>
+
+          {/* Badges */}
+          <Widget icon={Award} title="Badges" to="/progression#badges" className="md:col-span-2 xl:col-span-3" color="#d48a17">
+            <p className="text-[12px] text-stone-500">
+              <span className="tabular text-[20px] font-semibold text-ink">{earnedBadges.length}</span> sur {badges.length} obtenus
+            </p>
+            {earnedBadges.length > 0 ? (
+              <div className="mt-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {earnedBadges.slice(0, 6).map(b => (
+                    <span key={b.id} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fcf4e6] text-[#9a620c]" title={b.title}>
+                      <b.icon size={15} />
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-2 truncate text-[12px] text-stone-500">
+                  Dernier : <span className="font-medium text-ink">{earnedBadges[0].title}</span>
+                </p>
+              </div>
+            ) : (
+              <p className="mt-3 text-[13px] text-stone-400">Ton premier badge n'est pas loin.</p>
+            )}
+            {nextBadge && (
+              <div className="mt-auto pt-4">
+                <p className="flex items-baseline gap-2 text-[12px]">
+                  <span className="min-w-0 flex-1 truncate text-stone-600">
+                    Prochain : <span className="font-medium text-ink">{nextBadge.title}</span>
+                  </span>
+                  <span className="tabular text-stone-400">
+                    {nextBadge.current}/{nextBadge.target}
+                  </span>
+                </p>
+                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-stone-100">
+                  <div className="h-full rounded-full bg-stone-500" style={{ width: `${(nextBadge.current / nextBadge.target) * 100}%` }} />
+                </div>
+              </div>
             )}
           </Widget>
         </div>
