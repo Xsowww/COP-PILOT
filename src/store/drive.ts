@@ -214,7 +214,14 @@ export const useDrive = create<DriveState>()(
       },
 
       purge(ids) {
-        const doomed = new Set(withDescendants(get().trash, ids));
+        // Content deleted together with a folder goes with it; things deleted earlier on their
+        // own stay in the trash (shown as separate entries, restored at the root).
+        const trash = get().trash;
+        const doomed = new Set(ids);
+        for (const id of ids) {
+          const root = trash.find(i => i.id === id);
+          for (const d of withDescendants(trash, [id])) if (trash.find(i => i.id === d)?.deletedAt === root?.deletedAt) doomed.add(d);
+        }
         for (const it of get().trash) if (doomed.has(it.id) && it.kind === 'file') void blobStore.delete(blobKey(it.id)).catch(() => undefined);
         set(s => ({ trash: s.trash.filter(i => !doomed.has(i.id)) }));
       },
@@ -290,8 +297,12 @@ export const useDrive = create<DriveState>()(
   ),
 );
 
-/** Trashed items shown at the top level of the trash (their folder isn't in the trash with them). */
-export const trashRoots = (trash: DriveItem[]) => trash.filter(i => !i.parentId || !trash.some(t => t.id === i.parentId));
+/** Trashed items shown at the top level of the trash (their folder wasn't deleted together with them). */
+export const trashRoots = (trash: DriveItem[]) =>
+  trash.filter(i => {
+    const parent = i.parentId ? trash.find(t => t.id === i.parentId) : undefined;
+    return !parent || parent.deletedAt !== i.deletedAt;
+  });
 
 /** Colours a folder can wear. */
 export const FOLDER_COLORS: Record<string, { label: string; color: string }> = {

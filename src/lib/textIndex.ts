@@ -1,0 +1,289 @@
+// Text of the Drive's PDF, Word and text files, extracted in the browser so the search can look
+// inside documents. Kept in its own IndexedDB database: blobStore's one is left untouched.
+// Entries are keyed like blobs ("<userId>:<itemId>") so accounts sharing a browser stay apart.
+
+import { blobStore } from './blobStore';
+import { blobKey, getStorageUser } from './userStorage';
+import { useDrive, categoryOf, type DriveItem } from '../store/drive';
+// Only the URL of pdf.js's worker (a string): the library itself is imported on demand.
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+const DB_NAME = 'cop-pilot-text';
+const STORE = 'texts';
+/** Bigger files are not worth downloading and parsing just for the search. */
+const MAX_FILE_SIZE = 30 * 1024 * 1024;
+const MAX_TEXT = 400_000;
+const MAX_PDF_PAGES = 400;
+
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+function openDb(): Promise<IDBDatabase> {
+  if (!dbPromise) {
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  return dbPromise;
+}
+
+function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  return openDb().then(
+    db =>
+      new Promise<T>((resolve, reject) => {
+        const req = fn(db.transaction(STORE, mode).objectStore(STORE));
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      }),
+  );
+}
+
+// ── Accent- and case-insensitive matching ──────────────────────────────────
+// Each character folds to exactly one character, so positions in the folded text
+// are positions in the original one (needed to cut snippets and highlight).
+
+const foldCache = new Map<string, string>();
+function foldChar(c: string) {
+  let f = foldCache.get(c);
+  if (f === undefined) {
+    f = (c.normalize('NFD')[0] ?? c).toLowerCase()[0] ?? c;
+    foldCache.set(c, f);
+  }
+  return f;
+}
+
+export function fold(s: string) {
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    out += code < 128 ? (code >= 65 && code <= 90 ? String.fromCharCode(code + 32) : s[i]) : foldChar(s[i]);
+  }
+  return out;
+}
+
+/** Splits `text` around the matches of `query`, for highlighting. */
+export function highlightParts(text: string, query: string): { text: string; hit: boolean }[] {
+  const q = fold(query.trim());
+  if (!q) return [{ text, hit: false }];
+  const f = fold(text);
+  const parts: { text: string; hit: boolean }[] = [];
+  let pos = 0;
+  for (let i = f.indexOf(q); i >= 0; i = f.indexOf(q, i + q.length)) {
+    if (i > pos) parts.push({ text: text.slice(pos, i), hit: false });
+    parts.push({ text: text.slice(i, i + q.length), hit: true });
+    pos = i + q.length;
+  }
+  if (pos < text.length) parts.push({ text: text.slice(pos), hit: false });
+  return parts;
+}
+
+// ── Extraction ─────────────────────────────────────────────────────────────
+
+type Kind = 'pdf' | 'docx' | 'text';
+
+function kindOf(item: Pick<DriveItem, 'kind' | 'mime' | 'name' | 'size'>): Kind | null {
+  if (item.kind !== 'file' || (item.size ?? 0) > MAX_FILE_SIZE) return null;
+  const cat = categoryOf(item);
+  if (cat === 'pdf') return 'pdf';
+  if (cat === 'text') return 'text';
+  if (item.name.toLowerCase().endsWith('.docx')) return 'docx';
+  return null;
+}
+
+async function pdfText(blob: Blob) {
+  // Loaded on demand: pdf.js is heavy and only needed here.
+  const pdfjs = await import('pdfjs-dist');
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  const task = pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) });
+  const doc = await task.promise;
+  let text = '';
+  try {
+    for (let p = 1; p <= Math.min(doc.numPages, MAX_PDF_PAGES) && text.length < MAX_TEXT; p++) {
+      const page = await doc.getPage(p);
+      const content = await page.getTextContent();
+      for (const it of content.items) if ('str' in it) text += it.str + (it.hasEOL ? '\n' : '');
+      text += '\n';
+    }
+  } finally {
+    void task.destroy();
+  }
+  return text;
+}
+
+async function docxText(blob: Blob) {
+  const mammoth = await import('mammoth');
+  const res = await mammoth.extractRawText({ arrayBuffer: await blob.arrayBuffer() });
+  return res.value;
+}
+
+/** Plain text of a file, whitespace collapsed (snippets read better on one line). */
+async function extract(kind: Kind, blob: Blob) {
+  const raw = kind === 'pdf' ? await pdfText(blob) : kind === 'docx' ? await docxText(blob) : await blob.slice(0, MAX_TEXT * 2).text();
+  return raw.replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT);
+}
+
+// ── In-memory copy of the current user's index ─────────────────────────────
+
+interface Indexed {
+  text: string;
+  folded: string;
+}
+
+let cache: { user: string; map: Map<string, Indexed> } | null = null;
+let loading: Promise<Map<string, Indexed>> | null = null;
+
+async function load(): Promise<Map<string, Indexed>> {
+  const user = getStorageUser();
+  if (!user) return new Map();
+  if (cache?.user === user) return cache.map;
+  if (!loading) {
+    loading = (async () => {
+      const range = IDBKeyRange.bound(`${user}:`, `${user}:￿`);
+      const [keys, values] = await Promise.all([run('readonly', s => s.getAllKeys(range)), run<string[]>('readonly', s => s.getAll(range))]);
+      const map = new Map<string, Indexed>();
+      keys.forEach((k, i) => {
+        const id = String(k).slice(user.length + 1);
+        map.set(id, { text: values[i], folded: fold(values[i]) });
+      });
+      cache = { user, map };
+      return map;
+    })().finally(() => (loading = null));
+  }
+  return loading;
+}
+
+const inFlight = new Set<string>();
+
+/** Extracts and stores the text of one file. `blob` avoids downloading it again right after an upload. */
+export async function indexFile(item: DriveItem, blob?: Blob) {
+  const kind = kindOf(item);
+  const user = getStorageUser();
+  if (!kind || !user || inFlight.has(item.id)) return;
+  inFlight.add(item.id);
+  try {
+    const map = await load();
+    if (map.has(item.id)) return;
+    const data = blob ?? (await blobStore.get(blobKey(item.id)));
+    if (!data) return;
+    let text = '';
+    try {
+      text = await extract(kind, data);
+    } catch {
+      // Damaged or protected file: remember it as empty so we don't retry forever.
+    }
+    await run('readwrite', s => s.put(text, `${user}:${item.id}`));
+    if (cache?.user === user) cache.map.set(item.id, { text, folded: fold(text) });
+  } catch {
+    // IndexedDB unavailable (private browsing…): the search falls back to names only.
+  } finally {
+    inFlight.delete(item.id);
+  }
+}
+
+/** Drops entries of files that no longer exist (purged from the trash, account reset…). */
+async function prune(map: Map<string, Indexed>) {
+  const user = getStorageUser();
+  const { items, trash } = useDrive.getState();
+  const alive = new Set([...items, ...trash].map(i => i.id));
+  for (const id of [...map.keys()]) {
+    if (alive.has(id)) continue;
+    map.delete(id);
+    await run('readwrite', s => s.delete(`${user}:${id}`)).catch(() => undefined);
+  }
+}
+
+/**
+ * Indexes, in the background and a few at a time, the files that aren't indexed yet,
+ * then keeps up with new ones. Returns a function that stops it.
+ */
+export function startTextIndexing(): () => void {
+  let stopped = false;
+  let running = false;
+  let again = false;
+
+  const pass = async () => {
+    if (running) {
+      again = true;
+      return;
+    }
+    running = true;
+    try {
+      do {
+        again = false;
+        const map = await load();
+        await prune(map);
+        const todo = useDrive.getState().items.filter(i => kindOf(i) && !map.has(i.id) && !inFlight.has(i.id));
+        for (let i = 0; i < todo.length && !stopped; i += 3) {
+          await Promise.all(todo.slice(i, i + 3).map(it => indexFile(it)));
+          await new Promise(r => setTimeout(r, 150)); // let the page breathe
+        }
+      } while (again && !stopped);
+    } catch {
+      // ignore: retried on the next change
+    } finally {
+      running = false;
+    }
+  };
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const schedule = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => void pass(), 800);
+  };
+  schedule();
+  const unsub = useDrive.subscribe((s, p) => {
+    if (s.items !== p.items || s.trash !== p.trash) schedule();
+  });
+  return () => {
+    stopped = true;
+    clearTimeout(timer);
+    unsub();
+  };
+}
+
+export interface ContentMatch {
+  id: string;
+  /** About 160 characters around the first match. */
+  snippet: string;
+}
+
+function snippetAround(text: string, at: number, len: number) {
+  let start = Math.max(0, at - 60);
+  let end = Math.min(text.length, at + len + 100);
+  // Don't cut words in half.
+  const sp = text.indexOf(' ', start);
+  if (start > 0 && sp >= 0 && sp < at) start = sp + 1;
+  const ep = text.lastIndexOf(' ', end);
+  if (end < text.length && ep > at + len) end = ep;
+  return `${start > 0 ? '…' : ''}${text.slice(start, end)}${end < text.length ? '…' : ''}`;
+}
+
+/**
+ * Files of the Drive (trash excluded) whose content contains `query`, ignoring case and accents.
+ * Files that were never indexed (Drive page not opened yet on this device) are not found.
+ */
+export async function searchFileContents(query: string, limit = 20): Promise<ContentMatch[]> {
+  const q = fold(query.trim());
+  if (q.length < 2) return [];
+  let map: Map<string, Indexed>;
+  try {
+    map = await load();
+  } catch {
+    return [];
+  }
+  const hits: (ContentMatch & { count: number })[] = [];
+  for (const item of useDrive.getState().items) {
+    const entry = map.get(item.id);
+    const at = entry ? entry.folded.indexOf(q) : -1;
+    if (!entry || at < 0) continue;
+    let count = 0;
+    for (let i = at; i >= 0 && count < 50; i = entry.folded.indexOf(q, i + q.length)) count++;
+    hits.push({ id: item.id, snippet: snippetAround(entry.text, at, q.length), count });
+  }
+  return hits
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit)
+    .map(({ id, snippet }) => ({ id, snippet }));
+}

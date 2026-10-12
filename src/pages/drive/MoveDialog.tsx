@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, HardDrive } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
-import { useDrive, childrenOf, withDescendants } from '../../store/drive';
+import { useDrive, childrenOf, withDescendants, FOLDER_COLORS } from '../../store/drive';
 import { cx } from '../../lib/utils';
 import FileIcon from '../../components/FileIcon';
 
@@ -44,7 +44,7 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
               >
                 <ChevronRight size={14} />
               </button>
-              <FileIcon category="folder" size={20} />
+              <FileIcon category="folder" size={20} color={f.color ? FOLDER_COLORS[f.color]?.color : undefined} />
               <span className="truncate">{f.name}</span>
             </div>
             {expanded && renderLevel(f.id, depth + 1)}

@@ -13,14 +13,23 @@ const BADGE: Record<Exclude<FileCategory, 'folder'>, { label: string; color: str
   other: { label: 'FIC', color: '#8a867e' },
 };
 
+/** Blend a #rrggbb colour with white (t = share of white). */
+function tint(hex: string, t: number) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (shift: number) => Math.round(((n >> shift) & 255) * (1 - t) + 255 * t);
+  return `rgb(${ch(16)} ${ch(8)} ${ch(0)})`;
+}
+
 /** Flat document / folder icons, drawn once so the Drive feels like a real file manager. */
-export default function FileIcon({ category, size = 40, ext }: { category: FileCategory; size?: number; ext?: string }) {
+export default function FileIcon({ category, size = 40, ext, color }: { category: FileCategory; size?: number; ext?: string; color?: string }) {
   if (category === 'folder') {
+    // Default blue, or three lighter shades of the folder's colour.
+    const [back, front, edge] = color ? [tint(color, 0.22), tint(color, 0.4), tint(color, 0.55)] : ['#7ea6e0', '#9dbdec', '#b7cff3'];
     return (
       <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden className="shrink-0">
-        <path d="M4 12.5A3.5 3.5 0 0 1 7.5 9h11.2a3.5 3.5 0 0 1 2.6 1.2l2.2 2.4h17A3.5 3.5 0 0 1 44 16.1V37a3.5 3.5 0 0 1-3.5 3.5h-33A3.5 3.5 0 0 1 4 37V12.5Z" fill="#7ea6e0" />
-        <path d="M4 19.5A3.5 3.5 0 0 1 7.5 16h33a3.5 3.5 0 0 1 3.5 3.5V37a3.5 3.5 0 0 1-3.5 3.5h-33A3.5 3.5 0 0 1 4 37V19.5Z" fill="#9dbdec" />
-        <path d="M4 20.5A3.5 3.5 0 0 1 7.5 17h33a3.5 3.5 0 0 1 3.5 3.5v.6H4v-.6Z" fill="#b7cff3" />
+        <path d="M4 12.5A3.5 3.5 0 0 1 7.5 9h11.2a3.5 3.5 0 0 1 2.6 1.2l2.2 2.4h17A3.5 3.5 0 0 1 44 16.1V37a3.5 3.5 0 0 1-3.5 3.5h-33A3.5 3.5 0 0 1 4 37V12.5Z" fill={back} />
+        <path d="M4 19.5A3.5 3.5 0 0 1 7.5 16h33a3.5 3.5 0 0 1 3.5 3.5V37a3.5 3.5 0 0 1-3.5 3.5h-33A3.5 3.5 0 0 1 4 37V19.5Z" fill={front} />
+        <path d="M4 20.5A3.5 3.5 0 0 1 7.5 17h33a3.5 3.5 0 0 1 3.5 3.5v.6H4v-.6Z" fill={edge} />
       </svg>
     );
   }

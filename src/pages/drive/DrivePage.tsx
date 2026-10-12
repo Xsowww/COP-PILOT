@@ -2,24 +2,53 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
-  List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, X, MousePointer2,
+  List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, X, MousePointer2, Search, Tag, Link2, RotateCcw, Ban, Check,
 } from 'lucide-react';
-import { useDrive, childrenOf, pathOf, categoryOf, folderSize, type DriveItem } from '../../store/drive';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import {
+  useDrive, childrenOf, pathOf, categoryOf, folderSize, trashRoots, FOLDER_COLORS, TRASH_DAYS, type DriveItem,
+} from '../../store/drive';
 import { askText, confirmAction, toast, useUi } from '../../store/ui';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
+import { fold, highlightParts, searchFileContents, startTextIndexing } from '../../lib/textIndex';
 import FileIcon from '../../components/FileIcon';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import PreviewModal from './PreviewModal';
 import { downloadItem } from './download';
 import MoveDialog from './MoveDialog';
+import ShareDialog from './ShareDialog';
+import TagDialog, { TagPill } from './TagDialog';
 import { filesFromDrop, filesFromInput, uploadPending } from './upload';
 
-type Tab = 'all' | 'starred' | 'recent';
+type Tab = 'all' | 'starred' | 'recent' | 'trash';
 type SortKey = 'name' | 'date' | 'size';
 
 const DRAG_MIME = 'application/x-cop-drive';
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const MOD = isMac ? '⌘' : 'Ctrl+';
+
+const folderColor = (item: DriveItem) => (item.color ? FOLDER_COLORS[item.color]?.color : undefined);
+
+/** Days left before a trashed item is deleted for good. */
+const daysLeft = (item: DriveItem) =>
+  Math.max(0, Math.ceil((new Date(item.deletedAt ?? 0).getTime() + TRASH_DAYS * 864e5 - Date.now()) / 864e5));
+
+function Highlighted({ text, query }: { text: string; query: string }) {
+  return (
+    <>
+      {highlightParts(text, query).map((p, i) =>
+        p.hit ? (
+          <mark key={i} className="rounded-sm bg-amber-100 px-px text-ink">
+            {p.text}
+          </mark>
+        ) : (
+          p.text
+        ),
+      )}
+    </>
+  );
+}
 
 function readPref<T extends string>(key: string, fallback: T): T {
   try {
@@ -34,7 +63,7 @@ export default function DrivePage() {
   const folderId = params.get('dossier');
   const previewId = params.get('fichier');
   const drive = useDrive();
-  const { items, clipboard } = drive;
+  const { items, trash, clipboard } = drive;
 
   const [tab, setTab] = useState<Tab>('all');
   const [view, setView] = useState<'grid' | 'list'>(() => readPref('cop:drive-view', 'grid'));
@@ -45,6 +74,11 @@ export default function DrivePage() {
   const [dropTarget, setDropTarget] = useState<string | 'here' | null>(null);
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState('');
+  const [contentHits, setContentHits] = useState<Map<string, string>>(new Map());
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagIds, setTagIds] = useState<string[] | null>(null);
+  const [shareItem, setShareItem] = useState<DriveItem | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -54,8 +88,37 @@ export default function DrivePage() {
   const breadcrumb = pathOf(items, parentId);
   const previewItem = previewId ? items.find(i => i.id === previewId && i.kind === 'file') : undefined;
 
+  const inTrash = tab === 'trash';
+  const q = query.trim();
+  const allTags = useMemo(() => [...new Set(items.flatMap(i => i.tags ?? []))].sort((a, b) => a.localeCompare(b, 'fr')), [items]);
+  const activeTag = tagFilter && allTags.includes(tagFilter) ? tagFilter : null;
+
+  // Read the text of PDFs / Word / text files in the background, for the search.
+  useEffect(() => startTextIndexing(), []);
+
+  useEffect(() => {
+    if (q.length < 2) return setContentHits(new Map());
+    let cancelled = false;
+    const t = setTimeout(() => {
+      void searchFileContents(q, 50).then(hits => !cancelled && setContentHits(new Map(hits.map(h => [h.id, h.snippet]))));
+    }, 180);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [q, items]);
+
   const visible = useMemo(() => {
     let list: DriveItem[];
+    if (tab === 'trash') return [...trashRoots(trash)].sort((a, b) => (b.deletedAt ?? '').localeCompare(a.deletedAt ?? ''));
+    if (q || activeTag) {
+      // Search and label filter look through the whole Drive, whatever the folder.
+      const fq = fold(q);
+      const byName = items.filter(i => (!q || fold(i.name).includes(fq)) && (!activeTag || i.tags?.includes(activeTag)));
+      const named = new Set(byName.map(i => i.id));
+      const byContent = q ? items.filter(i => !named.has(i.id) && contentHits.has(i.id) && (!activeTag || i.tags?.includes(activeTag))) : [];
+      return [...byName.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, 'fr', { numeric: true }) : a.kind === 'folder' ? -1 : 1)), ...byContent];
+    }
     if (tab === 'starred') list = items.filter(i => i.starred);
     else if (tab === 'recent') list = items.filter(i => i.kind === 'file').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 40);
     else list = childrenOf(items, parentId);
@@ -68,16 +131,20 @@ export default function DrivePage() {
       if (sort.key === 'size') return dir * (size(a) - size(b));
       return dir * a.name.localeCompare(b.name, 'fr', { numeric: true });
     });
-  }, [items, parentId, tab, sort]);
+  }, [items, trash, parentId, tab, sort, q, activeTag, contentHits]);
 
-  const selectedIds = useMemo(() => [...selected].filter(id => items.some(i => i.id === id)), [selected, items]);
-  const single = selectedIds.length === 1 ? items.find(i => i.id === selectedIds[0]) : undefined;
+  const pool = inTrash ? trash : items;
+  const selectedIds = useMemo(() => [...selected].filter(id => pool.some(i => i.id === id)), [selected, pool]);
+  const single = selectedIds.length === 1 ? pool.find(i => i.id === selectedIds[0]) : undefined;
+  const filtering = !inTrash && (!!q || !!activeTag);
 
   // ── Navigation ────────────────────────────────────────────────────────────
   const openFolder = useCallback(
     (id: string | null) => {
       setTab('all');
       setSelected(new Set());
+      setQuery('');
+      setTagFilter(null);
       setParams(id ? { dossier: id } : {});
     },
     [setParams],
@@ -85,7 +152,8 @@ export default function DrivePage() {
 
   const openItem = useCallback(
     (item: DriveItem) => {
-      if (item.kind === 'folder') openFolder(item.id);
+      if (item.deletedAt) toast("Restaure l'élément pour l'ouvrir");
+      else if (item.kind === 'folder') openFolder(item.id);
       else setParams(p => {
         const n = new URLSearchParams(p);
         n.set('fichier', item.id);
@@ -154,18 +222,52 @@ export default function DrivePage() {
     if (name !== null && name.trim() && name !== item.name) useDrive.getState().rename(item.id, name);
   }, []);
 
-  const remove = useCallback(async (ids: string[]) => {
+  // No confirmation: items go to the trash and the toast offers to undo.
+  const remove = useCallback((ids: string[]) => {
     if (!ids.length) return;
-    const all = useDrive.getState().items;
-    const first = all.find(i => i.id === ids[0]);
-    const ok = await confirmAction(
-      ids.length === 1 ? `Supprimer « ${first?.name} » ?` : `Supprimer ${ids.length} éléments ?`,
-      ids.some(id => all.find(i => i.id === id)?.kind === 'folder') ? 'Le contenu des dossiers sera aussi supprimé. Cette action est définitive.' : 'Cette action est définitive.',
-    );
-    if (!ok) return;
     useDrive.getState().remove(ids);
     setSelected(new Set());
-    toast(ids.length > 1 ? `${ids.length} éléments supprimés` : 'Élément supprimé', 'success');
+    toast(ids.length > 1 ? `${ids.length} éléments mis à la corbeille` : 'Mis à la corbeille', 'info', {
+      label: 'Annuler',
+      run: () => useDrive.getState().restore(ids),
+    });
+  }, []);
+
+  const restore = useCallback((ids: string[]) => {
+    if (!ids.length) return;
+    const st = useDrive.getState();
+    // Say so when the original folder is gone and the item lands at the root instead.
+    const orphan = ids.some(id => {
+      const it = st.trash.find(i => i.id === id);
+      return it?.parentId && !st.items.some(i => i.id === it.parentId);
+    });
+    st.restore(ids);
+    setSelected(new Set());
+    toast(orphan ? "Restauré dans Mon Drive (le dossier d'origine n'existe plus)" : ids.length > 1 ? `${ids.length} éléments restaurés` : 'Élément restauré', 'success');
+  }, []);
+
+  const purge = useCallback(async (ids: string[]) => {
+    if (!ids.length) return;
+    const first = useDrive.getState().trash.find(i => i.id === ids[0]);
+    const ok = await confirmAction(
+      ids.length === 1 ? `Supprimer définitivement « ${first?.name} » ?` : `Supprimer définitivement ${ids.length} éléments ?`,
+      'Ils ne pourront plus être récupérés.',
+      'Supprimer définitivement',
+    );
+    if (!ok) return;
+    useDrive.getState().purge(ids);
+    setSelected(new Set());
+    toast('Supprimé définitivement', 'success');
+  }, []);
+
+  const emptyTrash = useCallback(async () => {
+    const n = trashRoots(useDrive.getState().trash).length;
+    if (!n) return;
+    const ok = await confirmAction('Vider la corbeille ?', `${n} élément${n > 1 ? 's seront supprimés' : ' sera supprimé'} définitivement.`, 'Vider la corbeille');
+    if (!ok) return;
+    useDrive.getState().emptyTrash();
+    setSelected(new Set());
+    toast('Corbeille vidée', 'success');
   }, []);
 
   const copy = useCallback((ids: string[]) => {
@@ -241,9 +343,19 @@ export default function DrivePage() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (el.closest('input, textarea, [contenteditable="true"]') || previewItem || moveIds || useUi.getState().dialog) return;
+      if (el.closest('input, textarea, [contenteditable="true"]') || previewItem || moveIds || tagIds || shareItem || useUi.getState().dialog) return;
       const mod = e.metaKey || e.ctrlKey;
       const k = e.key.toLowerCase();
+      if (inTrash) {
+        if (mod && k === 'a') {
+          e.preventDefault();
+          setSelected(new Set(visible.map(i => i.id)));
+        } else if (e.key === 'Delete' || (e.key === 'Backspace' && (isMac || mod))) {
+          e.preventDefault();
+          void purge(selectedIds);
+        } else if (e.key === 'Escape') setSelected(new Set());
+        return;
+      }
       if (mod && k === 'a') {
         e.preventDefault();
         setSelected(new Set(visible.map(i => i.id)));
@@ -255,7 +367,7 @@ export default function DrivePage() {
         void duplicate(selectedIds);
       } else if (e.key === 'Delete' || (e.key === 'Backspace' && (isMac || mod))) {
         e.preventDefault();
-        void remove(selectedIds);
+        remove(selectedIds);
       } else if (e.key === 'F2' && single) {
         e.preventDefault();
         void rename(single);
@@ -265,7 +377,7 @@ export default function DrivePage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [visible, selectedIds, single, parentId, tab, current, previewItem, moveIds, copy, cut, paste, duplicate, remove, rename, openItem, openFolder]);
+  }, [visible, selectedIds, single, parentId, tab, inTrash, current, previewItem, moveIds, tagIds, shareItem, copy, cut, paste, duplicate, remove, purge, rename, openItem, openFolder]);
 
   // ── Drag & drop ───────────────────────────────────────────────────────────
   const onDragStart = (e: React.DragEvent, item: DriveItem) => {
@@ -311,11 +423,20 @@ export default function DrivePage() {
     onDrop: (e: React.DragEvent) => void dropOn(e, target),
   });
 
-  const tabAll = tab === 'all';
+  const tabAll = tab === 'all' && !filtering;
 
   // ── Context menu definitions ──────────────────────────────────────────────
   const menuItems: MenuItem[] = useMemo(() => {
     if (!menu) return [];
+    if (inTrash) {
+      if (menu.target === null) return [{ label: 'Vider la corbeille', icon: <Trash2 size={15} />, danger: true, disabled: !trash.length, onClick: () => void emptyTrash() }];
+      const ids = selectedIds.length ? selectedIds : [menu.target];
+      return [
+        { label: 'Restaurer', icon: <RotateCcw size={15} />, onClick: () => restore(ids) },
+        { label: '', divider: true, onClick: () => {} },
+        { label: 'Supprimer définitivement', icon: <Trash2 size={15} />, shortcut: 'Suppr', danger: true, onClick: () => void purge(ids) },
+      ];
+    }
     if (menu.target === null) {
       return [
         { label: 'Nouveau dossier', icon: <FolderPlus size={15} />, onClick: () => void newFolder() },
@@ -329,6 +450,42 @@ export default function DrivePage() {
     const ids = selectedIds.length ? selectedIds : [menu.target];
     const item = items.find(i => i.id === menu.target);
     const one = ids.length === 1 && item;
+    const targets = items.filter(i => ids.includes(i.id));
+    const allFolders = targets.length > 0 && targets.every(i => i.kind === 'folder');
+    const palette: MenuItem[] = allFolders
+      ? [
+          { label: '', divider: true, onClick: () => {} },
+          {
+            label: 'Couleur',
+            onClick: () => {},
+            content: (
+              <div className="px-2 pb-1.5 pt-1">
+                <p className="text-[11px] font-medium text-stone-400">Couleur du dossier</p>
+                <div className="mt-1.5 flex items-center gap-1">
+                  {[null, ...Object.keys(FOLDER_COLORS)].map(key => {
+                    const on = targets.every(t => (t.color ?? null) === key);
+                    return (
+                      <button
+                        key={key ?? 'none'}
+                        title={key ? FOLDER_COLORS[key].label : 'Par défaut'}
+                        onClick={() => {
+                          for (const t of targets) useDrive.getState().update(t.id, { color: key ?? undefined });
+                          setMenu(null);
+                        }}
+                        className={cx('flex h-[22px] w-[22px] items-center justify-center rounded-full ring-offset-1 transition', on ? 'ring-2 ring-stone-400' : 'hover:ring-2 hover:ring-stone-200')}
+                        style={{ background: key ? FOLDER_COLORS[key].color : '#9dbdec' }}
+                      >
+                        {on && <Check size={12} strokeWidth={3} className="text-white" />}
+                        {!key && !on && <Ban size={11} className="text-white/90" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ),
+          },
+        ]
+      : [];
     return [
       ...(one ? [{ label: item.kind === 'folder' ? 'Ouvrir' : 'Aperçu', icon: <Eye size={15} />, shortcut: 'Entrée', onClick: () => openItem(item) }] : []),
       ...(one && item.kind === 'file' ? [{ label: 'Télécharger', icon: <Download size={15} />, onClick: () => downloadItem(item) }] : []),
@@ -340,20 +497,23 @@ export default function DrivePage() {
       { label: 'Déplacer vers…', icon: <FolderInput size={15} />, onClick: () => setMoveIds(ids) },
       ...(one ? [{ label: 'Renommer', icon: <Pencil size={15} />, shortcut: 'F2', onClick: () => void rename(item) }] : []),
       ...(one ? [{ label: item.starred ? 'Retirer des favoris' : 'Ajouter aux favoris', icon: <Star size={15} />, onClick: () => useDrive.getState().toggleStar(item.id) }] : []),
+      { label: 'Étiquettes…', icon: <Tag size={15} />, onClick: () => setTagIds(ids) },
+      ...(one && item.kind === 'file' ? [{ label: 'Partager le lien…', icon: <Link2 size={15} />, onClick: () => setShareItem(item) }] : []),
+      ...palette,
       { label: '', divider: true, onClick: () => {} },
-      { label: 'Supprimer', icon: <Trash2 size={15} />, shortcut: 'Suppr', danger: true, onClick: () => void remove(ids) },
+      { label: 'Mettre à la corbeille', icon: <Trash2 size={15} />, shortcut: 'Suppr', danger: true, onClick: () => remove(ids) },
     ];
-  }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove]);
+  }, [menu, inTrash, trash, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove, restore, purge, emptyTrash]);
 
   const cutIds = clipboard?.mode === 'cut' ? new Set(clipboard.ids) : new Set<string>();
 
   const itemProps = (item: DriveItem) => ({
-    draggable: true,
+    draggable: !inTrash,
     onDragStart: (e: React.DragEvent) => onDragStart(e, item),
     onClick: (e: React.MouseEvent) => onItemClick(e, item),
     onDoubleClick: () => openItem(item),
     onContextMenu: (e: React.MouseEvent) => onItemContext(e, item),
-    ...(item.kind === 'folder' ? folderDropProps(item.id, item.id) : {}),
+    ...(item.kind === 'folder' && !inTrash ? folderDropProps(item.id, item.id) : {}),
   });
 
   const sortBtn = (key: SortKey, label: string) => (
@@ -364,6 +524,9 @@ export default function DrivePage() {
       {label} {sort.key === key && <ArrowUpDown size={11} />}
     </button>
   );
+
+  // Content matches only (a name match speaks for itself).
+  const snippetOf = (item: DriveItem) => (q && !fold(item.name).includes(fold(q)) ? contentHits.get(item.id) : undefined);
 
   const extOf = (item: DriveItem) => (item.kind === 'file' ? item.name.split('.').pop() : undefined);
   const bar = selectedIds.length > 1 || (selectedIds.length === 1 && !previewItem);
@@ -406,10 +569,11 @@ export default function DrivePage() {
             ['all', 'Mon Drive', HardDrive],
             ['starred', 'Favoris', Star],
             ['recent', 'Récents', Clock],
+            ['trash', 'Corbeille', Trash2],
           ] as const).map(([k, label, Icon]) => (
             <button
               key={k}
-              onClick={() => { setTab(k); setSelected(new Set()); }}
+              onClick={() => { setTab(k); setSelected(new Set()); if (k === 'trash') { setQuery(''); setTagFilter(null); } }}
               className={cx('flex h-7 items-center gap-1.5 rounded-md px-2.5 font-medium transition-colors', tab === k ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
               <Icon size={13} />
@@ -417,7 +581,24 @@ export default function DrivePage() {
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+          {!inTrash && (
+            <label className="relative order-last w-full sm:order-none sm:w-auto">
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                value={query}
+                onChange={e => { setQuery(e.target.value); setSelected(new Set()); }}
+                onKeyDown={e => e.key === 'Escape' && setQuery('')}
+                placeholder="Rechercher, y compris dans les PDF"
+                className="field h-8 w-full pl-8 pr-7 sm:w-52 xl:w-72"
+              />
+              {query && (
+                <button className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-stone-400 hover:text-ink" onClick={() => setQuery('')} title="Effacer">
+                  <X size={13} />
+                </button>
+              )}
+            </label>
+          )}
           <button
             className="icon-btn"
             title={view === 'grid' ? 'Affichage liste' : 'Affichage grille'}
@@ -450,20 +631,42 @@ export default function DrivePage() {
             </button>
             <span className="mr-2 whitespace-nowrap px-1 font-medium">{selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
             <span className="mr-1 h-4 w-px bg-white/15" />
-            {[
+            {(inTrash
+              ? [
+                  { icon: RotateCcw, label: 'Restaurer', fn: () => restore(selectedIds) },
+                  { icon: Trash2, label: 'Supprimer définitivement', fn: () => void purge(selectedIds) },
+                ]
+              : [
               { icon: Copy, label: 'Copier', fn: () => copy(selectedIds) },
               { icon: Scissors, label: 'Couper', fn: () => cut(selectedIds) },
               { icon: CopyPlus, label: 'Dupliquer', fn: () => void duplicate(selectedIds) },
               { icon: FolderInput, label: 'Déplacer', fn: () => setMoveIds(selectedIds) },
               ...(single ? [{ icon: Pencil, label: 'Renommer', fn: () => void rename(single) }] : []),
               ...(single?.kind === 'file' ? [{ icon: Download, label: 'Télécharger', fn: () => downloadItem(single) }] : []),
-              { icon: Trash2, label: 'Supprimer', fn: () => void remove(selectedIds) },
-            ].map(a => (
+              { icon: Tag, label: 'Étiquettes', fn: () => setTagIds(selectedIds) },
+              { icon: Trash2, label: 'Corbeille', fn: () => remove(selectedIds) },
+            ]).map(a => (
               <button key={a.label} onClick={a.fn} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-white/85 hover:bg-white/10 hover:text-white" title={a.label}>
                 <a.icon size={14} /> <span className="hidden lg:inline">{a.label}</span>
               </button>
             ))}
           </div>
+        ) : inTrash ? (
+          <>
+            <p className="px-1.5 text-stone-500">Les éléments sont supprimés définitivement au bout de {TRASH_DAYS} jours.</p>
+            {trash.length > 0 && (
+              <button className="btn-ghost ml-auto h-8 text-[12px] text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => void emptyTrash()}>
+                <Trash2 size={14} /> Vider la corbeille
+              </button>
+            )}
+          </>
+        ) : filtering ? (
+          <p className="truncate px-1.5 font-medium text-stone-500">
+            {visible.length} résultat{visible.length > 1 ? 's' : ''}
+            {q && <> pour « <span className="text-ink">{q}</span> »</>}
+            {activeTag && <> avec l'étiquette « <span className="text-ink">{activeTag}</span> »</>}
+            {q && contentHits.size > 0 && <span className="font-normal text-stone-400"> · noms et contenu des documents</span>}
+          </p>
         ) : tabAll ? (
           <>
             <button
@@ -500,6 +703,21 @@ export default function DrivePage() {
         )}
       </div>
 
+      {/* Label filter */}
+      {!inTrash && allTags.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pt-2">
+          <Tag size={13} className="mr-0.5 shrink-0 text-stone-400" />
+          {allTags.map(t => (
+            <TagPill key={t} tag={t} size="md" active={activeTag === t} onClick={() => { setTagFilter(activeTag === t ? null : t); setSelected(new Set()); }} />
+          ))}
+          {activeTag && (
+            <button className="ml-1 shrink-0 text-[12px] text-stone-500 hover:text-ink" onClick={() => setTagFilter(null)}>
+              Effacer le filtre
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Content */}
       <div
         className={cx(
@@ -515,13 +733,67 @@ export default function DrivePage() {
       >
         {visible.length === 0 ? (
           <div className="flex h-full min-h-72 flex-col items-center justify-center text-center">
-            {tab === 'starred' ? <Star size={28} strokeWidth={1.5} className="text-stone-300" /> : <FileIcon category="folder" size={56} />}
-            <p className="mt-3 text-[14px] font-medium">{tab === 'starred' ? 'Aucun favori' : tab === 'recent' ? 'Aucun fichier récent' : 'Ce dossier est vide'}</p>
+            {filtering ? (
+              <Search size={28} strokeWidth={1.5} className="text-stone-300" />
+            ) : inTrash ? (
+              <Trash2 size={28} strokeWidth={1.5} className="text-stone-300" />
+            ) : tab === 'starred' ? (
+              <Star size={28} strokeWidth={1.5} className="text-stone-300" />
+            ) : (
+              <FileIcon category="folder" size={56} />
+            )}
+            <p className="mt-3 text-[14px] font-medium">
+              {filtering ? 'Aucun résultat' : inTrash ? 'La corbeille est vide' : tab === 'starred' ? 'Aucun favori' : tab === 'recent' ? 'Aucun fichier récent' : 'Ce dossier est vide'}
+            </p>
             <p className="mt-1 max-w-xs text-[13px] text-stone-500">
-              {tab === 'all' ? 'Dépose des fichiers ou des dossiers ici, ou utilise le bouton Importer.' : 'Clic droit sur un élément, puis « Ajouter aux favoris ».'}
+              {filtering
+                ? 'La recherche porte sur les noms et sur le texte des PDF, documents Word et fichiers texte.'
+                : inTrash
+                  ? `Ce que tu supprimes reste ici ${TRASH_DAYS} jours, le temps de changer d'avis.`
+                  : tab === 'all'
+                    ? 'Dépose des fichiers ou des dossiers ici, ou utilise le bouton Importer.'
+                    : 'Clic droit sur un élément, puis « Ajouter aux favoris ».'}
             </p>
           </div>
-        ) : view === 'grid' ? (
+        ) : inTrash ? (
+          <div className="card overflow-hidden">
+            <div className="grid grid-cols-[1fr_96px_70px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-400 md:grid-cols-[1fr_190px_120px_130px_80px]">
+              <span>Nom</span>
+              <span className="hidden md:block">Emplacement d'origine</span>
+              <span className="hidden md:block">Supprimé le</span>
+              <span>Expiration</span>
+              <span>Taille</span>
+            </div>
+            {visible.map(item => {
+              const sel = selected.has(item.id);
+              const parentGone = !!item.parentId && !items.some(i => i.id === item.parentId);
+              const left = daysLeft(item);
+              return (
+                <div
+                  key={item.id}
+                  {...itemProps(item)}
+                  className={cx(
+                    'grid h-11 cursor-default select-none grid-cols-[1fr_96px_70px] items-center gap-3 border-b border-stone-100 px-4 text-[13px] transition-colors last:border-0 md:grid-cols-[1fr_190px_120px_130px_80px]',
+                    sel ? 'bg-brand-50' : 'hover:bg-stone-50',
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} color={folderColor(item)} />
+                    <span className="truncate font-medium text-stone-700">{item.name}</span>
+                  </span>
+                  <span className="hidden truncate text-[12px] text-stone-500 md:block" title={parentGone ? "Le dossier d'origine a été supprimé : restauré dans Mon Drive" : undefined}>
+                    {parentGone ? <span className="italic text-stone-400">Dossier supprimé</span> : ['Mon Drive', ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}
+                  </span>
+                  <span className="tabular hidden text-[12px] text-stone-500 md:block">{format(new Date(item.deletedAt!), 'd MMM yyyy', { locale: fr })}</span>
+                  <span className={cx('tabular text-[12px]', left <= 3 ? 'font-medium text-red-600' : 'text-stone-500')}>
+                    {left === 0 ? "aujourd'hui" : left === 1 ? 'demain' : `dans ${left} jours`}
+                  </span>
+                  <span className="tabular text-[12px] text-stone-500">{item.kind === 'folder' ? formatBytes(folderSize(trash, item.id)) : formatBytes(item.size)}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : view === 'grid' && !q ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-1.5">
             {visible.map(item => {
               const sel = selected.has(item.id);
@@ -538,11 +810,17 @@ export default function DrivePage() {
                   title={item.name}
                 >
                   {item.starred && <Star size={11} className="absolute right-2.5 top-2.5 fill-amber-400 text-amber-400" />}
-                  <FileIcon category={categoryOf(item)} size={56} ext={extOf(item)} />
+                  <FileIcon category={categoryOf(item)} size={56} ext={extOf(item)} color={folderColor(item)} />
                   <p className="mt-2 line-clamp-2 w-full break-words text-[12.5px] font-medium leading-tight">{item.name}</p>
                   <p className="tabular mt-0.5 text-[11px] text-stone-400">
                     {item.kind === 'folder' ? `${items.filter(i => i.parentId === item.id).length} élément${items.filter(i => i.parentId === item.id).length > 1 ? 's' : ''}` : formatBytes(item.size)}
                   </p>
+                  {item.tags?.length ? (
+                    <div className="mt-1.5 flex max-w-full flex-wrap justify-center gap-1">
+                      {item.tags.slice(0, 2).map(t => <TagPill key={t} tag={t} />)}
+                      {item.tags.length > 2 && <span className="text-[10.5px] text-stone-400">+{item.tags.length - 2}</span>}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -562,16 +840,27 @@ export default function DrivePage() {
                   key={item.id}
                   {...itemProps(item)}
                   className={cx(
-                    'grid h-11 cursor-default select-none grid-cols-[1fr_110px_80px] items-center gap-3 border-b border-stone-100 px-4 text-[13px] transition-colors last:border-0 md:grid-cols-[1fr_200px_130px_90px]',
+                    'grid min-h-11 cursor-default select-none grid-cols-[1fr_110px_80px] items-center gap-3 border-b border-stone-100 px-4 text-[13px] transition-colors last:border-0 md:grid-cols-[1fr_200px_130px_90px]',
+                    snippetOf(item) && 'py-2',
                     sel ? 'bg-brand-50' : 'hover:bg-stone-50',
                     dropTarget === item.id && 'bg-brand-50 ring-2 ring-inset ring-brand-500',
                     cutIds.has(item.id) && 'opacity-40',
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-2.5">
-                    <FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} />
-                    <span className="truncate font-medium">{item.name}</span>
-                    {item.starred && <Star size={11} className="shrink-0 fill-amber-400 text-amber-400" />}
+                    <FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} color={folderColor(item)} />
+                    <span className="min-w-0">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate font-medium">{q ? <Highlighted text={item.name} query={q} /> : item.name}</span>
+                        {item.starred && <Star size={11} className="shrink-0 fill-amber-400 text-amber-400" />}
+                        {item.tags?.length ? <span className="hidden shrink-0 items-center gap-1 sm:flex">{item.tags.map(t => <TagPill key={t} tag={t} />)}</span> : null}
+                      </span>
+                      {snippetOf(item) && (
+                        <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-stone-500">
+                          <Highlighted text={snippetOf(item)!} query={q} />
+                        </span>
+                      )}
+                    </span>
                   </span>
                   <span className="hidden truncate text-[12px] text-stone-500 md:block">{['Drive', ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}</span>
                   <span className="text-[12px] text-stone-500">{relativeTime(item.updatedAt)}</span>
@@ -595,6 +884,8 @@ export default function DrivePage() {
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
       {previewItem && <PreviewModal item={previewItem} onClose={closePreview} />}
+      {tagIds && <TagDialog ids={tagIds} onClose={() => setTagIds(null)} />}
+      {shareItem && <ShareDialog item={shareItem} onClose={() => setShareItem(null)} />}
       {moveIds && (
         <MoveDialog
           ids={moveIds}

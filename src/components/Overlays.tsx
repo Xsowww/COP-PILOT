@@ -101,6 +101,8 @@ export interface MenuItem {
   danger?: boolean;
   disabled?: boolean;
   divider?: boolean;
+  /** Custom row (e.g. a colour palette) rendered instead of a button. */
+  content?: React.ReactNode;
 }
 
 export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
@@ -136,6 +138,8 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
       {items.map((it, i) =>
         it.divider ? (
           <div key={i} className="my-1 h-px bg-stone-100" />
+        ) : it.content ? (
+          <div key={i}>{it.content}</div>
         ) : (
           <button
             key={i}
