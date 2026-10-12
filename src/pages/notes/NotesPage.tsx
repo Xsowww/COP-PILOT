@@ -1,32 +1,52 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ChevronRight, FilePlus2, FolderPlus, Folder, FolderOpen, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
+  ChevronRight, ChevronDown, FilePlus2, FolderPlus, Folder, FolderOpen, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
+  Paperclip, Printer, FileDown, RotateCcw, BookOpenCheck, FlaskConical, ScrollText, GraduationCap, Presentation,
 } from 'lucide-react';
-import { useNotes, type Note, type NoteFolder } from '../../store/notes';
+import { useNotes, notesTrashRoots, type Note, type NoteFolder } from '../../store/notes';
 import { askText, confirmAction, toast } from '../../store/ui';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { cx, normalize, relativeTime, stripHtml } from '../../lib/utils';
 import NoteEditor from './NoteEditor';
+import NotesTrash from './NotesTrash';
+import { LinkChips, LinkPicker } from './NoteLinks';
+import { NOTE_TEMPLATES, type NoteTemplate } from './templates';
+import { downloadMarkdown, printNote } from './exportNote';
+import { flushNoteEditor, leftLabel } from './noteUtils';
 
 const DRAG_NOTE = 'application/x-cop-note';
 const DRAG_FOLDER = 'application/x-cop-note-folder';
 
+const TEMPLATE_ICONS: Record<string, typeof FileText> = {
+  vide: FileText,
+  fiche: BookOpenCheck,
+  tp: FlaskConical,
+  dissertation: ScrollText,
+  cours: GraduationCap,
+  expose: Presentation,
+};
+
 export default function NotesPage() {
   const [params, setParams] = useSearchParams();
-  const { notes, folders } = useNotes();
+  const { notes, folders, trashNotes, trashFolders } = useNotes();
   const store = useNotes.getState();
   const noteId = params.get('note');
   const folderParam = params.get('dossier');
-  const active = notes.find(n => n.id === noteId);
+  const trashOpen = params.has('corbeille');
+  const live = notes.find(n => n.id === noteId);
+  const active = live ?? trashNotes.find(n => n.id === noteId);
+  const trashed = !!active && !live;
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(folders.map(f => f.id)));
   const [focusFolder, setFocusFolder] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
 
   const openNote = (id: string | null) => setParams(id ? { note: id } : {});
+  const openTrash = () => setParams({ corbeille: '' });
 
   // Links like /notes?dossier=… (from Copilot or search) reveal that folder.
   useEffect(() => {
@@ -37,8 +57,8 @@ export default function NotesPage() {
 
   // Reveal the folder of the opened note.
   useEffect(() => {
-    if (active?.folderId) setExpanded(s => (s.has(active.folderId!) ? s : new Set([...s, active.folderId!])));
-  }, [active?.folderId]);
+    if (live?.folderId) setExpanded(s => (s.has(live.folderId!) ? s : new Set([...s, live.folderId!])));
+  }, [live?.folderId]);
 
   // Dashboard "+ Note" shortcut (guarded: StrictMode runs effects twice in dev).
   const handledNew = useRef(false);
@@ -50,14 +70,34 @@ export default function NotesPage() {
     }
   }, [params, setParams]);
 
-  const targetFolder = focusFolder ?? active?.folderId ?? null;
+  const targetFolder = focusFolder ?? live?.folderId ?? null;
 
-  const newNote = (folderId: string | null = targetFolder) => {
-    const n = store.createNote({ folderId });
+  const newNote = (folderId: string | null = targetFolder, template?: NoteTemplate) => {
+    const n = store.createNote({ folderId, title: template?.title, content: template?.html() });
     if (folderId) setExpanded(s => new Set([...s, folderId]));
+    focusTitleFor.current = n.id;
     openNote(n.id);
-    setTimeout(() => document.getElementById('note-title')?.focus(), 50);
   };
+
+  // Focus (and select) the title of a note we just created, once its editor is on screen.
+  const focusTitleFor = useRef<string | null>(null);
+  const activeId = active?.id;
+  useEffect(() => {
+    if (!activeId || focusTitleFor.current !== activeId) return;
+    const t = setTimeout(() => {
+      focusTitleFor.current = null;
+      const el = document.getElementById('note-title') as HTMLInputElement | null;
+      el?.focus();
+      el?.select();
+    }, 30);
+    return () => clearTimeout(t);
+  }, [activeId]);
+
+  const templateMenu = (folderId: string | null = targetFolder): MenuItem[] =>
+    NOTE_TEMPLATES.map((t, i) => {
+      const Icon = TEMPLATE_ICONS[t.id] ?? FileText;
+      return { label: t.label, icon: <Icon size={15} />, onClick: () => newNote(folderId, i === 0 ? undefined : t) };
+    });
 
   const newFolder = async (parentId: string | null = targetFolder) => {
     const name = await askText(parentId ? 'Nouveau sous-dossier' : 'Nouveau dossier', 'Nouveau dossier', 'Créer');
@@ -77,20 +117,63 @@ export default function NotesPage() {
     if (name) store.updateNote(n.id, { title: name });
   };
 
-  const deleteFolder = async (f: NoteFolder) => {
-    const count = notes.filter(n => n.folderId === f.id).length;
-    if (!(await confirmAction(`Supprimer le dossier « ${f.name} » ?`, count ? `Ses ${count} note(s) et sous-dossiers seront aussi supprimés.` : undefined))) return;
-    if (active?.folderId === f.id) openNote(null);
-    store.removeFolder(f.id);
-    toast('Dossier supprimé', 'success');
+  // Deleting moves to the trash: no confirmation, an « Annuler » in the toast instead.
+  const isInside = (folderId: string, ancestor: string) => {
+    for (let id: string | null = folderId; id; id = folders.find(x => x.id === id)?.parentId ?? null) if (id === ancestor) return true;
+    return false;
   };
 
-  const deleteNote = async (n: Note) => {
-    if (!(await confirmAction(`Supprimer « ${n.title} » ?`, 'Cette action est définitive.'))) return;
-    if (n.id === noteId) openNote(null);
-    store.removeNote(n.id);
-    toast('Note supprimée', 'success');
+  const deleteFolder = (f: NoteFolder) => {
+    if (live?.folderId && isInside(live.folderId, f.id)) {
+      flushNoteEditor();
+      openNote(null);
+    }
+    if (focusFolder === f.id) setFocusFolder(null);
+    store.removeFolder(f.id);
+    toast(`Dossier « ${f.name} » placé dans la corbeille`, 'info', { label: 'Annuler', run: () => useNotes.getState().restore([f.id]) });
   };
+
+  const deleteNote = (n: Note) => {
+    if (n.id === noteId) {
+      flushNoteEditor();
+      openNote(null);
+    }
+    store.removeNote(n.id);
+    toast(`« ${n.title} » placée dans la corbeille`, 'info', { label: 'Annuler', run: () => useNotes.getState().restore([n.id]) });
+  };
+
+  const restoreNote = (n: Note) => {
+    store.restore([n.id]);
+    toast('Note restaurée', 'success');
+  };
+
+  const purgeNote = async (n: Note) => {
+    if (!(await confirmAction(`Supprimer « ${n.title} » définitivement ?`, 'La note ne pourra plus être récupérée.', 'Supprimer définitivement'))) return;
+    store.purge([n.id]);
+    openTrash();
+  };
+
+  const folderPath = (id: string | null) => {
+    const names: string[] = [];
+    for (let f = folders.find(x => x.id === id); f; f = folders.find(x => x.id === f!.parentId)) names.unshift(f.name);
+    return names.join(' / ');
+  };
+
+  const exportPdf = (n: Note) => {
+    flushNoteEditor();
+    const fresh = useNotes.getState().notes.find(x => x.id === n.id) ?? n;
+    printNote(fresh, folderPath(fresh.folderId) || undefined).catch(() => toast('Impossible d’ouvrir l’impression', 'error'));
+  };
+
+  const exportMd = (n: Note) => {
+    flushNoteEditor();
+    downloadMarkdown(useNotes.getState().notes.find(x => x.id === n.id) ?? n);
+  };
+
+  const exportItems = (n: Note): MenuItem[] => [
+    { label: 'Exporter en PDF', icon: <Printer size={15} />, onClick: () => exportPdf(n) },
+    { label: 'Exporter en Markdown', icon: <FileDown size={15} />, onClick: () => exportMd(n) },
+  ];
 
   const noteMenu = (n: Note): MenuItem[] => [
     { label: 'Ouvrir', icon: <FileText size={15} />, onClick: () => openNote(n.id) },
@@ -99,7 +182,16 @@ export default function NotesPage() {
     { label: n.pinned ? 'Désépingler' : 'Épingler en haut', icon: n.pinned ? <PinOff size={15} /> : <Pin size={15} />, onClick: () => store.updateNote(n.id, { pinned: !n.pinned }) },
     ...(n.folderId ? [{ label: 'Sortir du dossier', icon: <FolderOpen size={15} />, onClick: () => store.updateNote(n.id, { folderId: null }) }] : []),
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Supprimer', icon: <Trash2 size={15} />, danger: true, onClick: () => void deleteNote(n) },
+    ...exportItems(n),
+    { label: '', divider: true, onClick: () => {} },
+    { label: 'Supprimer', icon: <Trash2 size={15} />, danger: true, onClick: () => deleteNote(n) },
+  ];
+
+  const trashedNoteMenu = (n: Note): MenuItem[] => [
+    { label: 'Restaurer', icon: <RotateCcw size={15} />, onClick: () => restoreNote(n) },
+    ...exportItems(n),
+    { label: '', divider: true, onClick: () => {} },
+    { label: 'Supprimer définitivement', icon: <Trash2 size={15} />, danger: true, onClick: () => void purgeNote(n) },
   ];
 
   const folderMenu = (f: NoteFolder): MenuItem[] => [
@@ -108,19 +200,20 @@ export default function NotesPage() {
     { label: 'Renommer', icon: <Pencil size={15} />, onClick: () => void renameFolder(f) },
     ...(f.parentId ? [{ label: 'Remonter à la racine', icon: <FolderOpen size={15} />, onClick: () => store.moveFolder(f.id, null) }] : []),
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Supprimer', icon: <Trash2 size={15} />, danger: true, onClick: () => void deleteFolder(f) },
+    { label: 'Supprimer', icon: <Trash2 size={15} />, danger: true, onClick: () => deleteFolder(f) },
   ];
 
   const sortNotes = (list: Note[]) => [...list].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt));
 
-  // ── Drag & drop (notes and folders into folders) ─────────────────────────
+  // ── Drag & drop (notes and folders into folders, or onto the trash) ─────
+  const dragOver = (key: string) => (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes(DRAG_NOTE) && !e.dataTransfer.types.includes(DRAG_FOLDER)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDropOn(key);
+  };
   const dropProps = (folderId: string | null, key: string) => ({
-    onDragOver: (e: React.DragEvent) => {
-      if (!e.dataTransfer.types.includes(DRAG_NOTE) && !e.dataTransfer.types.includes(DRAG_FOLDER)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setDropOn(key);
-    },
+    onDragOver: dragOver(key),
     onDragLeave: () => setDropOn(d => (d === key ? null : d)),
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
@@ -133,12 +226,30 @@ export default function NotesPage() {
       if (folderId) setExpanded(s => new Set([...s, folderId]));
     },
   });
+  const trashDropProps = {
+    onDragOver: dragOver('trash'),
+    onDragLeave: () => setDropOn(d => (d === 'trash' ? null : d)),
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDropOn(null);
+      const n = notes.find(x => x.id === e.dataTransfer.getData(DRAG_NOTE));
+      const f = folders.find(x => x.id === e.dataTransfer.getData(DRAG_FOLDER));
+      if (n) deleteNote(n);
+      if (f) deleteFolder(f);
+    },
+  };
 
   const q = normalize(query);
   const results = useMemo(
     () => (q ? sortNotes(notes.filter(n => normalize(n.title).includes(q) || normalize(stripHtml(n.content)).includes(q))) : []),
     [q, notes],
   );
+
+  const trashCount = useMemo(() => {
+    const r = notesTrashRoots(trashFolders, trashNotes);
+    return r.folders.length + r.notes.length;
+  }, [trashFolders, trashNotes]);
 
   const renderNote = (n: Note, depth: number) => (
     <div
@@ -227,19 +338,33 @@ export default function NotesPage() {
 
   const rootFolders = folders.filter(f => f.parentId === null).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   const rootNotes = sortNotes(notes.filter(n => n.folderId === null));
+  const mainOpen = !!active || trashOpen;
 
   return (
     <div className="flex h-full gap-4 px-4 pb-4 md:px-8">
       {/* Sidebar */}
-      <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[268px]', active ? 'hidden' : 'flex')}>
+      <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[268px]', mainOpen ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Notes</h1>
           <button className="icon-btn ml-auto" title="Nouveau dossier" onClick={() => void newFolder(null)}>
             <FolderPlus size={16} />
           </button>
-          <button className="btn-primary h-8 px-3" onClick={() => newNote()} title="Nouvelle note">
-            <FilePlus2 size={14} /> Nouvelle note
-          </button>
+          <div className="flex">
+            <button className="btn-primary h-8 rounded-r-none px-3" onClick={() => newNote()} title="Nouvelle note vide">
+              <FilePlus2 size={14} /> Nouvelle note
+            </button>
+            <button
+              className="btn-primary h-8 rounded-l-none border-l border-white/20 px-1.5"
+              title="Partir d’un modèle"
+              aria-label="Partir d’un modèle"
+              onClick={e => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setMenu({ x: r.right - 208, y: r.bottom + 6, items: templateMenu() });
+              }}
+            >
+              <ChevronDown size={14} />
+            </button>
+          </div>
         </div>
         <div className="relative mb-2">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -270,48 +395,101 @@ export default function NotesPage() {
             </div>
           )}
         </div>
-        <p className="hidden pt-2 text-[11px] text-stone-400 md:block">Glisse une note sur un dossier pour la ranger.</p>
+        <div className="mt-1 border-t border-stone-200/70 pt-1">
+          <button
+            {...trashDropProps}
+            onClick={openTrash}
+            className={cx(
+              'flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-[13px] transition-colors',
+              dropOn === 'trash' ? 'bg-red-50 text-red-700 ring-1 ring-red-300' : trashOpen || trashed ? 'bg-stone-100 font-medium text-ink' : 'text-stone-600 hover:bg-stone-50 hover:text-ink',
+            )}
+          >
+            <Trash2 size={14} className="shrink-0 text-stone-400" />
+            <span className="flex-1 text-left">Corbeille</span>
+            {trashCount > 0 && <span className="tabular text-[11px] text-stone-400">{trashCount}</span>}
+          </button>
+          <p className="hidden px-2.5 pt-1.5 text-[11px] text-stone-400 md:block">Glisse une note sur un dossier pour la ranger.</p>
+        </div>
       </aside>
 
       {/* Editor */}
-      <section className={cx('card min-w-0 flex-1 flex-col overflow-hidden md:mt-2', active ? 'flex' : 'hidden md:flex')}>
+      <section className={cx('card min-w-0 flex-1 flex-col overflow-hidden md:mt-2', mainOpen ? 'flex' : 'hidden md:flex')}>
         {active ? (
           <>
+            {trashed && (
+              <div className="flex items-center gap-3 border-b border-amber-200/70 bg-amber-50 px-4 py-2.5 text-[13px] text-amber-900 md:px-12">
+                <Trash2 size={15} className="shrink-0 text-amber-700" />
+                <p className="min-w-0 flex-1">
+                  Cette note est dans la corbeille <span className="text-amber-700">· {leftLabel(active.deletedAt)}</span>
+                </p>
+                <button className="btn-ghost h-7 px-2 text-amber-900 hover:bg-amber-100" onClick={openTrash}>
+                  Corbeille
+                </button>
+                <button className="btn-secondary h-7 px-2.5" onClick={() => restoreNote(active)}>
+                  <RotateCcw size={13} /> Restaurer
+                </button>
+              </div>
+            )}
             <div className="flex items-start gap-1 px-4 pt-6 md:px-12">
-              <button className="icon-btn mt-1 md:hidden" onClick={() => openNote(null)} title="Retour">
+              <button className="icon-btn mt-1 md:hidden" onClick={() => (trashed ? openTrash() : openNote(null))} title="Retour">
                 <ArrowLeft size={17} />
               </button>
               <div className="min-w-0 flex-1">
                 <input
                   id="note-title"
-                  key={active.id}
+                  key={active.id + String(trashed)}
                   defaultValue={active.title === 'Sans titre' ? '' : active.title}
                   placeholder="Sans titre"
+                  readOnly={trashed}
                   onChange={e => store.updateNote(active.id, { title: e.target.value.trim() || 'Sans titre' })}
                   onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), document.querySelector<HTMLElement>('.prose-note')?.focus())}
                   className="w-full bg-transparent text-[26px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-300"
                 />
                 <p className="mt-1 text-[12px] text-stone-400">
-                  {folders.find(f => f.id === active.folderId)?.name ?? 'Sans dossier'} · modifiée {relativeTime(active.updatedAt)}
+                  {trashed ? 'Corbeille' : (folders.find(f => f.id === active.folderId)?.name ?? 'Sans dossier')} · modifiée {relativeTime(active.updatedAt)}
                 </p>
+                <LinkChips note={active} readOnly={trashed} />
               </div>
-              <button className="icon-btn mt-1" title={active.pinned ? 'Désépingler' : 'Épingler'} onClick={() => store.updateNote(active.id, { pinned: !active.pinned })}>
-                {active.pinned ? <PinOff size={15} /> : <Pin size={15} />}
-              </button>
-              <button className="icon-btn mt-1" title="Plus" onClick={e => setMenu({ x: e.clientX - 180, y: e.clientY + 10, items: noteMenu(active) })}>
+              {!trashed && (
+                <>
+                  <button className="btn-ghost mt-0.5 h-8 px-2.5" title="Lier à des fichiers du Drive ou des événements" onClick={() => setLinking(true)}>
+                    <Paperclip size={15} /> <span className="hidden sm:inline">Lier…</span>
+                  </button>
+                  <button className="icon-btn mt-0.5" title={active.pinned ? 'Désépingler' : 'Épingler'} onClick={() => store.updateNote(active.id, { pinned: !active.pinned })}>
+                    {active.pinned ? <PinOff size={15} /> : <Pin size={15} />}
+                  </button>
+                </>
+              )}
+              <button className="icon-btn mt-0.5" title="Plus" onClick={e => setMenu({ x: e.clientX - 180, y: e.clientY + 10, items: trashed ? trashedNoteMenu(active) : noteMenu(active) })}>
                 <MoreHorizontal size={16} />
               </button>
             </div>
-            <NoteEditor key={active.id} note={active} />
+            <NoteEditor key={active.id + String(trashed)} note={active} readOnly={trashed} />
+            {!trashed && <LinkPicker note={active} open={linking} onClose={() => setLinking(false)} />}
           </>
+        ) : trashOpen ? (
+          <NotesTrash onOpen={id => openNote(id)} onBack={() => openNote(null)} />
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
             <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
             <p className="mt-3 text-[14px] font-medium">Aucune note ouverte</p>
-            <p className="mt-1 text-[13px] text-stone-500">Choisis une note à gauche ou crée-en une.</p>
-            <button className="btn-secondary mt-4" onClick={() => newNote()}>
-              <FilePlus2 size={15} /> Nouvelle note
-            </button>
+            <p className="mt-1 text-[13px] text-stone-500">Choisis une note à gauche, ou pars d’un modèle.</p>
+            <div className="mt-5 grid w-full max-w-[460px] grid-cols-2 gap-2 text-left sm:grid-cols-3">
+              {NOTE_TEMPLATES.map((t, i) => {
+                const Icon = TEMPLATE_ICONS[t.id] ?? FileText;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => newNote(targetFolder, i === 0 ? undefined : t)}
+                    className="rounded-lg border border-stone-200 px-3 py-2.5 transition-colors hover:border-stone-300 hover:bg-stone-50"
+                  >
+                    <Icon size={16} className="text-brand-600" />
+                    <span className="mt-1.5 block text-[13px] font-medium">{t.label}</span>
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-stone-500">{t.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </section>

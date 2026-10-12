@@ -4,11 +4,36 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Highlight from '@tiptap/extension-highlight';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
+import TiptapImage from '@tiptap/extension-image';
+import type { EditorView } from '@tiptap/pm/view';
+import { NodeSelection } from '@tiptap/pm/state';
 import {
-  Bold, Italic, Underline, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Minus, Undo2, Redo2,
+  Bold, Italic, Underline, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Minus, Undo2, Redo2, ImagePlus,
 } from 'lucide-react';
 import { useNotes, type Note } from '../../store/notes';
+import { toast } from '../../store/ui';
 import { cx } from '../../lib/utils';
+import { compressImage, imageFiles } from './images';
+import { registerEditorFlush } from './noteUtils';
+import './notes.css';
+
+/** Compresses then inserts images at `pos` (drop) or at the selection (paste, toolbar). */
+async function insertImages(view: EditorView, files: File[], pos?: number) {
+  for (const file of files) {
+    try {
+      const src = await compressImage(file);
+      if (view.isDestroyed) return;
+      const { state } = view;
+      const node = state.schema.nodes.image.create({ src });
+      // A selected image is kept: the new one goes right after it.
+      const at = pos ?? (state.selection instanceof NodeSelection ? state.selection.to : null);
+      const tr = at == null ? state.tr.replaceSelectionWith(node) : state.tr.insert(Math.min(at, state.doc.content.size), node);
+      view.dispatch(tr.scrollIntoView());
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Impossible d’ajouter l’image', 'error');
+    }
+  }
+}
 
 function Toolbar({ editor }: { editor: Editor }) {
   const btn = (label: string, Icon: typeof Bold, active: boolean, run: () => void) => (
@@ -51,6 +76,25 @@ function Toolbar({ editor }: { editor: Editor }) {
         else c().extendMarkRange('link').setLink({ href: url.trim() }).run();
       })}
       {btn('Séparateur', Minus, false, () => c().setHorizontalRule().run())}
+      <label
+        key="image"
+        title="Image (tu peux aussi la coller ou la glisser dans la note)"
+        onMouseDown={e => e.preventDefault()}
+        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
+      >
+        <ImagePlus size={15} />
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={e => {
+            const files = imageFiles(e.target.files);
+            e.target.value = '';
+            if (files.length) void insertImages(editor.view, files);
+          }}
+        />
+      </label>
       {sep('s4')}
       {btn('Annuler (Ctrl+Z)', Undo2, false, () => c().undo().run())}
       {btn('Rétablir', Redo2, false, () => c().redo().run())}
@@ -58,18 +102,36 @@ function Toolbar({ editor }: { editor: Editor }) {
   );
 }
 
-export default function NoteEditor({ note }: { note: Note }) {
+export default function NoteEditor({ note, readOnly = false }: { note: Note; readOnly?: boolean }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const editor = useEditor({
+    editable: !readOnly,
     extensions: [
       StarterKit.configure({ link: { openOnClick: false, autolink: true } }),
       Placeholder.configure({ placeholder: 'Commence à écrire… (tape « # » pour un titre, « - » pour une liste)' }),
       Highlight,
       TaskList,
       TaskItem.configure({ nested: true }),
+      TiptapImage.configure({ allowBase64: true }),
     ],
     content: note.content,
-    editorProps: { attributes: { class: 'prose-note' } },
+    editorProps: {
+      attributes: { class: 'prose-note' },
+      handlePaste: (view, event) => {
+        const files = imageFiles(event.clipboardData?.files);
+        if (!files.length) return false;
+        event.preventDefault();
+        void insertImages(view, files);
+        return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        const files = moved ? [] : imageFiles(event.dataTransfer?.files);
+        if (!files.length) return false;
+        event.preventDefault();
+        void insertImages(view, files, view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos);
+        return true;
+      },
+    },
     onUpdate: ({ editor: ed }) => {
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => useNotes.getState().updateNote(note.id, { content: ed.getHTML() }), 350);
@@ -80,25 +142,31 @@ export default function NoteEditor({ note }: { note: Note }) {
   useEffect(() => {
     const flush = () => {
       clearTimeout(saveTimer.current);
-      if (editor && !editor.isDestroyed) {
+      if (editor && !editor.isDestroyed && !readOnly) {
         const html = editor.getHTML();
-        if (html !== useNotes.getState().notes.find(n => n.id === note.id)?.content) useNotes.getState().updateNote(note.id, { content: html });
+        const saved = useNotes.getState().notes.find(n => n.id === note.id);
+        // Gone (e.g. moved to the trash): nothing to save.
+        if (saved && html !== saved.content) useNotes.getState().updateNote(note.id, { content: html });
       }
     };
     window.addEventListener('pagehide', flush);
+    registerEditorFlush(flush);
     return () => {
       window.removeEventListener('pagehide', flush);
+      registerEditorFlush(null, flush);
       flush();
     };
-  }, [editor, note.id]);
+  }, [editor, note.id, readOnly]);
 
   if (!editor) return null;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="sticky top-0 z-10 border-b border-stone-100 bg-white px-4 py-1.5 md:px-11">
-        <Toolbar editor={editor} />
-      </div>
-      <div className="min-h-0 flex-1 cursor-text overflow-y-auto px-4 py-6 md:px-12" onClick={() => !editor.isFocused && editor.commands.focus('end')}>
+      {!readOnly && (
+        <div className="sticky top-0 z-10 border-b border-stone-100 bg-white px-4 py-1.5 md:px-11">
+          <Toolbar editor={editor} />
+        </div>
+      )}
+      <div className={cx('min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-12', !readOnly && 'cursor-text')} onClick={() => !readOnly && !editor.isFocused && editor.commands.focus('end')}>
         <EditorContent editor={editor} onClick={e => e.stopPropagation()} />
       </div>
     </div>
