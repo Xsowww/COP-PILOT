@@ -4,6 +4,10 @@ import { userStorage } from '../lib/userStorage';
 
 export type AccentKey = 'orange' | 'bleu' | 'vert' | 'violet' | 'rose' | 'encre';
 export type Chattiness = 'calme' | 'normal' | 'bavard';
+export type ThemeMode = 'clair' | 'sombre' | 'auto';
+export type Language = 'fr' | 'en';
+/** Copilot's personality presets (the server turns them into instructions). */
+export type PersonaKey = 'pote' | 'coach' | 'prof' | 'zen' | 'taquin';
 
 export const ACCENTS: Record<AccentKey, { label: string; shades: Record<'50' | '100' | '200' | '500' | '600' | '700', string> }> = {
   orange: { label: 'Orange', shades: { 50: '#fdf3ef', 100: '#fbe4da', 200: '#f6c6b2', 500: '#e8613c', 600: '#d24e2a', 700: '#ad3e20' } },
@@ -26,6 +30,8 @@ export interface Settings {
   // appearance
   accent: AccentKey;
   reduceMotion: boolean;
+  theme: ThemeMode;
+  language: Language;
   // Copilot
   copilotVisible: boolean;
   proactive: boolean;
@@ -33,6 +39,11 @@ export interface Settings {
   chattiness: Chattiness;
   revisionSessions: number;
   revisionTime: string; // HH:mm
+  persona: PersonaKey;
+  personaNotes: string; // free instructions written by the student (max 600 chars)
+  voiceReplies: boolean; // Copilot reads its answers aloud
+  morningBrief: boolean; // « ta journée en 3 lignes »
+  weeklyReview: boolean; // Sunday evening review
   // studies
   focusMinutes: number;
   breakMinutes: number;
@@ -41,6 +52,8 @@ export interface Settings {
   // notifications
   browserNotifications: boolean;
   focusSound: boolean;
+  // motivation
+  badgesSeen: string[]; // badges already announced
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -51,18 +64,26 @@ export const DEFAULT_SETTINGS: Settings = {
   year: '',
   accent: 'orange',
   reduceMotion: false,
+  theme: 'clair',
+  language: 'fr',
   copilotVisible: true,
   proactive: true,
   eventReminders: true,
   chattiness: 'normal',
   revisionSessions: 3,
   revisionTime: '18:00',
+  persona: 'pote',
+  personaNotes: '',
+  voiceReplies: false,
+  morningBrief: true,
+  weeklyReview: true,
   focusMinutes: 25,
   breakMinutes: 5,
   focusSessions: 0,
   focusTotalMinutes: 0,
   browserNotifications: false,
   focusSound: true,
+  badgesSeen: [],
 };
 
 interface SettingsState extends Settings {

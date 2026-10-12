@@ -22,6 +22,8 @@ export interface CalendarEvent {
   category: EventCategory;
   done: boolean;
   details?: string;
+  /** UID of the event in an imported .ics file, so a second import doesn't duplicate it. */
+  externalId?: string;
   createdAt: string;
 }
 

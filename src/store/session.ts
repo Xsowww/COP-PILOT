@@ -10,6 +10,8 @@ import { cloudEnabled } from '../lib/supabase';
 import { pullAll, pushLeftovers, startSync, stopSync, updateCloudProfile } from '../lib/cloudSync';
 import { useAuth } from './auth';
 import { toast } from './ui';
+import { useTodos } from './todos';
+import { useFocusLog } from './focusLog';
 
 /** Load the signed-in user's data (or reset everything when signed out). */
 export async function loadUserData() {
@@ -17,9 +19,11 @@ export async function loadUserData() {
   if (cloudEnabled) stopSync();
   // Detach storage while clearing memory, otherwise the reset would overwrite the saved data.
   setStorageUser(null);
-  useDrive.setState({ items: [], clipboard: null });
+  useDrive.setState({ items: [], trash: [], clipboard: null });
   useCalendar.setState({ events: [] });
-  useNotes.setState({ folders: [], notes: [] });
+  useNotes.setState({ folders: [], notes: [], trashFolders: [], trashNotes: [] });
+  useTodos.setState({ todos: [] });
+  useFocusLog.setState({ sessions: [] });
   useCopilot.getState().reset();
   useSettings.getState().reset();
   setStorageUser(userId);
@@ -33,6 +37,8 @@ export async function loadUserData() {
     useNotes.persist.rehydrate(),
     useCopilot.persist.rehydrate(),
     useSettings.persist.rehydrate(),
+    useTodos.persist.rehydrate(),
+    useFocusLog.persist.rehydrate(),
   ]);
 
   // Cloud mode: the local copy above is only a cache, the truth is in Supabase.
@@ -51,6 +57,9 @@ export async function loadUserData() {
       toast('Impossible de charger tes données en ligne. Tu vois la dernière version enregistrée sur cet appareil.', 'error');
     }
   }
+  // Trash: what has been there for more than 30 days goes for good.
+  useDrive.getState().purgeExpired();
+  useNotes.getState().purgeExpired();
   applyAppearance(useSettings.getState());
 }
 

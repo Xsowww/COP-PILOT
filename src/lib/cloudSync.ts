@@ -8,9 +8,11 @@ import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { useDrive, type DriveItem } from '../store/drive';
 import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
 import { useUi } from '../store/ui';
+import { useTodos, type Todo } from '../store/todos';
+import { useFocusLog, type FocusSession } from '../store/focusLog';
 
 type Row = Record<string, unknown>;
-type Table = 'events' | 'note_folders' | 'notes' | 'drive_items';
+type Table = 'events' | 'note_folders' | 'notes' | 'drive_items' | 'todos' | 'focus_sessions';
 
 // ── Row mapping (app shape ⇄ database columns) ─────────────────────────────
 
@@ -23,6 +25,7 @@ const eventToRow = (e: CalendarEvent): Row => ({
   category: e.category,
   done: e.done,
   details: e.details ?? null,
+  external_id: e.externalId ?? null,
   created_at: e.createdAt,
 });
 const rowToEvent = (r: Row): CalendarEvent => ({
@@ -34,11 +37,18 @@ const rowToEvent = (r: Row): CalendarEvent => ({
   category: r.category as CalendarEvent['category'],
   done: r.done as boolean,
   details: (r.details as string) ?? undefined,
+  externalId: (r.external_id as string) ?? undefined,
   createdAt: r.created_at as string,
 });
 
-const folderToRow = (f: NoteFolder): Row => ({ id: f.id, name: f.name, parent_id: f.parentId, created_at: f.createdAt });
-const rowToFolder = (r: Row): NoteFolder => ({ id: r.id as string, name: r.name as string, parentId: (r.parent_id as string) ?? null, createdAt: r.created_at as string });
+const folderToRow = (f: NoteFolder): Row => ({ id: f.id, name: f.name, parent_id: f.parentId, created_at: f.createdAt, deleted_at: f.deletedAt ?? null });
+const rowToFolder = (r: Row): NoteFolder => ({
+  id: r.id as string,
+  name: r.name as string,
+  parentId: (r.parent_id as string) ?? null,
+  createdAt: r.created_at as string,
+  deletedAt: (r.deleted_at as string) ?? undefined,
+});
 
 const noteToRow = (n: Note): Row => ({
   id: n.id,
@@ -46,8 +56,10 @@ const noteToRow = (n: Note): Row => ({
   content: n.content,
   folder_id: n.folderId,
   pinned: !!n.pinned,
+  links: n.links ?? [],
   created_at: n.createdAt,
   updated_at: n.updatedAt,
+  deleted_at: n.deletedAt ?? null,
 });
 const rowToNote = (r: Row): Note => ({
   id: r.id as string,
@@ -55,8 +67,10 @@ const rowToNote = (r: Row): Note => ({
   content: r.content as string,
   folderId: (r.folder_id as string) ?? null,
   pinned: r.pinned as boolean,
+  links: Array.isArray(r.links) && r.links.length ? (r.links as Note['links']) : undefined,
   createdAt: r.created_at as string,
   updatedAt: r.updated_at as string,
+  deletedAt: (r.deleted_at as string) ?? undefined,
 });
 
 const itemToRow = (i: DriveItem): Row => ({
@@ -67,8 +81,11 @@ const itemToRow = (i: DriveItem): Row => ({
   mime: i.mime ?? null,
   size: i.size ?? null,
   starred: !!i.starred,
+  color: i.color ?? null,
+  tags: i.tags ?? [],
   created_at: i.createdAt,
   updated_at: i.updatedAt,
+  deleted_at: i.deletedAt ?? null,
 });
 const rowToItem = (r: Row): DriveItem => ({
   id: r.id as string,
@@ -78,20 +95,36 @@ const rowToItem = (r: Row): DriveItem => ({
   mime: (r.mime as string) ?? undefined,
   size: r.size == null ? undefined : Number(r.size),
   starred: r.starred as boolean,
+  color: (r.color as string) ?? undefined,
+  tags: Array.isArray(r.tags) && r.tags.length ? (r.tags as string[]) : undefined,
   createdAt: r.created_at as string,
   updatedAt: r.updated_at as string,
+  deletedAt: (r.deleted_at as string) ?? undefined,
 });
+
+const todoToRow = (t: Todo): Row => ({ id: t.id, title: t.title, done: t.done, due: t.due ?? null, created_at: t.createdAt, done_at: t.doneAt ?? null });
+const rowToTodo = (r: Row): Todo => ({
+  id: r.id as string,
+  title: r.title as string,
+  done: r.done as boolean,
+  due: (r.due as string) ?? undefined,
+  createdAt: r.created_at as string,
+  doneAt: (r.done_at as string) ?? undefined,
+});
+
+const focusToRow = (f: FocusSession): Row => ({ id: f.id, subject: f.subject, minutes: f.minutes, started_at: f.startedAt });
+const rowToFocus = (r: Row): FocusSession => ({ id: r.id as string, subject: (r.subject as string) ?? '', minutes: Number(r.minutes), startedAt: r.started_at as string });
+
+const isTrashed = (r: Row) => r.deleted_at != null;
 
 // ── Pending changes ─────────────────────────────────────────────────────────
 
 // Parents must exist before their children: folders first, Drive items by depth.
-const ORDER: Table[] = ['note_folders', 'notes', 'drive_items', 'events'];
-const pending: Record<Table, { upserts: Map<string, Row>; deletes: Set<string> }> = {
-  events: { upserts: new Map(), deletes: new Set() },
-  note_folders: { upserts: new Map(), deletes: new Set() },
-  notes: { upserts: new Map(), deletes: new Set() },
-  drive_items: { upserts: new Map(), deletes: new Set() },
-};
+const ORDER: Table[] = ['note_folders', 'notes', 'drive_items', 'events', 'todos', 'focus_sessions'];
+const pending = Object.fromEntries(ORDER.map(t => [t, { upserts: new Map<string, Row>(), deletes: new Set<string>() }])) as Record<
+  Table,
+  { upserts: Map<string, Row>; deletes: Set<string> }
+>;
 let profileDirty = false;
 let pulling = false;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
@@ -171,11 +204,11 @@ async function flush() {
       if (p.upserts.size) {
         let rows = [...p.upserts.values()];
         if (table === 'drive_items') {
-          const items = useDrive.getState().items;
+          const items = [...useDrive.getState().items, ...useDrive.getState().trash];
           rows = rows.sort((a, b) => depthOf(items, a.id as string) - depthOf(items, b.id as string));
         }
         if (table === 'note_folders') {
-          const folders = useNotes.getState().folders;
+          const folders = [...useNotes.getState().folders, ...useNotes.getState().trashFolders];
           rows = rows.sort((a, b) => folderDepth(folders, a.id as string) - folderDepth(folders, b.id as string));
         }
         const { error } = await supabase.from(table).upsert(rows);
@@ -253,21 +286,34 @@ export async function pushLeftovers(userId: string) {
 /** Downloads everything for the signed-in user and replaces the stores' content. */
 export async function pullAll(userId: string): Promise<CloudProfile> {
   if (!supabase) throw new Error('cloud disabled');
-  const [events, folders, notes, items, profile] = await Promise.all([
+  const [events, folders, notes, items, profile, todos, focus] = await Promise.all([
     supabase.from('events').select('*'),
     supabase.from('note_folders').select('*'),
     supabase.from('notes').select('*'),
     supabase.from('drive_items').select('*'),
     supabase.from('profiles').select('*').eq('id', userId).maybeSingle(), // '*': tolerate older schemas
+    supabase.from('todos').select('*'),
+    supabase.from('focus_sessions').select('*'),
   ]);
   const err = events.error ?? folders.error ?? notes.error ?? items.error ?? profile.error;
   if (err) throw err;
 
   pulling = true;
   try {
+    const f = folders.data ?? [];
+    const n = notes.data ?? [];
+    const i = items.data ?? [];
     useCalendar.setState({ events: (events.data ?? []).map(rowToEvent) });
-    useNotes.setState({ folders: (folders.data ?? []).map(rowToFolder), notes: (notes.data ?? []).map(rowToNote) });
-    useDrive.setState({ items: (items.data ?? []).map(rowToItem), clipboard: null });
+    useNotes.setState({
+      folders: f.filter(r => !isTrashed(r)).map(rowToFolder),
+      notes: n.filter(r => !isTrashed(r)).map(rowToNote),
+      trashFolders: f.filter(isTrashed).map(rowToFolder),
+      trashNotes: n.filter(isTrashed).map(rowToNote),
+    });
+    useDrive.setState({ items: i.filter(r => !isTrashed(r)).map(rowToItem), trash: i.filter(isTrashed).map(rowToItem), clipboard: null });
+    // Tables added later: an older database without them keeps the local copy.
+    if (!todos.error) useTodos.setState({ todos: (todos.data ?? []).map(rowToTodo) });
+    if (!focus.error) useFocusLog.setState({ sessions: (focus.data ?? []).map(rowToFocus) });
     const saved = (profile.data?.settings ?? {}) as Partial<Settings>;
     const known = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];
     useSettings.setState(Object.fromEntries(known.filter(k => k in saved).map(k => [k, saved[k]])) as Partial<Settings>);
@@ -287,10 +333,15 @@ export function startSync(userId: string) {
   unsubscribers = [
     useCalendar.subscribe((s, p) => diff('events', s.events, p.events, eventToRow)),
     useNotes.subscribe((s, p) => {
-      diff('note_folders', s.folders, p.folders, folderToRow);
-      diff('notes', s.notes, p.notes, noteToRow);
+      if (s.folders !== p.folders || s.trashFolders !== p.trashFolders)
+        diff('note_folders', [...s.folders, ...s.trashFolders], [...p.folders, ...p.trashFolders], folderToRow);
+      if (s.notes !== p.notes || s.trashNotes !== p.trashNotes) diff('notes', [...s.notes, ...s.trashNotes], [...p.notes, ...p.trashNotes], noteToRow);
     }),
-    useDrive.subscribe((s, p) => diff('drive_items', s.items, p.items, itemToRow)),
+    useDrive.subscribe((s, p) => {
+      if (s.items !== p.items || s.trash !== p.trash) diff('drive_items', [...s.items, ...s.trash], [...p.items, ...p.trash], itemToRow);
+    }),
+    useTodos.subscribe((s, p) => diff('todos', s.todos, p.todos, todoToRow)),
+    useFocusLog.subscribe((s, p) => diff('focus_sessions', s.sessions, p.sessions, focusToRow)),
     useSettings.subscribe(() => {
       if (pulling) return;
       profileDirty = true;

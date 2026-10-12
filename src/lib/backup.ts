@@ -5,6 +5,8 @@ import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings'
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
 import { blobKey } from './userStorage';
+import { useTodos } from '../store/todos';
+import { useFocusLog } from '../store/focusLog';
 
 function download(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -27,6 +29,7 @@ export function exportBackup() {
     user: { name: useAuth.getState().user?.name },
     settings: Object.fromEntries(Object.entries(settings).filter(([, v]) => typeof v !== 'function')),
     calendar: useCalendar.getState().events,
+    todos: useTodos.getState().todos,
     notes: { folders: useNotes.getState().folders, notes: useNotes.getState().notes },
     driveFolders: useDrive.getState().items.filter(i => i.kind === 'folder'),
   };
@@ -47,6 +50,7 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
     const existing = new Set(useDrive.getState().items.map(i => i.id));
     useDrive.setState(s => ({ items: [...s.items, ...data.driveFolders.filter((f: { id: string }) => !existing.has(f.id))] }));
   }
+  if (Array.isArray(data.todos)) useTodos.setState({ todos: data.todos });
   return { notes: data.notes.notes?.length ?? 0, events: data.calendar.length };
 }
 
@@ -81,11 +85,13 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
 
 /** Removes every file, note and event of the current account (the account itself stays). */
 export async function wipeUserData() {
-  const files = useDrive.getState().items.filter(i => i.kind === 'file');
+  const files = [...useDrive.getState().items, ...useDrive.getState().trash].filter(i => i.kind === 'file');
   await Promise.all(files.map(f => blobStore.delete(blobKey(f.id)).catch(() => undefined)));
-  useDrive.setState({ items: [], clipboard: null });
-  useNotes.setState({ notes: [], folders: [] });
+  useDrive.setState({ items: [], trash: [], clipboard: null });
+  useNotes.setState({ notes: [], folders: [], trashNotes: [], trashFolders: [] });
   useCalendar.setState({ events: [] });
+  useTodos.setState({ todos: [] });
+  useFocusLog.setState({ sessions: [] });
 }
 
 /** Resizes a picked image to a small square data URL for the avatar. */

@@ -16,7 +16,16 @@ export interface DriveItem {
   createdAt: string;
   updatedAt: string;
   starred?: boolean;
+  /** Folder colour (key of FOLDER_COLORS). */
+  color?: string;
+  /** Free labels, e.g. « Important », « S1 ». */
+  tags?: string[];
+  /** Set when the item is in the trash (same value for everything deleted together). */
+  deletedAt?: string;
 }
+
+/** Items stay this long in the trash, then they are deleted for good. */
+export const TRASH_DAYS = 30;
 
 export interface Clipboard {
   mode: 'copy' | 'cut';
@@ -25,11 +34,21 @@ export interface Clipboard {
 
 interface DriveState {
   items: DriveItem[];
+  /** Deleted items, kept TRASH_DAYS days. Separate from `items` so nothing else has to filter them. */
+  trash: DriveItem[];
   clipboard: Clipboard | null;
   createFolder: (name: string, parentId: string | null) => DriveItem;
   uploadFiles: (files: File[], parentId: string | null) => Promise<DriveItem[]>;
   rename: (id: string, name: string) => void;
+  /** Moves items (and their content) to the trash. */
   remove: (ids: string[]) => void;
+  /** Puts trashed items back where they were (at the root if that folder is gone). */
+  restore: (ids: string[]) => void;
+  /** Deletes trashed items for good, files included. */
+  purge: (ids: string[]) => void;
+  emptyTrash: () => void;
+  purgeExpired: () => void;
+  update: (id: string, patch: Partial<Pick<DriveItem, 'color' | 'tags'>>) => void;
   move: (ids: string[], targetId: string | null) => number;
   duplicate: (ids: string[]) => Promise<void>;
   copy: (ids: string[]) => void;
@@ -113,6 +132,7 @@ export const useDrive = create<DriveState>()(
   persist(
     (set, get) => ({
       items: [],
+      trash: [],
       clipboard: null,
 
       createFolder(name, parentId) {
@@ -162,17 +182,52 @@ export const useDrive = create<DriveState>()(
       },
 
       remove(ids) {
-        const all = withDescendants(get().items, ids);
-        const doomed = new Set(all);
-        for (const id of all) {
-          const it = get().items.find(i => i.id === id);
-          if (it?.kind === 'file') void blobStore.delete(blobKey(id));
-        }
+        const doomed = new Set(withDescendants(get().items, ids));
+        if (!doomed.size) return;
+        const deletedAt = nowIso();
         set(s => ({
           items: s.items.filter(i => !doomed.has(i.id)),
+          trash: [...s.trash, ...s.items.filter(i => doomed.has(i.id)).map(i => ({ ...i, deletedAt }))],
           clipboard: s.clipboard ? { ...s.clipboard, ids: s.clipboard.ids.filter(i => !doomed.has(i)) } : null,
         }));
       },
+
+      restore(ids) {
+        const { trash, items } = get();
+        const back = new Set<string>();
+        for (const id of ids) {
+          const root = trash.find(i => i.id === id);
+          if (!root) continue;
+          // Everything deleted together with it comes back too.
+          for (const d of withDescendants(trash, [id])) if (trash.find(i => i.id === d)?.deletedAt === root.deletedAt) back.add(d);
+        }
+        if (!back.size) return;
+        const restored: DriveItem[] = [];
+        for (const it of trash.filter(i => back.has(i.id))) {
+          const { deletedAt: _d, ...clean } = it;
+          const parentAlive = !clean.parentId || back.has(clean.parentId) || items.some(i => i.id === clean.parentId);
+          const parentId = parentAlive ? clean.parentId : null;
+          const name = back.has(parentId ?? '') ? clean.name : uniqueName(clean.name, siblingNames([...items, ...restored], parentId));
+          restored.push({ ...clean, parentId, name });
+        }
+        set(s => ({ items: [...s.items, ...restored], trash: s.trash.filter(i => !back.has(i.id)) }));
+      },
+
+      purge(ids) {
+        const doomed = new Set(withDescendants(get().trash, ids));
+        for (const it of get().trash) if (doomed.has(it.id) && it.kind === 'file') void blobStore.delete(blobKey(it.id)).catch(() => undefined);
+        set(s => ({ trash: s.trash.filter(i => !doomed.has(i.id)) }));
+      },
+
+      emptyTrash: () => get().purge(get().trash.map(i => i.id)),
+
+      purgeExpired() {
+        const limit = Date.now() - TRASH_DAYS * 864e5;
+        const old = get().trash.filter(i => i.deletedAt && new Date(i.deletedAt).getTime() < limit).map(i => i.id);
+        if (old.length) get().purge(old);
+      },
+
+      update: (id, patch) => set(s => ({ items: s.items.map(i => (i.id === id ? { ...i, ...patch, updatedAt: nowIso() } : i)) })),
 
       move(ids, targetId) {
         const items = get().items;
@@ -231,9 +286,24 @@ export const useDrive = create<DriveState>()(
 
       toggleStar: id => set(s => ({ items: s.items.map(i => (i.id === id ? { ...i, starred: !i.starred } : i)) })),
     }),
-    { name: 'drive', storage: userStorage, skipHydration: true, partialize: s => ({ items: s.items }) },
+    { name: 'drive', storage: userStorage, skipHydration: true, partialize: s => ({ items: s.items, trash: s.trash }) },
   ),
 );
+
+/** Trashed items shown at the top level of the trash (their folder isn't in the trash with them). */
+export const trashRoots = (trash: DriveItem[]) => trash.filter(i => !i.parentId || !trash.some(t => t.id === i.parentId));
+
+/** Colours a folder can wear. */
+export const FOLDER_COLORS: Record<string, { label: string; color: string }> = {
+  bleu: { label: 'Bleu', color: '#3b6fd8' },
+  rouge: { label: 'Rouge', color: '#d9483b' },
+  orange: { label: 'Orange', color: '#e8613c' },
+  jaune: { label: 'Jaune', color: '#d48a17' },
+  vert: { label: 'Vert', color: '#2f9e6b' },
+  violet: { label: 'Violet', color: '#7a5ad6' },
+  rose: { label: 'Rose', color: '#d6457a' },
+  gris: { label: 'Gris', color: '#78716c' },
+};
 
 export async function getFileUrl(id: string): Promise<string | null> {
   const blob = await blobStore.get(blobKey(id));

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { getSettings, useSettings } from './settings';
 import { useCopilot } from './copilot';
 import { notify, chime } from '../lib/notify';
+import { useFocusLog } from './focusLog';
 
 export type FocusPhase = 'focus' | 'break';
 
@@ -49,6 +50,7 @@ export const useFocus = create<FocusState>((set, get) => ({
         focusSessions: settings.focusSessions + 1,
         focusTotalMinutes: settings.focusTotalMinutes + settings.focusMinutes,
       });
+      useFocusLog.getState().log(s.label, settings.focusMinutes, new Date(Date.now() - settings.focusMinutes * 60_000).toISOString());
       const text = pick([
         `${settings.focusMinutes} minutes de concentration, bien joué. Pause de ${settings.breakMinutes} min : lève-toi, bois un verre d'eau.`,
         `Session terminée${s.label ? ` sur « ${s.label} »` : ''}. Tu as mérité ta pause de ${settings.breakMinutes} minutes.`,
