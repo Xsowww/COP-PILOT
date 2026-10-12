@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2 } from 'lucide-react';
+import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
 import { startProactive } from '../copilot/proactive';
@@ -9,6 +9,7 @@ import Logo from '../components/Logo';
 import Avatar from '../components/Avatar';
 import FocusTimer from '../components/FocusTimer';
 import { cx } from '../lib/utils';
+import { checkIsAdmin, cloudEnabled } from '../lib/supabase';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
 
@@ -112,6 +113,17 @@ export default function AppShell() {
   useEffect(() => registerNavigate(navigate), [navigate]);
   useEffect(() => startProactive(), []);
 
+  // Lien « Administration » : seulement pour les comptes déclarés dans public.admins.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    if (!cloudEnabled) return;
+    let alive = true;
+    checkIsAdmin().then(ok => alive && setIsAdmin(ok), () => {});
+    return () => {
+      alive = false;
+    };
+  }, [user.id]);
+
   return (
     <div className="flex h-full">
       {/* Sidebar (desktop) */}
@@ -140,6 +152,20 @@ export default function AppShell() {
               )}
             </NavLink>
           ))}
+          {isAdmin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                cx(
+                  'mt-4 flex h-8 items-center gap-2.5 rounded-md border px-2 text-[13px] font-medium transition-colors',
+                  isActive ? 'border-stone-200 bg-white text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
+                )
+              }
+            >
+              <ChartNoAxesColumn size={16} strokeWidth={1.9} />
+              Administration
+            </NavLink>
+          )}
         </nav>
         <FocusTimer />
         <NavLink

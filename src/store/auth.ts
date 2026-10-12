@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { uid, nowIso } from '../lib/utils';
 import { setStorageUser } from '../lib/userStorage';
-import { supabase } from '../lib/supabase';
+import { supabase, checkPassword } from '../lib/supabase';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
 // Two modes:
@@ -61,8 +61,24 @@ function publicUser({ salt: _s, hash: _h, ...u }: StoredUser): User {
   return u;
 }
 
+/** Second factor (authenticator app) still required before entering the app. */
+export type MfaStep = 'setup' | 'verify' | null;
+
+export interface MfaEnrollment {
+  factorId: string;
+  qrCode: string; // SVG data URL
+  secret: string;
+  uri: string; // otpauth:// link, opens the authenticator app on a phone
+}
+
 interface AuthState {
   user: User | null;
+  mfaStep: MfaStep;
+  startMfaSetup: () => Promise<MfaEnrollment>;
+  /** Confirms a code from the authenticator app (setup or login). */
+  submitMfaCode: (code: string, factorId?: string) => Promise<void>;
+  /** Removes the current authenticator so a new phone can be set up. */
+  resetMfa: () => Promise<void>;
   /** Restores the session when the app starts. */
   init: () => Promise<void>;
   /** Returns null when the account must first be confirmed by e-mail (cloud mode). */
@@ -139,20 +155,32 @@ async function cloud<R extends { data: unknown; error: AuthError | null }>(p: Pr
   return res.data;
 }
 
+/** What remains to do with the second factor for the current session. */
+async function nextMfaStep(): Promise<MfaStep> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error || !data) return null;
+  if (data.currentLevel === 'aal2') return null;
+  if (data.nextLevel === 'aal2') return 'verify';
+  return 'setup'; // every online account is protected by an authenticator app
+}
+
 export const useAuth = create<AuthState>((set, get) => ({
   user: supabase ? null : restoreLocalSession(),
+  mfaStep: null,
 
   async init() {
     if (!supabase) return;
     const { data } = await supabase.auth.getSession();
     const user = data.session ? fromSupabase(data.session.user) : null;
-    setStorageUser(user?.id ?? null);
-    set({ user });
+    const mfaStep = user ? await nextMfaStep() : null;
+    setStorageUser(user && !mfaStep ? user.id : null);
+    set({ user, mfaStep });
     supabase.auth.onAuthStateChange((event, session) => {
       // Session expired or signed out in another tab.
       if (event === 'SIGNED_OUT' && get().user) {
         setStorageUser(null);
-        set({ user: null });
+        set({ user: null, mfaStep: null });
       }
       if (event === 'USER_UPDATED' && session) set({ user: fromSupabase(session.user) });
     });
@@ -166,8 +194,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       );
       if (!data.session || !data.user) return null; // confirmation e-mail sent
       const user = fromSupabase(data.user);
-      setStorageUser(user.id);
-      set({ user });
+      set({ user, mfaStep: 'setup' }); // the account is finished once the phone is paired
       return user;
     }
     const users = readUsers();
@@ -186,8 +213,9 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (supabase) {
       const data = await cloud(supabase.auth.signInWithPassword({ email: mail, password }));
       const user = fromSupabase(data.user!);
-      setStorageUser(user.id);
-      set({ user });
+      const mfaStep = await nextMfaStep();
+      if (!mfaStep) setStorageUser(user.id);
+      set({ user, mfaStep });
       return user;
     }
     const found = readUsers().find(u => u.email === mail);
@@ -208,7 +236,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       localStorage.removeItem(SESSION_KEY);
     }
     setStorageUser(null);
-    set({ user: null });
+    set({ user: null, mfaStep: null });
   },
 
   async updateName(name) {
@@ -227,11 +255,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   async verifyPassword(password) {
     const user = get().user;
     if (supabase) {
-      try {
-        await cloud(supabase.auth.signInWithPassword({ email: user?.email ?? '', password }));
-      } catch {
-        throw new Error('Mot de passe incorrect.');
-      }
+      if (!(await checkPassword(user?.email ?? '', password))) throw new Error('Mot de passe incorrect.');
       return;
     }
     await checkLocalPassword(user?.id, password);
@@ -291,5 +315,44 @@ export const useAuth = create<AuthState>((set, get) => ({
   async setNewPassword(password) {
     if (!supabase) return;
     await cloud(supabase.auth.updateUser({ password }));
+  },
+
+  async startMfaSetup() {
+    if (!supabase) throw new Error('Indisponible en mode local.');
+    // Leftovers from an abandoned attempt would block a new enrolment.
+    const { data: list } = await supabase.auth.mfa.listFactors();
+    for (const f of list?.all ?? []) if (f.status !== 'verified') await supabase.auth.mfa.unenroll({ factorId: f.id });
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `COP-PILOT ${new Date().toISOString().slice(0, 10)}`, issuer: 'COP-PILOT' });
+    if (error || !data) throw new Error("Impossible de générer le QR code, réessaie dans un instant.");
+    return { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri };
+  },
+
+  async submitMfaCode(code, factorId) {
+    if (!supabase) return;
+    let id = factorId;
+    if (!id) {
+      const { data } = await supabase.auth.mfa.listFactors();
+      id = data?.totp[0]?.id;
+    }
+    if (!id) throw new Error("Aucun appareil n'est associé à ce compte.");
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: id, code: code.replace(/\s/g, '') });
+    if (error) {
+      const msg = error.message.toLowerCase();
+      throw new Error(msg.includes('ip address') ? 'Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.' : msg.includes('expired') ? 'Ce code a expiré, tape le nouveau code affiché.' : msg.includes('rate') || msg.includes('too many') ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Vérifie que tu tapes le code COP-PILOT affiché en ce moment.');
+    }
+    const user = get().user;
+    if (user) setStorageUser(user.id);
+    set({ mfaStep: null });
+  },
+
+  async resetMfa() {
+    if (!supabase) return;
+    const { data } = await supabase.auth.mfa.listFactors();
+    for (const f of data?.all ?? []) {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
+      if (error) throw new Error("Impossible de retirer l'appareil actuel.");
+    }
+    setStorageUser(null);
+    set({ mfaStep: 'setup' });
   },
 }));

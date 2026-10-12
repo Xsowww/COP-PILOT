@@ -11,7 +11,6 @@ import FileIcon from '../components/FileIcon';
 import { hasRevisionPlan, linkToDay, linkToDriveFolder, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
 import { toast } from '../store/ui';
-import { useSettings } from '../store/settings';
 
 function Widget({ icon: Icon, title, to, className, color, children }: { icon: typeof CalendarDays; title: string; to?: string; className?: string; color: string; children: React.ReactNode }) {
   return (
@@ -64,7 +63,6 @@ export default function Dashboard() {
   const items = useDrive(s => s.items);
   const { notes, folders } = useNotes();
   const events = useCalendar(s => s.events);
-  const weeklyGoal = useSettings(s => s.weeklyGoal);
 
   const now = new Date();
   const today = todayKey();
@@ -162,12 +160,16 @@ export default function Dashboard() {
           {/* Week */}
           <Widget icon={CalendarRange} title="Cette semaine" to="/calendrier" className="md:col-span-2 xl:col-span-4" color="#2f9e6b">
             <div className="flex items-baseline gap-1.5">
-              <span className="tabular text-[28px] font-semibold leading-none tracking-tight">{weekDone}</span>
-              <span className="text-[13px] text-stone-500">/ {weeklyGoal} objectif{weekDone >= weeklyGoal ? ' atteint' : ''}</span>
-              <span className="tabular ml-auto text-[12px] text-stone-400">{week.length} prévu{week.length > 1 ? 's' : ''}</span>
+              <span className="tabular text-[28px] font-semibold leading-none tracking-tight">{week.length - weekDone}</span>
+              <span className="text-[13px] text-stone-500">
+                {week.length === 0 ? 'rien de prévu' : week.length - weekDone === 0 ? 'tout est fait, bravo' : `tâche${week.length - weekDone > 1 ? 's' : ''} à faire`}
+              </span>
+              <span className="tabular ml-auto text-[12px] text-stone-400">
+                {weekDone}/{week.length} faite{weekDone > 1 ? 's' : ''}
+              </span>
             </div>
             <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-stone-100">
-              <div className="h-full rounded-full bg-[#2f9e6b] transition-all" style={{ width: `${Math.min(100, (weekDone / Math.max(1, weeklyGoal)) * 100)}%` }} />
+              <div className="h-full rounded-full bg-[#2f9e6b] transition-all" style={{ width: `${week.length ? (weekDone / week.length) * 100 : 0}%` }} />
             </div>
             <div className="mt-auto grid grid-cols-7 items-end gap-1.5 pt-5">
               {weekDays.map((d, i) => (

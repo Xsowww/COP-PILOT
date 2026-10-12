@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { addDays } from 'date-fns';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowDown, LogOut, Trash2, Keyboard, Flame,
-  FolderClosed, NotebookText, CalendarCheck, Target, Timer, HardDrive,
+  FolderClosed, NotebookText, CalendarCheck, Target, Timer, HardDrive, Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type Chattiness } from '../../store/settings';
@@ -331,12 +331,6 @@ function StudiesTab() {
   const focus = useFocus();
   return (
     <div className="space-y-5">
-      <Section title="Objectifs" description="Pour suivre ta progression sur le tableau de bord.">
-        <Row label="Objectif de la semaine" hint="Nombre de tâches à cocher chaque semaine.">
-          <Stepper value={s.weeklyGoal} min={1} max={50} onChange={v => s.set({ weeklyGoal: v })} suffix="tâches" />
-        </Row>
-      </Section>
-
       <Section title="Sessions focus" description="Minuteur de concentration (méthode Pomodoro), accessible en bas de la barre latérale.">
         <Row label="Durée de travail">
           <Segmented<number> value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: `${v} min` }))} />
@@ -530,6 +524,32 @@ function AccountTab() {
 
   return (
     <div className="space-y-5">
+      {cloudEnabled && (
+        <Section title="Double authentification" description="Un code de ton téléphone est demandé à chaque nouvelle connexion.">
+          <Row label="Activée" hint="Ton compte est protégé par ton application d'authentification.">
+            <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
+              <ShieldCheck size={15} /> Protégé
+            </span>
+          </Row>
+          <Row label="Changer de téléphone" hint="Retire l'appareil actuel et affiche un nouveau QR code à scanner.">
+            <button
+              className="btn-secondary h-8"
+              onClick={async () => {
+                if (!(await confirmAction('Changer de téléphone ?', "L'ancien appareil ne pourra plus générer de codes. Tu scanneras un nouveau QR code juste après.", 'Continuer', false))) return;
+                try {
+                  await useAuth.getState().resetMfa();
+                  navigate('/securite');
+                } catch (e) {
+                  toast((e as Error).message, 'error');
+                }
+              }}
+            >
+              <Smartphone size={14} /> Associer un autre téléphone
+            </button>
+          </Row>
+        </Section>
+      )}
+
       <Section title="Mot de passe">
         <form onSubmit={onChange} className="grid gap-3 px-5 py-4 sm:grid-cols-3">
           <input type="password" className="field" placeholder="Mot de passe actuel" value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" />

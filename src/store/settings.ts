@@ -34,7 +34,6 @@ export interface Settings {
   revisionSessions: number;
   revisionTime: string; // HH:mm
   // studies
-  weeklyGoal: number;
   focusMinutes: number;
   breakMinutes: number;
   focusSessions: number; // completed, all time
@@ -58,7 +57,6 @@ export const DEFAULT_SETTINGS: Settings = {
   chattiness: 'normal',
   revisionSessions: 3,
   revisionTime: '18:00',
-  weeklyGoal: 10,
   focusMinutes: 25,
   breakMinutes: 5,
   focusSessions: 0,

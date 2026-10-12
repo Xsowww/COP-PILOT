@@ -20,6 +20,18 @@ export const linkError: string | null = (() => {
 })();
 
 export const supabase = url && key ? createClient(url, key) : null;
+
+/**
+ * Checks a password without touching the current session (which may already be
+ * verified with the second factor): a throwaway client signs in, then forgets.
+ */
+export async function checkPassword(email: string, password: string): Promise<boolean> {
+  if (!url || !key) return false;
+  const tmp = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'cop-pilot-check' } });
+  const { error } = await tmp.auth.signInWithPassword({ email, password });
+  if (!error) await tmp.auth.signOut({ scope: 'local' });
+  return !error;
+}
 export const cloudEnabled = supabase !== null;
 
 /** Access token of the signed-in user, to authenticate calls to our own server. */
@@ -29,3 +41,10 @@ export async function accessToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
+
+/** Vrai si le compte connecté est déclaré dans public.admins (tableau de bord /admin). */
+export async function checkIsAdmin(): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('is_admin');
+  return !error && data === true;
+}

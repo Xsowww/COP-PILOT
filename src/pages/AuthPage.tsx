@@ -135,10 +135,12 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           setPassword('');
           return;
         }
+        if (useAuth.getState().mfaStep) return navigate('/securite'); // pair the phone first
         await loadUserData();
         if (!cloudEnabled) seedNewAccount(user.name); // cloud mode seeds on first load
       } else {
         await login(email, password);
+        if (useAuth.getState().mfaStep) return navigate('/securite');
         await loadUserData();
       }
       navigate('/');
