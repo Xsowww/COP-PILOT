@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export function loadPublicEnv() {
+  if (process.env.COP_LOCAL) return; // COP_LOCAL=1 npm run dev → local mode (tests, no real accounts)
   let text = '';
   try {
     text = readFileSync(fileURLToPath(new URL('../.env.supabase.public', import.meta.url)), 'utf8');
