@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { loadUserData, seedNewAccount } from '../store/session';
-import { cloudEnabled } from '../lib/supabase';
+import { cloudEnabled, linkError } from '../lib/supabase';
 import Character from '../copilot/Character';
 import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
@@ -91,13 +91,14 @@ const COPY: Record<Mode, { title: string; subtitle: string; submit: string }> = 
 
 export default function AuthPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate();
-  const { login, register, requestPasswordReset, setNewPassword } = useAuth.getState();
+  const { login, register, requestPasswordReset, setNewPassword, resendConfirmation } = useAuth.getState();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(mode === 'login' ? (linkError ?? '') : '');
   const [info, setInfo] = useState('');
+  const [canResend, setCanResend] = useState(mode === 'login' && !!linkError);
   const [busy, setBusy] = useState(false);
   const isRegister = mode === 'register';
   const needsEmail = mode !== 'reset';
@@ -127,7 +128,10 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       if (isRegister) {
         const user = await register(name, email, password);
         if (!user) {
-          setInfo(`Presque fini ! Clique sur le lien envoyé à ${email.trim()} pour activer ton compte, puis connecte-toi.`);
+          setInfo(
+            `Presque fini ! Un e-mail vient de partir à ${email.trim()}. Ouvre-le sur cet ordinateur (en laissant ce site ouvert) et clique sur le lien : tu seras connecté automatiquement.`,
+          );
+          setCanResend(true);
           setPassword('');
           return;
         }
@@ -138,6 +142,23 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         await loadUserData();
       }
       navigate('/');
+    } catch (err) {
+      const message = (err as Error).message;
+      setError(message);
+      if (message.startsWith("Confirme d'abord")) setCanResend(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    setError('');
+    setInfo('');
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setError("Entre ton adresse e-mail ci-dessus, puis clique à nouveau sur « Renvoyer l'e-mail ».");
+    setBusy(true);
+    try {
+      await resendConfirmation(email);
+      setInfo('Nouvel e-mail envoyé. Ouvre-le sur cet ordinateur pendant que le site est lancé, et clique sur le lien une seule fois.');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -199,6 +220,11 @@ export default function AuthPage({ mode }: { mode: Mode }) {
 
             {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
             {info && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">{info}</p>}
+            {canResend && cloudEnabled && (mode === 'login' || mode === 'register') && (
+              <button type="button" onClick={() => void resend()} disabled={busy} className="mt-2 text-[13px] font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink disabled:opacity-50">
+                Renvoyer l'e-mail de confirmation
+              </button>
+            )}
 
             <button type="submit" disabled={busy} className="btn-primary mt-6 w-full">
               {busy && <Loader2 size={15} className="animate-spin" />}

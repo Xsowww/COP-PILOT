@@ -74,6 +74,7 @@ interface AuthState {
   changePassword: (current: string, next: string) => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
+  resendConfirmation: (email: string) => Promise<void>;
   setNewPassword: (password: string) => Promise<void>;
 }
 
@@ -275,6 +276,11 @@ export const useAuth = create<AuthState>((set, get) => ({
     clearLocalCache(user.id);
     setStorageUser(null);
     set({ user: null });
+  },
+
+  async resendConfirmation(email) {
+    if (!supabase) return;
+    await cloud(supabase.auth.resend({ type: 'signup', email: email.trim().toLowerCase(), options: { emailRedirectTo: `${location.origin}/connexion` } }));
   },
 
   async requestPasswordReset(email) {
