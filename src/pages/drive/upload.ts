@@ -1,4 +1,5 @@
 import { useDrive } from '../../store/drive';
+import { indexFile } from '../../lib/textIndex';
 
 export interface PendingFile {
   file: File | null; // null = empty folder
@@ -71,7 +72,9 @@ export async function uploadPending(pending: PendingFile[], parentId: string | n
     byFolder.set(target, [...(byFolder.get(target) ?? []), p.file]);
   }
   for (const [target, files] of byFolder) {
-    await drive.uploadFiles(files, target);
+    const created = await drive.uploadFiles(files, target);
+    // Index the text for the search right away, from the file we already have in hand.
+    created.forEach((item, i) => void indexFile(item, files[i]));
     count += files.length;
   }
   return count;
