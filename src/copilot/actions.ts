@@ -2,13 +2,15 @@
 // command engine and the Claude-powered mode (as tools).
 
 import { addDays } from 'date-fns';
-import { useDrive, pathOf, childrenOf, categoryOf } from '../store/drive';
-import { useNotes } from '../store/notes';
+import { useDrive, pathOf, childrenOf, categoryOf, trashRoots, FOLDER_COLORS, type DriveItem } from '../store/drive';
+import { useNotes, notesTrashRoots, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, CATEGORIES, guessCategory, sortEvents, type EventCategory } from '../store/calendar';
+import { useTodos } from '../store/todos';
+import { useFocus, focusLeft } from '../store/focus';
 import { normalize, stripHtml, formatBytes } from '../lib/utils';
 import { toKey, todayKey, daysUntil, fromKey, fmt, weekStart, countdownLabel } from '../lib/dates';
 import type { CopilotLink } from '../store/copilot';
-import { getSettings } from '../store/settings';
+import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
 
 let navigateFn: ((to: string) => void) | null = null;
 export const registerNavigate = (fn: (to: string) => void) => {
@@ -138,13 +140,13 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
 export function findDriveFolderByName(name: string) {
   const q = normalize(name);
   const folders = useDrive.getState().items.filter(i => i.kind === 'folder');
-  return folders.find(f => normalize(f.name) === q) ?? folders.find(f => normalize(f.name).includes(q));
+  return folders.find(f => f.id === name) ?? folders.find(f => normalize(f.name) === q) ?? folders.find(f => normalize(f.name).includes(q));
 }
 
 export function findNoteFolderByName(name: string) {
   const q = normalize(name);
   const { folders } = useNotes.getState();
-  return folders.find(f => normalize(f.name) === q) ?? folders.find(f => normalize(f.name).includes(q));
+  return folders.find(f => f.id === name) ?? folders.find(f => normalize(f.name) === q) ?? folders.find(f => normalize(f.name).includes(q));
 }
 
 export function createNote(title: string, content = '', folderName?: string) {
@@ -182,6 +184,8 @@ export function overview() {
       rootContent: childrenOf(items, null).map(i => `${i.kind === 'folder' ? '📁' : '📄'} ${i.name}`),
     },
     notes: { count: notes.length, folders: folders.map(f => f.name) },
+    todos: listTodos().slice(0, 15),
+    focus: focusStatus(),
     calendar: analyzeCalendar(),
   };
 }
@@ -195,6 +199,7 @@ export function listDriveFolder(folderName?: string) {
     path: folder ? ['Drive', ...pathOf(items, folder.id).map(p => p.name)].join(' › ') : 'Drive',
     link: linkToDriveFolder(folder?.id ?? null),
     content: childrenOf(items, folder?.id ?? null).map(i => ({
+      id: i.id,
       name: i.name,
       type: i.kind === 'folder' ? 'dossier' : categoryOf(i),
       size: i.kind === 'file' ? formatBytes(i.size) : undefined,
@@ -208,6 +213,8 @@ export function readNote(id: string) {
 }
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+/** Escaped text with **bold** turned into <strong>. */
+const inline = (t: string) => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
 /** Plain text → note HTML: "# " = heading, "- " = bullet, "[ ] " = checkbox, other lines = paragraphs. */
 export function textToHtml(text: string): string {
@@ -230,20 +237,20 @@ export function textToHtml(text: string): string {
         out.push('<ul data-type="taskList">');
         list = 'task';
       }
-      out.push(`<li data-type="taskItem" data-checked="${task[1].toLowerCase() === 'x'}"><p>${esc(task[2])}</p></li>`);
+      out.push(`<li data-type="taskItem" data-checked="${task[1].toLowerCase() === 'x'}"><p>${inline(task[2])}</p></li>`);
     } else if (/^[-*•]\s+/.test(line)) {
       if (list !== 'ul') {
         close();
         out.push('<ul>');
         list = 'ul';
       }
-      out.push(`<li><p>${esc(line.replace(/^[-*•]\s+/, ''))}</p></li>`);
+      out.push(`<li><p>${inline(line.replace(/^[-*•]\s+/, ''))}</p></li>`);
     } else if (/^#{1,3}\s+/.test(line)) {
       close();
-      out.push(`<h2>${esc(line.replace(/^#{1,3}\s+/, ''))}</h2>`);
+      out.push(`<h2>${inline(line.replace(/^#{1,3}\s+/, ''))}</h2>`);
     } else {
       close();
-      out.push(`<p>${esc(line)}</p>`);
+      out.push(`<p>${inline(line)}</p>`);
     }
   }
   close();
@@ -330,4 +337,250 @@ export function updateEvent(id: string, patch: { title?: string; date?: string; 
   const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined && v !== ''));
   useCalendar.getState().update(id, clean);
   return useCalendar.getState().events.find(e => e.id === id)!;
+}
+
+export function deleteEvent(id: string) {
+  const ev = useCalendar.getState().events.find(e => e.id === id);
+  if (!ev) return null;
+  useCalendar.getState().remove(id);
+  return ev;
+}
+
+// ── Organising the Drive and the notes ───────────────────────────────────────
+
+/** A Drive item, a note or a notes folder. */
+export type SiteItem = { space: 'drive'; item: DriveItem } | { space: 'note'; item: Note } | { space: 'notes-folder'; item: NoteFolder };
+
+/** Finds a Drive item, a note or a notes folder by id (or by exact name as a fallback). */
+export function findItem(ref: string): SiteItem | null {
+  const { items } = useDrive.getState();
+  const { notes, folders } = useNotes.getState();
+  const d = items.find(i => i.id === ref);
+  if (d) return { space: 'drive', item: d };
+  const n = notes.find(i => i.id === ref);
+  if (n) return { space: 'note', item: n };
+  const f = folders.find(i => i.id === ref);
+  if (f) return { space: 'notes-folder', item: f };
+  const q = normalize(ref);
+  if (!q) return null;
+  const dn = items.find(i => normalize(i.name) === q);
+  if (dn) return { space: 'drive', item: dn };
+  const nn = notes.find(i => normalize(i.title) === q);
+  if (nn) return { space: 'note', item: nn };
+  const fn = folders.find(i => normalize(i.name) === q);
+  return fn ? { space: 'notes-folder', item: fn } : null;
+}
+
+export const itemName = (s: SiteItem) => (s.space === 'note' ? s.item.title : s.item.name);
+
+export function linkToItem(s: SiteItem): string {
+  if (s.space === 'note') return linkToNote(s.item.id);
+  if (s.space === 'notes-folder') return `/notes?dossier=${s.item.id}`;
+  const it = s.item;
+  return it.kind === 'folder' ? linkToDriveFolder(it.id) : `${linkToDriveFolder(it.parentId)}${it.parentId ? '&' : '?'}fichier=${it.id}`;
+}
+
+export function renameItem(ref: string, name: string) {
+  const s = findItem(ref);
+  if (!s || !name.trim()) return null;
+  if (s.space === 'drive') useDrive.getState().rename(s.item.id, name);
+  else if (s.space === 'note') useNotes.getState().updateNote(s.item.id, { title: name.trim() });
+  else useNotes.getState().renameFolder(s.item.id, name);
+  return findItem(s.item.id);
+}
+
+/** Moves a Drive item into a Drive folder, or a note / notes folder into a notes folder. `folder` empty = root. */
+export function moveItem(ref: string, folder?: string): { moved: SiteItem; to: string } | { error: string } {
+  const s = findItem(ref);
+  if (!s) return { error: 'élément introuvable' };
+  if (s.space === 'drive') {
+    const target = folder ? findDriveFolderByName(folder) : undefined;
+    if (folder && !target) return { error: 'dossier de destination introuvable dans le Drive' };
+    const n = useDrive.getState().move([s.item.id], target?.id ?? null);
+    if (!n && s.item.parentId !== (target?.id ?? null)) return { error: 'impossible de déplacer un dossier dans lui-même' };
+    return { moved: findItem(s.item.id)!, to: target?.name ?? 'Drive (racine)' };
+  }
+  const target = folder ? findNoteFolderByName(folder) : undefined;
+  if (folder && !target) return { error: 'dossier de notes introuvable' };
+  if (s.space === 'note') useNotes.getState().updateNote(s.item.id, { folderId: target?.id ?? null });
+  else useNotes.getState().moveFolder(s.item.id, target?.id ?? null);
+  return { moved: findItem(s.item.id)!, to: target?.name ?? 'Notes (racine)' };
+}
+
+export function setStar(ref: string, starred = true) {
+  const s = findItem(ref);
+  if (!s || s.space !== 'drive') return null;
+  if (Boolean(s.item.starred) !== starred) useDrive.getState().toggleStar(s.item.id);
+  return s.item;
+}
+
+export function setFolderColor(ref: string, color: string) {
+  const folder = findDriveFolderByName(ref);
+  const key = normalize(color);
+  if (!folder || (key !== 'aucune' && !FOLDER_COLORS[key])) return null;
+  useDrive.getState().update(folder.id, { color: key === 'aucune' ? undefined : key });
+  return folder;
+}
+
+/** Puts Drive items, notes and notes folders in the trash. */
+export function trashItems(refs: string[]) {
+  const done: string[] = [];
+  const missing: string[] = [];
+  for (const ref of refs) {
+    const s = findItem(ref);
+    if (!s) {
+      missing.push(ref);
+      continue;
+    }
+    if (s.space === 'drive') useDrive.getState().remove([s.item.id]);
+    else if (s.space === 'note') useNotes.getState().removeNote(s.item.id);
+    else useNotes.getState().removeFolder(s.item.id);
+    done.push(itemName(s));
+  }
+  return { done, missing };
+}
+
+const deletedLabel = (iso?: string) => (iso ? fmt(new Date(iso), "d MMM 'à' HH:mm") : '');
+
+export function listTrash() {
+  const drive = trashRoots(useDrive.getState().trash).map(i => ({
+    id: i.id,
+    name: i.name,
+    type: i.kind === 'folder' ? 'dossier du Drive' : 'fichier du Drive',
+    deleted: deletedLabel(i.deletedAt),
+  }));
+  const { trashFolders, trashNotes } = useNotes.getState();
+  const roots = notesTrashRoots(trashFolders, trashNotes);
+  return [
+    ...drive,
+    ...roots.folders.map(f => ({ id: f.id, name: f.name, type: 'dossier de notes', deleted: deletedLabel(f.deletedAt) })),
+    ...roots.notes.map(n => ({ id: n.id, name: n.title, type: 'note', deleted: deletedLabel(n.deletedAt) })),
+  ];
+}
+
+/** Finds something in the trash by id or by name. */
+export function findInTrash(ref: string) {
+  const all = listTrash();
+  const q = normalize(ref);
+  return all.find(t => t.id === ref) ?? all.find(t => normalize(t.name) === q) ?? all.find(t => q.length > 2 && normalize(t.name).includes(q));
+}
+
+export function restoreFromTrash(refs: string[]) {
+  const restored: string[] = [];
+  const missing: string[] = [];
+  for (const ref of refs) {
+    const t = findInTrash(ref);
+    if (!t) {
+      missing.push(ref);
+      continue;
+    }
+    if (t.type.endsWith('du Drive')) useDrive.getState().restore([t.id]);
+    else useNotes.getState().restore([t.id]);
+    restored.push(t.name);
+  }
+  return { restored, missing };
+}
+
+/** Notes whose text contains `query`, with a short excerpt around each match. */
+export function searchNotes(query: string, limit = 8) {
+  const q = normalize(query);
+  if (!q) return [];
+  const out: { id: string; title: string; excerpts: string[] }[] = [];
+  for (const n of useNotes.getState().notes) {
+    const text = stripHtml(n.content);
+    // normalize() keeps one character per letter (accents are separate marks it removes),
+    // so positions in the normalized text are close enough to cut an excerpt.
+    const hay = normalize(text);
+    const excerpts: string[] = [];
+    let from = 0;
+    while (excerpts.length < 3) {
+      const at = hay.indexOf(q, from);
+      if (at < 0) break;
+      excerpts.push(`${at > 60 ? '…' : ''}${text.slice(Math.max(0, at - 60), at + q.length + 80).trim()}…`);
+      from = at + q.length;
+    }
+    if (excerpts.length || normalize(n.title).includes(q)) out.push({ id: n.id, title: n.title, excerpts });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+export function findNote(ref: string) {
+  const { notes } = useNotes.getState();
+  const q = normalize(ref);
+  return notes.find(n => n.id === ref) ?? notes.find(n => normalize(n.title) === q) ?? (q ? notes.find(n => normalize(n.title).includes(q)) : undefined);
+}
+
+// ── To-dos ───────────────────────────────────────────────────────────────────
+
+export function listTodos(includeDone = false) {
+  const today = todayKey();
+  return useTodos
+    .getState()
+    .todos.filter(t => includeDone || !t.done)
+    .map(t => ({ id: t.id, title: t.title, done: t.done, due: t.due, late: !t.done && !!t.due && t.due < today }));
+}
+
+export function findTodo(ref: string) {
+  const { todos } = useTodos.getState();
+  const q = normalize(ref);
+  return todos.find(t => t.id === ref) ?? todos.find(t => normalize(t.title) === q) ?? (q ? todos.find(t => normalize(t.title).includes(q)) : undefined);
+}
+
+export function addTodo(title: string, due?: string) {
+  return useTodos.getState().add(title, due && /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : undefined);
+}
+
+export function completeTodo(ref: string, done = true) {
+  const t = findTodo(ref);
+  if (!t) return null;
+  if (t.done !== done) useTodos.getState().toggle(t.id);
+  return t;
+}
+
+export function deleteTodo(ref: string) {
+  const t = findTodo(ref);
+  if (t) useTodos.getState().remove(t.id);
+  return t ?? null;
+}
+
+// ── Focus & settings ─────────────────────────────────────────────────────────
+
+export function startFocus(subject = '') {
+  useFocus.getState().start(subject.trim());
+  return { subject: subject.trim(), minutes: getSettings().focusMinutes };
+}
+
+export function stopFocus() {
+  const s = useFocus.getState();
+  if (!s.phase) return null;
+  const subject = s.label;
+  s.stop();
+  return { stopped: true, subject };
+}
+
+export function focusStatus() {
+  const s = useFocus.getState();
+  if (!s.phase) return null;
+  return { phase: s.phase === 'focus' ? 'travail' : 'pause', subject: s.label, minutesLeft: Math.ceil(focusLeft(s) / 60_000), paused: s.pausedLeft !== null };
+}
+
+export interface SettingsPatch {
+  accent?: string;
+  theme?: string;
+  reduceMotion?: boolean;
+  chattiness?: string;
+}
+
+/** Applies the settings Copilot is allowed to change; returns what actually changed. */
+export function updateSettings(p: SettingsPatch) {
+  const patch: Partial<Settings> = {};
+  if (p.accent && p.accent in ACCENTS) patch.accent = p.accent as AccentKey;
+  if (p.theme && ['clair', 'sombre', 'auto'].includes(p.theme)) patch.theme = p.theme as ThemeMode;
+  if (typeof p.reduceMotion === 'boolean') patch.reduceMotion = p.reduceMotion;
+  if (p.chattiness && ['calme', 'normal', 'bavard'].includes(p.chattiness)) patch.chattiness = p.chattiness as Chattiness;
+  if (!Object.keys(patch).length) return null;
+  useSettings.getState().set(patch);
+  applyAppearance(useSettings.getState());
+  return patch;
 }

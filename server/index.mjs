@@ -1,11 +1,11 @@
 // Production server: serves the built app (dist/) and Copilot's API.
-// Usage: npm run build && npm start   (reads ANTHROPIC_API_KEY from the environment or .env)
+// Usage: npm run build && npm start   (reads the AI settings — AI_PROVIDER, AI_API_KEY… — from the environment or .env)
 
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { handleCopilot, copilotEnabled } from './copilot.mjs';
+import { handleCopilot, copilotProvider } from './copilot.mjs';
 import { loadPublicEnv } from './publicEnv.mjs';
 
 try {
@@ -51,5 +51,6 @@ createServer(async (req, res) => {
     res.end('Erreur serveur');
   }
 }).listen(PORT, () => {
-  console.log(`COP-PILOT sur http://localhost:${PORT} — Copilot IA ${copilotEnabled() ? 'activé' : 'désactivé (ANTHROPIC_API_KEY manquante)'}`);
+  const ai = copilotProvider();
+  console.log(`COP-PILOT sur http://localhost:${PORT} — Copilot IA ${ai ? `activé (${ai.label}, ${ai.model})` : 'désactivé (voir AI_PROVIDER / AI_API_KEY dans .env.example)'}`);
 });

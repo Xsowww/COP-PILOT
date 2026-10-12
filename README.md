@@ -6,7 +6,7 @@ Hub de productivité pour étudiants : **Drive**, **Calendrier** et **Notes** r�
 
 ```bash
 npm install
-cp .env.example .env   # puis colle ta clé API Anthropic dans ANTHROPIC_API_KEY
+cp .env.example .env   # facultatif : choisis une IA (gratuite) pour Copilot, voir plus bas
 npm run dev            # http://localhost:5173
 ```
 
@@ -40,11 +40,51 @@ Recherche globale dans la barre du haut (Ctrl+K) : fichiers, dossiers, notes et 
 
 Petit personnage (casque de pilote) accroché au bord droit de l'écran : il suit la souris des yeux, cligne, passe la tête, s'endort si tu ne fais rien, et réagit selon la situation (content, surpris, qui réfléchit…).
 
-**Il prend des initiatives** (`src/copilot/proactive.ts`) : salut à l'ouverture avec le programme du jour, examen ajouté → propose de planifier des révisions ou de créer une fiche, examen proche sans révisions, devoir à rendre demain, devoir en retard, événement qui commence dans 20 minutes, veille d'examen, journée terminée, premier import… Ses propositions ont de vrais boutons (« Planifier mes révisions » crée les créneaux et la fiche), et répondre « oui » suffit. Il ne se répète pas et laisse au moins 75 s entre deux remarques.
+**Il prend des initiatives** (`src/copilot/proactive.ts`) : examen ajouté → propose de planifier des révisions ou de créer une fiche, examen proche sans révisions, devoir à rendre demain, devoir en retard, événement qui commence dans 20 minutes, veille d'examen, journée terminée, premier import… Ses propositions ont de vrais boutons (« Planifier mes révisions » crée les créneaux et la fiche), et répondre « oui » suffit. Il ne se répète pas et laisse au moins 75 s entre deux remarques.
 
-**Deux cerveaux :**
-- **Avec une clé API** (`ANTHROPIC_API_KEY` dans `.env`) : Copilot passe par Claude via le serveur (`server/copilot.mjs`). Sa personnalité (meilleur pote, drôle mais sérieux quand il faut) et ses outils sont définis côté serveur : chercher, analyser le calendrier, créer/modifier des événements, planifier des révisions, créer/compléter des notes, créer des dossiers, ouvrir une page. Ses remarques spontanées sont aussi rédigées par Claude. La clé n'est jamais envoyée au navigateur.
-- **Sans clé** : il comprend des commandes en français (« Trouve le dossier Maths », « Analyse ma semaine », « Planifie mes révisions », « Crée une note Révisions : chapitre 3 », « Ajoute Partiel de chimie dans 5 jours à 10h », « Raconte une blague »…). En cas de souci avec l'API, il bascule automatiquement sur ce mode.
+- **Point du matin** : à la première ouverture de la journée, avant midi, « ta journée en 3 lignes » (événements du jour, tâches à faire, prochain examen) avec un bouton vers le calendrier.
+- **Bilan du dimanche** : à partir de 17 h, une fois par semaine : fait / prévu, temps de concentration par matière (sessions focus), ce qui arrive la semaine suivante.
+- Les deux se règlent dans Profil › Copilot et ne sont jamais répétés (mémorisés dans sa mémoire). En mode « Discret », le point du matin ne s'affiche que s'il y a quelque chose à dire.
+
+**Il répond à tout** : culture générale, aide aux devoirs (méthode puis réponse), maths pas à pas, rédaction, conseils… avec une longueur adaptée (court pour discuter, structuré pour expliquer). Ses réponses sont mises en forme (gras, italique, listes, code) par un petit moteur Markdown maison qui ne produit que du texte React : aucun HTML n'est injecté. La fenêtre s'agrandit pour les longues réponses, chaque longue réponse a un bouton « Copier ».
+
+**Il agit sur le site** (outils exécutés dans le navigateur, sur les données de l'étudiant) : chercher partout ou dans le texte des notes, lire une note ou **un fichier du Drive** (PDF, docx, txt, md, csv, json ; ~30 000 caractères max) pour en faire une fiche ou un quiz, créer / déplacer / supprimer des événements, planifier des révisions, créer ou compléter des notes, créer / renommer / déplacer des dossiers et fichiers, favoris, couleur des dossiers, corbeille (mettre à la corbeille, lister, restaurer), tâches (ajouter, cocher, supprimer), session focus (lancer sur une matière, arrêter), réglages (couleur, thème, animations, bavardage). Avant une suppression ou une mise à la corbeille, il demande confirmation.
+
+**Révisions** : « Interroge-moi sur ma note de chimie » → avec l'IA, il lit la note (ou le PDF) et pose les questions une par une en corrigeant. Sans IA, il fabrique des questions à partir de la structure de la note (titres, « terme : définition », mots en **gras** à compléter) et vérifie les réponses avec tolérance (accents, fautes de frappe, mots-clés).
+
+**Personnalité** (Profil › Copilot) : Meilleur pote (par défaut), Coach motivant, Prof patient, Zen ou Taquin, plus un champ libre « Tes instructions pour Copilot » (600 caractères, par ex. « Appelle-moi Capitaine, parle-moi de foot »). Le serveur assemble les règles de base (honnêteté, sécurité, outils, français, tutoiement), le style choisi et ces instructions, présentées comme des préférences qui ne peuvent pas lever les règles de base.
+
+**À la voix** : bouton micro dans la conversation (reconnaissance vocale du navigateur, en français, texte affiché pendant que tu parles, envoi automatique à la fin ; masqué si le navigateur ne la gère pas, comme Firefox). Option « Lire ses réponses à voix haute » (voix française de l'appareil), avec un bouton pour arrêter la lecture.
+
+### Brancher une IA (gratuite ou non)
+
+Sans IA, Copilot comprend des commandes en français (« Trouve le dossier Maths », « Ajoute Partiel de chimie vendredi 10h », « Ajoute la tâche acheter une calculatrice », « Mets Brouillon à la corbeille », « Lance une session focus sur les maths », « Mode sombre », « Interroge-moi sur Histoire »…). En cas de souci avec l'IA, il bascule automatiquement sur ce mode.
+
+Pour qu'il comprenne tout, choisis un fournisseur dans `.env` (détails dans `.env.example`) :
+
+| `AI_PROVIDER` | Prix | Modèle par défaut | Clé |
+| --- | --- | --- | --- |
+| `gemini` | gratuit (limites par minute et par jour) | `gemini-2.5-flash` | [Google AI Studio](https://aistudio.google.com/apikey) |
+| `groq` | gratuit (limites) | `llama-3.3-70b-versatile` | [console.groq.com](https://console.groq.com/keys) |
+| `openrouter` | gratuit avec les modèles `:free` | `meta-llama/llama-3.3-70b-instruct:free` | [openrouter.ai](https://openrouter.ai/keys) |
+| `mistral` | offre gratuite « Experiment » | `mistral-small-latest` | [console.mistral.ai](https://console.mistral.ai) |
+| `ollama` | gratuit, tourne sur ta machine | `llama3.1` | aucune ([ollama.com](https://ollama.com)) |
+| `anthropic` | payant | `claude-opus-5-5` | [console.anthropic.com](https://console.anthropic.com) |
+| `openai-compatible` | selon le service | `AI_MODEL` | `AI_BASE_URL` + `AI_API_KEY` |
+
+Exemple gratuit en trois lignes :
+
+```bash
+AI_PROVIDER=gemini
+AI_API_KEY=ta-cle-google-ai-studio
+# AI_MODEL=gemini-2.5-flash   (facultatif)
+```
+
+Puis relance `npm run dev`. L'onglet Profil › Copilot affiche le fournisseur utilisé (aussi au survol de « Dans le coin » dans la conversation). Une ancienne configuration avec seulement `ANTHROPIC_API_KEY` continue de marcher.
+
+Comment ça marche : la personnalité et les outils sont définis côté serveur (`server/copilotPrompt.mjs`). Claude passe par le SDK Anthropic ; les autres fournisseurs parlent le format « chat completions » d'OpenAI, et `server/aiProviders.mjs` convertit la conversation et les outils dans ce format puis la réponse dans le format Anthropic, si bien que le navigateur (`src/copilot/claudeBrain.ts`) ne voit aucune différence. Les erreurs sont harmonisées (clé invalide, quota atteint, panne, délai dépassé). La clé n'est jamais envoyée au navigateur.
+
+**Confidentialité, à savoir** : ce que tu écris à Copilot, et ce qu'il lit pour te répondre (contexte du calendrier, notes ou fichiers qu'il ouvre), est envoyé au fournisseur choisi. Les offres gratuites ne sont pas neutres : **l'offre gratuite de Gemini autorise Google à utiliser les échanges pour améliorer ses modèles** (et des personnes peuvent les relire) ; certains modèles gratuits d'OpenRouter sont fournis par des hébergeurs qui conservent les données ; vérifie les conditions de Groq et Mistral selon ton offre. Évite d'y mettre des informations sensibles, ou choisis **Ollama** (tout reste sur ta machine) ou une offre payante dont les conditions excluent l'entraînement. Les petits modèles gratuits se trompent plus souvent dans l'usage des outils que Claude.
 
 ## Base de données en ligne (Supabase)
 
@@ -73,9 +113,12 @@ src/
   pages/                  Dashboard, drive/, calendar/, notes/, profile/, admin/, AuthPage, MfaPage
   copilot/                Character (personnage SVG), Copilot (conversation), actions,
                           offers (boutons d'action), proactive (initiatives),
-                          localBrain (mode simple), claudeBrain (mode IA, via le serveur)
+                          localBrain (mode simple), claudeBrain (mode IA, via le serveur),
+                          Markdown (mise en forme sûre), voice (micro, lecture), quiz, fileText
 server/
-  copilot.mjs             API /api/copilot : personnalité, outils, appel à Claude
+  copilot.mjs             API /api/copilot : authentification, limite, appel à l'IA
+  copilotPrompt.mjs       personnalité, styles, outils
+  aiProviders.mjs         choix du fournisseur, adaptateur format OpenAI ↔ Anthropic
   index.mjs               serveur de production (dist/ + API)
   store/                  état Zustand : auth, drive, calendar, notes, copilot, ui, session
   lib/                    dates (analyse du langage naturel), stockage, utilitaires
