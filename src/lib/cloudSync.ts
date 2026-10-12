@@ -258,7 +258,7 @@ export async function pullAll(userId: string): Promise<CloudProfile> {
     supabase.from('note_folders').select('*'),
     supabase.from('notes').select('*'),
     supabase.from('drive_items').select('*'),
-    supabase.from('profiles').select('name, settings, onboarded').eq('id', userId).maybeSingle(),
+    supabase.from('profiles').select('*').eq('id', userId).maybeSingle(), // '*': tolerate older schemas
   ]);
   const err = events.error ?? folders.error ?? notes.error ?? items.error ?? profile.error;
   if (err) throw err;
@@ -274,7 +274,10 @@ export async function pullAll(userId: string): Promise<CloudProfile> {
   } finally {
     pulling = false;
   }
-  return { name: profile.data?.name ?? '', onboarded: !!profile.data?.onboarded };
+  // Databases created before the "onboarded" column existed: onboarded as soon as there is any data.
+  const hasData = !!(events.data?.length || notes.data?.length || items.data?.length || folders.data?.length);
+  const onboarded = typeof profile.data?.onboarded === 'boolean' ? profile.data.onboarded || hasData : hasData;
+  return { name: profile.data?.name ?? '', onboarded };
 }
 
 /** Starts pushing every change of the stores to Supabase. */
@@ -331,5 +334,7 @@ export async function flushNow() {
 
 export async function updateCloudProfile(userId: string, patch: { name?: string; onboarded?: boolean }) {
   if (!supabase) return;
-  await supabase.from('profiles').update(patch).eq('id', userId);
+  const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+  // Older schema without the "onboarded" column: keep the name update at least.
+  if (error && 'onboarded' in patch && patch.name) await supabase.from('profiles').update({ name: patch.name }).eq('id', userId);
 }

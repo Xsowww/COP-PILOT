@@ -10,6 +10,8 @@ create table if not exists public.profiles (
   onboarded boolean not null default false,
   created_at timestamptz not null default now()
 );
+-- Bases créées avec une version précédente de ce script :
+alter table public.profiles add column if not exists onboarded boolean not null default false;
 
 -- ── Calendrier ─────────────────────────────────────────────────────────────
 create table if not exists public.events (

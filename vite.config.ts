@@ -2,6 +2,10 @@ import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { handleCopilot } from './server/copilot.mjs';
+import { loadPublicEnv } from './server/publicEnv.mjs';
+
+// Public Supabase settings committed in .env.supabase.public (values in .env win).
+loadPublicEnv();
 
 /** Serves Copilot's API during `npm run dev` (same handler as server/index.mjs). */
 function copilotApi(env: Record<string, string>): Plugin {

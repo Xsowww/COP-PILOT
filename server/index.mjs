@@ -6,12 +6,14 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleCopilot, copilotEnabled } from './copilot.mjs';
+import { loadPublicEnv } from './publicEnv.mjs';
 
 try {
   process.loadEnvFile();
 } catch {
   /* no .env file: rely on the real environment */
 }
+loadPublicEnv();
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;

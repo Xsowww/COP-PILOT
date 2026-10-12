@@ -258,7 +258,13 @@ export const useAuth = create<AuthState>((set, get) => ({
     await get().verifyPassword(password);
     if (supabase) {
       const { error } = await supabase.rpc('delete_my_account');
-      if (error) throw new Error("La suppression a échoué, réessaie plus tard.");
+      if (error) {
+        throw new Error(
+          error.code === 'PGRST202' || error.message.includes('delete_my_account')
+            ? "La suppression de compte n'est pas encore activée sur le serveur. Lance supabase/schema.sql dans Supabase."
+            : 'La suppression a échoué, réessaie plus tard.',
+        );
+      }
       const { stopSync } = await import('../lib/cloudSync');
       stopSync();
       await supabase.auth.signOut().catch(() => undefined);

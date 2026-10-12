@@ -46,6 +46,10 @@ Petit personnage (casque de pilote) accroché au bord droit de l'écran : il sui
 
 ## Base de données en ligne (Supabase)
 
+**Déjà configuré** : le projet Supabase `cop-pilot` (Europe) est branché via `.env.supabase.public` (URL + clé *publishable*, faites pour être publiques ; la sécurité repose sur les règles de la base). Il suffit de lancer `npm run dev`. Pour repasser en mode local, supprime ce fichier ou vide ses valeurs dans `.env`.
+
+Pour un nouveau projet Supabase :
+
 Sans configuration, comptes et données restent dans le navigateur. Avec Supabase (gratuit), tout est en ligne et sécurisé : vrais comptes avec confirmation par e-mail et mot de passe oublié, données accessibles depuis n'importe quel appareil, fichiers du Drive dans un stockage privé, et chaque étudiant ne peut accéder qu'à ses propres données (Row Level Security).
 
 1. Crée un compte sur [supabase.com](https://supabase.com), puis **New project** (région Europe : Paris ou Francfort).
