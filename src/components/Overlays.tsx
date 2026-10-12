@@ -5,12 +5,24 @@ import { cx } from '../lib/utils';
 
 export function Toasts() {
   const toasts = useUi(s => s.toasts);
+  const dismiss = useUi(s => s.dismissToast);
   return (
     <div className="pointer-events-none fixed bottom-20 left-1/2 z-[70] flex -translate-x-1/2 flex-col items-center gap-2 md:bottom-6">
       {toasts.slice(-3).map(t => (
         <div key={t.id} className="pop flex items-center gap-2 rounded-lg bg-ink px-3.5 py-2 text-[13px] text-white shadow-pop">
           {t.tone === 'success' ? <CheckCircle2 size={15} className="text-emerald-400" /> : t.tone === 'error' ? <XCircle size={15} className="text-red-400" /> : <Info size={15} className="text-stone-400" />}
           {t.text}
+          {t.action && (
+            <button
+              className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-white/10 hover:text-white"
+              onClick={() => {
+                dismiss(t.id);
+                t.action!.run();
+              }}
+            >
+              {t.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>
