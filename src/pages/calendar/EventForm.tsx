@@ -1,24 +1,31 @@
 import { useState, type FormEvent } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { FileText, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
+import { useNotes } from '../../store/notes';
 import { CATEGORIES, guessCategory, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { cx } from '../../lib/utils';
 
 interface Props {
   event?: CalendarEvent;
   date: string;
+  /** Prefilled times for a new event (click on the day view). */
+  start?: string;
+  end?: string;
   onClose: () => void;
 }
 
-export default function EventForm({ event, date, onClose }: Props) {
+export default function EventForm({ event, date, start: initialStart, end: initialEnd, onClose }: Props) {
   const { add, update, remove } = useCalendar.getState();
   const [title, setTitle] = useState(event?.title ?? '');
   const [day, setDay] = useState(event?.date ?? date);
-  const [start, setStart] = useState(event?.start ?? '');
-  const [end, setEnd] = useState(event?.end ?? '');
+  const [start, setStart] = useState(event?.start ?? initialStart ?? '');
+  const [end, setEnd] = useState(event?.end ?? initialEnd ?? '');
   const [category, setCategory] = useState<EventCategory | null>(event?.category ?? null);
   const [details, setDetails] = useState(event?.details ?? '');
   const effective = category ?? guessCategory(title);
+  const notes = useNotes(s => s.notes);
+  const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -70,6 +77,22 @@ export default function EventForm({ event, date, onClose }: Props) {
         </div>
 
         <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (salle, chapitres à réviser…)" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
+
+        {linked.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-[12px] font-medium text-stone-600">Notes liées</p>
+            <ul className="-mx-1.5">
+              {linked.map(n => (
+                <li key={n.id}>
+                  <Link to={`/notes?note=${n.id}`} className="flex h-8 items-center gap-2 rounded-md px-1.5 text-[13px] text-stone-700 transition-colors hover:bg-stone-50 hover:text-ink">
+                    <FileText size={14} className="shrink-0 text-stone-400" />
+                    <span className="truncate">{n.title || 'Sans titre'}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="mt-5 flex items-center gap-2">
           {event && (
