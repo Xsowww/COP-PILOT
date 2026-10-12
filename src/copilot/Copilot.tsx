@@ -1,18 +1,21 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUp, RotateCcw, X } from 'lucide-react';
+import { ArrowUp, Check, Copy, Maximize2, Mic, Minimize2, RotateCcw, Square, Volume2, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
 import { localReply, type BotReply } from './localBrain';
 import { acceptOffer, runOffer } from './offers';
 import { normalize, cx } from '../lib/utils';
-import { useSettings } from '../store/settings';
+import { useSettings, getSettings } from '../store/settings';
+import Markdown from './Markdown';
+import { stripMarkdown } from './markdown';
+import { useDictation, speakText, stopSpeaking, useSpeaking, canSpeak } from './voice';
 
 // The AI part (and the Anthropic types it uses) is loaded on first use.
 const brain = () => import('./claudeBrain');
 
-const SUGGESTIONS = ['Analyse ma semaine', 'Planifie mes révisions', 'Trouve le dossier Cours', 'Raconte-moi une blague'];
+const SUGGESTIONS = ['Analyse ma semaine', 'Planifie mes révisions', 'Explique-moi la photosynthèse', 'Raconte-moi une blague'];
 const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|avec plaisir|je veux bien|volontiers)\b/;
 
 function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer) => void; disabled?: boolean }) {
@@ -45,11 +48,34 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
   );
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      title={done ? 'Copié' : 'Copier'}
+      aria-label="Copier la réponse"
+      onClick={() => {
+        void navigator.clipboard?.writeText(stripMarkdown(text)).then(() => {
+          setDone(true);
+          setTimeout(() => setDone(false), 1400);
+        });
+      }}
+      className="absolute -bottom-2.5 right-1 flex h-6 w-6 items-center justify-center rounded-md border border-stone-200 bg-white text-stone-400 opacity-0 shadow-card transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+    >
+      {done ? <Check size={12} /> : <Copy size={12} />}
+    </button>
+  );
+}
+
 export default function Copilot() {
   const navigate = useNavigate();
   const user = useAuth(s => s.user);
   const { messages, pose, bubble, thinking, aiEnabled, offsetY } = useCopilot();
   const visible = useSettings(s => s.copilotVisible);
+  const voiceReplies = useSettings(s => s.voiceReplies);
+  const speaking = useSpeaking();
+  const [wide, setWide] = useState(false);
+  const [providerInfo, setProviderInfo] = useState('');
   const { push, setPose, clearBubble, setThinking, setOffsetY, clearHistory } = useCopilot.getState();
 
   const [look, setLook] = useState({ x: -1, y: 0 });
@@ -59,12 +85,19 @@ export default function Copilot() {
   const [input, setInput] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [shift, setShift] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const drag = useRef<{ startY: number; moved: boolean } | null>(null);
 
   // Is the AI brain plugged in on the server?
   useEffect(() => {
-    void brain().then(m => m.checkAiStatus()).then(ok => useCopilot.getState().setAiEnabled(ok));
+    void brain()
+      .then(m => m.checkAiStatus())
+      .then(st => {
+        useCopilot.getState().setAiEnabled(st.enabled);
+        setProviderInfo(st.enabled ? `IA : ${st.label ?? st.provider} · ${st.model}` : 'Mode simple, sans IA');
+      });
   }, []);
 
   // Eyes follow the mouse; long inactivity sends him to sleep.
@@ -131,6 +164,25 @@ export default function Copilot() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length, thinking, pose]);
 
+  // The panel is centred on the character; slide it so that it always stays inside the window.
+  useLayoutEffect(() => {
+    const place = () => {
+      const h = panelRef.current?.offsetHeight ?? 0;
+      const centre = offsetY * window.innerHeight;
+      const margin = 12;
+      const wanted = Math.min(Math.max(centre, h / 2 + margin), window.innerHeight - h / 2 - margin);
+      setShift(Math.round(wanted - centre));
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    if (panelRef.current) ro.observe(panelRef.current);
+    window.addEventListener('resize', place);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', place);
+    };
+  }, [offsetY, wide]);
+
   useEffect(() => {
     if (pose !== 'open') return;
     const t = setTimeout(() => inputRef.current?.focus(), 200);
@@ -147,7 +199,8 @@ export default function Copilot() {
     clearBubble();
   };
 
-  const speak = (text: string) => {
+  const speak = (text: string, aloud = false) => {
+    if (aloud && getSettings().voiceReplies) speakText(text);
     setTalking(true);
     setTimeout(() => setTalking(false), Math.min(2200, 300 + text.length * 16));
   };
@@ -167,6 +220,7 @@ export default function Copilot() {
     const clean = text.trim();
     if (!clean || thinking) return;
     setInput('');
+    stopSpeaking();
     const pending = useCopilot.getState().pendingOffer;
     push('user', clean);
 
@@ -174,7 +228,7 @@ export default function Copilot() {
     if (pending && YES.test(normalize(clean))) {
       const r = runOffer(pending);
       push('bot', r.text, { links: r.links });
-      speak(r.text);
+      speak(r.text, true);
       return;
     }
 
@@ -193,11 +247,15 @@ export default function Copilot() {
     }
     setThinking(false);
     push('bot', reply.text, { links: reply.links });
-    speak(reply.text);
+    speak(reply.text, true);
   }
+
+  // Talking instead of typing: words appear as they're recognised, sent at the end.
+  const dictation = useDictation(setInput, t => void send(t));
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (dictation.listening) dictation.stop();
     void send(input);
   };
 
@@ -231,11 +289,14 @@ export default function Copilot() {
       <div className="relative flex items-center justify-end">
         {/* Conversation */}
         <div
+          ref={panelRef}
           role="dialog"
           aria-label="Copilot"
           aria-hidden={!isOpen}
+          style={{ marginTop: shift }}
           className={cx(
-            'absolute right-[104px] top-1/2 flex max-h-[min(540px,78vh)] w-[min(360px,calc(100vw-120px))] -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-pop transition-all duration-200',
+            'absolute right-[104px] top-1/2 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-pop transition-all duration-200',
+            wide ? 'h-[min(720px,86vh)] w-[min(600px,calc(100vw-120px))]' : 'max-h-[min(600px,80vh)] w-[min(380px,calc(100vw-120px))]',
             isOpen ? 'pointer-events-auto scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0',
           )}
         >
@@ -245,10 +306,18 @@ export default function Copilot() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-semibold leading-tight">Copilot</p>
-              <p className="flex items-center gap-1.5 text-[11px] text-stone-500">
+              <p className="flex w-fit items-center gap-1.5 text-[11px] text-stone-500" title={providerInfo}>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Dans le coin
               </p>
             </div>
+            {speaking && (
+              <button title="Arrêter la lecture" onClick={stopSpeaking} className="icon-btn text-brand-600" tabIndex={isOpen ? 0 : -1}>
+                <Volume2 size={15} />
+              </button>
+            )}
+            <button title={wide ? 'Réduire' : 'Agrandir'} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
+              {wide ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
             <button title="Nouvelle conversation" onClick={() => { clearHistory(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
               <RotateCcw size={15} />
             </button>
@@ -262,12 +331,13 @@ export default function Copilot() {
               <div key={m.id} className={cx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                 <div
                   className={cx(
-                    'max-w-[86%] whitespace-pre-line rounded-2xl px-3 py-2 text-[13px] leading-[1.5]',
-                    m.role === 'user' ? 'rounded-br-md bg-ink text-white' : 'rounded-bl-md bg-stone-100 text-stone-800',
+                    'group relative max-w-[88%] rounded-2xl px-3 py-2 text-[13px] leading-[1.55]',
+                    m.role === 'user' ? 'whitespace-pre-line rounded-br-md bg-ink text-white' : 'rounded-bl-md bg-stone-100 text-stone-800',
                   )}
                 >
-                  {m.text}
+                  {m.role === 'user' ? m.text : <Markdown text={m.text} />}
                   {m.role === 'bot' && <Extras links={m.links} offers={m.offers} onGo={go} onOffer={onOffer} disabled={m !== lastBot} />}
+                  {m.role === 'bot' && m.text.length > 160 && <CopyButton text={m.text} />}
                 </div>
               </div>
             ))}
@@ -295,14 +365,35 @@ export default function Copilot() {
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Écris à Copilot…"
-              className="h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-400 focus:bg-stone-100"
+              placeholder={dictation.listening ? 'Je t’écoute…' : 'Écris à Copilot…'}
+              className={cx(
+                'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-400 focus:bg-stone-100',
+                dictation.listening && 'bg-brand-50 placeholder:text-brand-600',
+              )}
               tabIndex={isOpen ? 0 : -1}
             />
+            {dictation.supported && (
+              <button
+                type="button"
+                onClick={() => (dictation.listening ? dictation.stop() : dictation.start())}
+                disabled={thinking}
+                className={cx(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30',
+                  dictation.listening ? 'bg-brand-500 text-white' : 'text-stone-500 hover:bg-stone-100 hover:text-ink',
+                )}
+                title={dictation.listening ? 'Arrêter et envoyer' : 'Parler à Copilot'}
+                aria-label={dictation.listening ? 'Arrêter la dictée' : 'Dicter un message'}
+                tabIndex={isOpen ? 0 : -1}
+              >
+                {dictation.listening ? <Square size={13} fill="currentColor" /> : <Mic size={16} />}
+              </button>
+            )}
             <button type="submit" disabled={!input.trim() || thinking} className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-white transition-colors hover:bg-stone-800 disabled:opacity-30" title="Envoyer" tabIndex={isOpen ? 0 : -1}>
               <ArrowUp size={16} />
             </button>
           </form>
+          {dictation.error && <p className="px-3.5 pb-2 text-[11px] text-red-600">{dictation.error}</p>}
+          {voiceReplies && !canSpeak() && <p className="px-3.5 pb-2 text-[11px] text-stone-500">Ton navigateur ne sait pas lire les réponses à voix haute.</p>}
         </div>
 
         {/* Spontaneous remark */}
@@ -311,7 +402,9 @@ export default function Copilot() {
             <button onClick={clearBubble} className="absolute right-1.5 top-1.5 rounded p-1 text-stone-300 hover:text-stone-600" title="Fermer">
               <X size={12} />
             </button>
-            <p className="pr-3">{bubble.text}</p>
+            <div className="pr-3">
+              <Markdown text={bubble.text} />
+            </div>
             <Extras links={bubble.links} offers={bubble.offers} onGo={go} onOffer={onOffer} />
           </div>
         )}

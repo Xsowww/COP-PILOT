@@ -6,7 +6,7 @@ import {
   FolderClosed, NotebookText, CalendarCheck, Target, Timer, HardDrive, Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
-import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type Chattiness } from '../../store/settings';
+import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type Chattiness, type PersonaKey } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { useNotes } from '../../store/notes';
@@ -232,10 +232,24 @@ function AppearanceTab() {
 
 // ── Copilot ─────────────────────────────────────────────────────────────────
 
+const PERSONAS: { key: PersonaKey; label: string; description: string; example: string }[] = [
+  { key: 'pote', label: 'Meilleur pote', description: 'Drôle et détendu, sérieux quand il le faut.', example: '« Partiel jeudi ? On cale trois séances et tu gères. »' },
+  { key: 'coach', label: 'Coach motivant', description: 'Te pousse à passer à l’action, fête chaque progrès.', example: '« 25 minutes, une seule tâche. Go, je chronomètre. »' },
+  { key: 'prof', label: 'Prof patient', description: 'Explique pas à pas et vérifie que c’est compris.', example: '« Reprenons depuis la définition, avec un exemple. »' },
+  { key: 'zen', label: 'Zen', description: 'Calme, aide à prendre du recul quand ça déborde.', example: '« Une chose à la fois. Laquelle est la plus simple ? »' },
+  { key: 'taquin', label: 'Taquin', description: 'Te charrie gentiment, jamais méchant.', example: '« Douze onglets ouverts et zéro fiche. Audacieux. »' },
+];
+
 function CopilotTab() {
   const s = useSettings();
   const aiEnabled = useCopilot(c => c.aiEnabled);
   const messages = useCopilot(c => c.messages.length);
+  const [provider, setProvider] = useState('');
+  useEffect(() => {
+    void import('../../copilot/claudeBrain')
+      .then(m => m.checkAiStatus())
+      .then(st => setProvider(st.enabled ? (st.label ?? st.provider ?? '') : ''));
+  }, []);
   return (
     <div className="space-y-5">
       <Section title="Copilot" description="Ton compagnon sur le bord de l'écran.">
@@ -244,7 +258,8 @@ function CopilotTab() {
           <p className="text-[13px]">
             {aiEnabled ? (
               <>
-                <span className="font-medium">Mode intelligent activé.</span> <span className="text-stone-500">Il comprend tout et peut agir sur ton espace.</span>
+                <span className="font-medium">Mode intelligent activé.</span>{' '}
+                <span className="text-stone-500">Il répond à toutes tes questions et peut agir sur ton espace{provider ? ` (IA : ${provider})` : ''}.</span>
               </>
             ) : (
               <>
@@ -272,6 +287,56 @@ function CopilotTab() {
               { value: 'bavard', label: 'Bavard' },
             ]}
           />
+        </Row>
+      </Section>
+
+      <Section title="Personnalité" description="Sa façon de te parler. Ses règles de base (honnêteté, sécurité, confirmation avant de supprimer) ne changent pas.">
+        <div className="grid gap-2 px-5 py-4 sm:grid-cols-2">
+          {PERSONAS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => s.set({ persona: p.key })}
+              aria-pressed={s.persona === p.key}
+              className={cx(
+                'rounded-lg border px-3.5 py-3 text-left transition-colors',
+                s.persona === p.key ? 'border-brand-500 bg-brand-50/60 ring-1 ring-brand-500' : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50',
+              )}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-[13px] font-medium">{p.label}</span>
+                {s.persona === p.key && <Check size={14} className="text-brand-600" />}
+              </span>
+              <span className="mt-0.5 block text-[12px] text-stone-500">{p.description}</span>
+              <span className="mt-1.5 block text-[12px] italic text-stone-600">{p.example}</span>
+            </button>
+          ))}
+        </div>
+        <div className="px-5 py-4">
+          <label htmlFor="persona-notes" className="text-[13px] font-medium">
+            Tes instructions pour Copilot
+          </label>
+          <p className="mt-0.5 text-[12px] text-stone-500">Un surnom, tes centres d'intérêt, le ton que tu préfères… Exemple : « Appelle-moi Capitaine, parle-moi de foot ».</p>
+          <textarea
+            id="persona-notes"
+            className="field mt-2.5 h-auto! min-h-[84px] w-full resize-y py-2 leading-relaxed"
+            maxLength={600}
+            value={s.personaNotes}
+            onChange={e => s.set({ personaNotes: e.target.value.slice(0, 600) })}
+            placeholder="Appelle-moi Capitaine, parle-moi de foot."
+          />
+          <p className={cx('mt-1 text-right text-[11px] tabular', s.personaNotes.length >= 560 ? 'text-amber-600' : 'text-stone-400')}>{s.personaNotes.length}/600</p>
+        </div>
+      </Section>
+
+      <Section title="Rendez-vous et voix">
+        <Row label="Point du matin" hint="À la première ouverture de la journée (avant midi) : ta journée en 3 lignes.">
+          <Toggle label="Point du matin" checked={s.morningBrief} onChange={v => s.set({ morningBrief: v })} />
+        </Row>
+        <Row label="Bilan du dimanche" hint="Le dimanche à partir de 17 h : ce qui a été fait, ton temps de concentration, la semaine qui arrive.">
+          <Toggle label="Bilan du dimanche" checked={s.weeklyReview} onChange={v => s.set({ weeklyReview: v })} />
+        </Row>
+        <Row label="Lire ses réponses à voix haute" hint="Utilise la voix française de ton appareil. Pour lui parler, utilise le micro dans la conversation.">
+          <Toggle label="Réponses à voix haute" checked={s.voiceReplies} onChange={v => s.set({ voiceReplies: v })} />
         </Row>
       </Section>
 

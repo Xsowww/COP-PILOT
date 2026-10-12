@@ -7,9 +7,11 @@ import { useDrive } from '../store/drive';
 import { useNotes } from '../store/notes';
 import { useCopilot, type Bubble, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
-import { toKey, todayKey, daysUntil, fmt, fromKey } from '../lib/dates';
+import { useTodos } from '../store/todos';
+import { useFocusLog } from '../store/focusLog';
+import { toKey, todayKey, daysUntil, fmt, fromKey, weekStart, countdownLabel } from '../lib/dates';
 import { hasRevisionPlan, linkToDay, linkToNote } from './actions';
-import { aiNudge } from './claudeBrain';
+import { aiNudge, type NudgeKind } from './claudeBrain';
 import { getSettings } from '../store/settings';
 import { notify } from '../lib/notify';
 
@@ -31,6 +33,7 @@ interface Nudge {
   links?: Bubble['links'];
   mood?: Bubble['mood'];
   urgent?: boolean; // bypass the global gap
+  kind?: NudgeKind; // 'brief' and 'review' are longer, several lines
 }
 
 function canSpeak(n: Nudge) {
@@ -38,7 +41,8 @@ function canSpeak(n: Nudge) {
   const settings = getSettings();
   if (s.thinking || !settings.copilotVisible) return false;
   const isReminder = n.key.startsWith('starting:');
-  if (isReminder ? !settings.eventReminders : !settings.proactive) return false;
+  const allowed = n.kind === 'brief' ? settings.morningBrief : n.kind === 'review' ? settings.weeklyReview : isReminder ? settings.eventReminders : settings.proactive;
+  if (!allowed) return false;
   const last = s.memory[n.key];
   if (last && Date.now() - last < n.every) return false;
   if (!n.urgent && Date.now() - lastNudge < MIN_GAP[settings.chattiness]) return false;
@@ -53,11 +57,11 @@ async function nudge(n: Nudge) {
   try {
     let text = n.fallback;
     if (useCopilot.getState().aiEnabled) {
-      const ai = await aiNudge({ ...n.situation, actions_proposees: n.offers?.map(o => o.label) ?? [] }, useAuth.getState().user?.name ?? '');
+      const ai = await aiNudge({ ...n.situation, actions_proposees: n.offers?.map(o => o.label) ?? [] }, useAuth.getState().user?.name ?? '', n.kind);
       if (ai) text = ai;
     }
     useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy') });
-    notify('Copilot', text);
+    notify('Copilot', n.kind ? text.split('\n')[0] : text);
   } finally {
     busy = false;
   }
@@ -140,6 +144,7 @@ function onFilesUploaded(count: number) {
 // ── Periodic look at the calendar ────────────────────────────────────────────
 
 function periodicCheck() {
+  if (weeklyReview()) return;
   const events = [...useCalendar.getState().events].sort(sortEvents);
   const today = todayKey();
   const now = new Date();
@@ -234,10 +239,119 @@ function minutesBetween(a: string, b: string) {
   return bh * 60 + bm - (ah * 60 + am);
 }
 
+// ── Morning brief & Sunday review ───────────────────────────────────────────
+
+const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
+
+/** « Ta journée en 3 lignes », on the first opening of the day before noon. Returns true if shown. */
+function morningBrief(): boolean {
+  const settings = getSettings();
+  const today = todayKey();
+  const key = `brief:${today}`;
+  if (!settings.morningBrief || !settings.copilotVisible || new Date().getHours() >= 12 || useCopilot.getState().memory[key]) return false;
+  const events = useCalendar.getState().events;
+  const todays = events.filter(e => e.date === today).sort(sortEvents);
+  const todos = useTodos.getState().todos.filter(t => !t.done);
+  const dueTodos = todos.filter(t => t.due && t.due <= today);
+  const nextExam = events.filter(e => e.category === 'examen' && !e.done && e.date >= today).sort(sortEvents)[0];
+  // Discreet mode: only when there is something worth saying.
+  if (settings.chattiness === 'calme' && !todays.length && !dueTodos.length && !(nextExam && daysUntil(nextExam.date) <= 7)) return false;
+
+  const name = useAuth.getState().user?.name ?? '';
+  const lines = [
+    todays.length
+      ? `Aujourd'hui : ${todays.slice(0, 4).map(e => `${e.title}${e.start ? ` (${e.start.replace(':', 'h')})` : ''}`).join(', ')}${todays.length > 4 ? '…' : '.'}`
+      : "Aujourd'hui : rien au calendrier, journée libre.",
+    dueTodos.length
+      ? `À faire : ${dueTodos.slice(0, 3).map(t => t.title).join(', ')}${dueTodos.length > 3 ? ` et ${dueTodos.length - 3} autre(s)` : ''}.`
+      : todos.length
+        ? `À faire : ${plural(todos.length, 'tâche')} dans ta liste, rien d'urgent.`
+        : 'À faire : liste vide, rien qui presse.',
+    nextExam ? `Prochain examen : ${nextExam.title}, ${daysUntil(nextExam.date) <= 1 ? countdownLabel(nextExam.date).toLowerCase() : `dans ${daysUntil(nextExam.date)} jours`}.` : "Prochain examen : aucun à l'horizon.",
+  ];
+  const offers: CopilotOffer[] = [{ label: 'Ouvrir le calendrier', kind: 'open', payload: { to: todays.length ? linkToDay(today) : '/calendrier' } }];
+  if (nextExam && daysUntil(nextExam.date) <= 10 && !hasRevisionPlan(nextExam.title)) offers.unshift({ label: 'Planifier mes révisions', kind: 'plan_revisions', payload: { eventId: nextExam.id } });
+  void nudge({
+    key,
+    every: 365 * DAY,
+    urgent: true,
+    kind: 'brief',
+    situation: {
+      evenement: `point du matin de ${name || "l'étudiant"}`,
+      aujourdhui: todays.map(e => `${e.title}${e.start ? ` à ${e.start}` : ''} (${e.category})${e.done ? ' fait' : ''}`),
+      taches_du_jour_ou_en_retard: dueTodos.map(t => t.title),
+      taches_restantes: todos.length,
+      prochain_examen: nextExam ? `${nextExam.title} dans ${daysUntil(nextExam.date)} jours` : null,
+    },
+    fallback: `${name ? `Salut ${name} !` : 'Salut !'} Ta journée en 3 lignes :\n${lines.join('\n')}`,
+    offers,
+    mood: 'happy',
+  });
+  return true;
+}
+
+/** Sunday from 17:00: what was done this week, focus time per subject, what's next. Once per week. */
+function weeklyReview(): boolean {
+  const now = new Date();
+  const settings = getSettings();
+  if (!settings.weeklyReview || !settings.copilotVisible || now.getDay() !== 0 || now.getHours() < 17) return false;
+  const ws = weekStart(now);
+  const key = `review:${toKey(ws)}`;
+  if (useCopilot.getState().memory[key]) return false;
+  const from = toKey(ws);
+  const to = toKey(addDays(ws, 6));
+  const events = useCalendar.getState().events;
+  const week = events.filter(e => e.date >= from && e.date <= to && e.category !== 'cours');
+  const done = week.filter(e => e.done).length;
+  const todosDone = useTodos.getState().todos.filter(t => t.doneAt && toKey(new Date(t.doneAt)) >= from).length;
+  const sessions = useFocusLog.getState().sessions.filter(s => toKey(new Date(s.startedAt)) >= from);
+  const bySubject = new Map<string, number>();
+  for (const s of sessions) bySubject.set(s.subject || 'sans matière', (bySubject.get(s.subject || 'sans matière') ?? 0) + s.minutes);
+  const focusMin = sessions.reduce((n, s) => n + s.minutes, 0);
+  const top = [...bySubject.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const nFrom = toKey(addDays(ws, 7));
+  const nTo = toKey(addDays(ws, 13));
+  const next = events.filter(e => e.date >= nFrom && e.date <= nTo);
+  const nextExams = next.filter(e => e.category === 'examen');
+  const hours = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`);
+  const ticked = todosDone ? `${plural(todosDone, 'tâche')} cochée${todosDone > 1 ? 's' : ''}` : '';
+
+  const lines = [
+    week.length
+      ? `Cette semaine : ${done} fait${done > 1 ? 's' : ''} sur ${week.length} prévu${week.length > 1 ? 's' : ''}${ticked ? `, plus ${ticked}` : ''}.`
+      : `Cette semaine : rien de prévu au calendrier${ticked ? `, mais ${ticked}` : ''}.`,
+    focusMin
+      ? `Concentration : ${hours(focusMin)}${top.length ? ` (${top.map(([s, m]) => `${s} ${hours(m)}`).join(', ')})` : ''}.`
+      : 'Concentration : aucune session focus, on en lance une cette semaine ?',
+    next.length
+      ? `Semaine prochaine : ${plural(next.length, 'événement')}${nextExams.length ? `, dont ${nextExams.map(e => e.title).join(', ')}` : ''}.`
+      : 'Semaine prochaine : calendrier vide pour l’instant.',
+  ];
+  void nudge({
+    key,
+    every: 365 * DAY,
+    urgent: true,
+    kind: 'review',
+    situation: {
+      evenement: 'bilan du dimanche soir',
+      prevu_cette_semaine: week.length,
+      fait_cette_semaine: done,
+      taches_cochees: todosDone,
+      minutes_focus_par_matiere: Object.fromEntries(bySubject),
+      semaine_prochaine: next.map(e => `${e.title} (${e.category}, ${fmt(fromKey(e.date), 'EEEE')})`).slice(0, 12),
+    },
+    fallback: `Bilan de ta semaine :\n${lines.join('\n')}`,
+    offers: [{ label: 'Voir la semaine prochaine', kind: 'open', payload: { to: linkToDay(nFrom) } }],
+    mood: 'happy',
+  });
+  return true;
+}
+
 /** Greeting when the app opens (once per browser session). */
 function greet() {
   if (sessionStorage.getItem('cop:greeted')) return;
   sessionStorage.setItem('cop:greeted', '1');
+  if (morningBrief() || weeklyReview()) return;
   const name = useAuth.getState().user?.name ?? '';
   const events = useCalendar.getState().events;
   const today = events.filter(e => e.date === todayKey()).sort(sortEvents);

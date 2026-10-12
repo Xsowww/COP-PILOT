@@ -1,5 +1,7 @@
 // AI mode: the conversation goes through our server (/api/copilot, see server/copilot.mjs),
-// which holds the API key and Copilot's personality. Tools run here, on the student's data.
+// which holds the API key, Copilot's personality and picks the AI provider (Claude, Gemini,
+// Groq…). The server always answers in the Anthropic message shape, so this file doesn't
+// care which provider is behind. Tools run here, on the student's data.
 
 import type Anthropic from '@anthropic-ai/sdk';
 import { fmt, todayKey } from '../lib/dates';
@@ -11,7 +13,10 @@ import { accessToken } from '../lib/supabase';
 import {
   search, analyzeCalendar, eventsBetween, addEvent, createNote, createDriveFolder, listDriveFolder, readNote, overview,
   linkToNote, linkToDriveFolder, linkToDay, describeEvent, findExam, planRevisions, appendToNote, updateEvent, goTo,
+  deleteEvent, findItem, linkToItem, itemName, renameItem, moveItem, setStar, setFolderColor, trashItems, listTrash, restoreFromTrash,
+  searchNotes, listTodos, addTodo, completeTodo, deleteTodo, startFocus, stopFocus, updateSettings,
 } from './actions';
+import { readFileText } from './fileText';
 import type { BotReply } from './localBrain';
 
 type Block = Anthropic.Beta.BetaContentBlock;
@@ -25,7 +30,13 @@ export class CopilotApiError extends Error {
   }
 }
 
-async function post<T>(path: string, body: unknown, timeoutMs = 60_000): Promise<T> {
+/** Personality and preferences, sent with every request (the server builds the prompt). */
+function persona() {
+  const { persona, personaNotes } = getSettings();
+  return { persona, personaNotes: personaNotes.slice(0, 600) };
+}
+
+async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise<T> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -47,26 +58,59 @@ async function post<T>(path: string, body: unknown, timeoutMs = 60_000): Promise
   }
 }
 
-export async function checkAiStatus(): Promise<boolean> {
-  try {
-    const res = await fetch('/api/copilot/status');
-    return res.ok && Boolean((await res.json()).enabled);
-  } catch {
-    return false;
-  }
+export interface AiStatus {
+  enabled: boolean;
+  provider?: string;
+  label?: string;
+  model?: string;
 }
 
-const str = (v: unknown) => (typeof v === 'string' ? v : '');
+let lastStatus: AiStatus = { enabled: false };
+/** The provider found by the last status check (shown discreetly in the UI). */
+export const aiStatus = () => lastStatus;
 
-function runTool(name: string, input: Record<string, unknown>, links: CopilotLink[]): unknown {
+export async function checkAiStatus(): Promise<AiStatus> {
+  try {
+    const res = await fetch('/api/copilot/status');
+    const data = res.ok ? await res.json() : {};
+    lastStatus = { enabled: Boolean(data.enabled), provider: data.provider, label: data.label, model: data.model };
+  } catch {
+    lastStatus = { enabled: false };
+  }
+  return lastStatus;
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : typeof v === 'string' ? [v] : []);
+
+async function runTool(name: string, input: Record<string, unknown>, links: CopilotLink[]): Promise<unknown> {
+  if ('_invalid_arguments' in input) throw new Error('arguments illisibles (JSON invalide), réessaie avec des arguments JSON valides');
   switch (name) {
     case 'search_site': {
       const hits = search(str(input.query), 10);
       links.push(...hits.slice(0, 3).map(h => ({ label: h.title, to: h.to })));
       return hits.map(({ to: _to, ...h }) => h);
     }
+    case 'search_notes': {
+      const hits = searchNotes(str(input.query));
+      links.push(...hits.slice(0, 3).map(h => ({ label: h.title, to: linkToNote(h.id) })));
+      return hits.length ? hits : { result: 'aucune note ne contient ce texte' };
+    }
     case 'get_overview':
       return overview();
+    case 'read_note':
+      return readNote(str(input.note_id)) ?? { error: 'note introuvable' };
+    case 'read_file': {
+      const res = await readFileText(str(input.file_id));
+      const s = findItem(str(input.file_id));
+      if (!('error' in res) && s) links.push({ label: `Ouvrir « ${itemName(s)} »`, to: linkToItem(s) });
+      return res;
+    }
+    case 'list_drive_folder': {
+      const res = listDriveFolder(str(input.folder) || undefined);
+      if (res) links.push({ label: res.folder, to: res.link });
+      return res ?? { error: 'dossier introuvable' };
+    }
     case 'analyze_calendar': {
       const a = analyzeCalendar();
       links.push({ label: 'Calendrier', to: '/calendrier' });
@@ -99,6 +143,11 @@ function runTool(name: string, input: Record<string, unknown>, links: CopilotLin
       links.push({ label: 'Voir le jour', to: linkToDay(ev.date) });
       return { updated: describeEvent(ev) };
     }
+    case 'delete_event': {
+      const ev = deleteEvent(str(input.event_id));
+      if (!ev) throw new Error('événement introuvable');
+      return { deleted: describeEvent(ev) };
+    }
     case 'plan_revisions': {
       const exam = findExam(str(input.exam));
       if (!exam) throw new Error('examen introuvable');
@@ -108,32 +157,96 @@ function runTool(name: string, input: Record<string, unknown>, links: CopilotLin
       return { exam: describeEvent(exam), sessions: res.created.map(describeEvent), note: res.note?.title };
     }
     case 'create_note': {
-      const n = createNote(str(input.title) || 'Note', str(input.content), str(input.folder) || undefined);
+      const n = createNote(str(input.title) || 'Note', typeof input.content === 'string' ? input.content : '', str(input.folder) || undefined);
       links.push({ label: `Ouvrir « ${n.title} »`, to: linkToNote(n.id) });
       return { created: n.title, id: n.id };
     }
     case 'append_to_note': {
-      const n = appendToNote(str(input.note_id), str(input.content));
+      const n = appendToNote(str(input.note_id), typeof input.content === 'string' ? input.content : '');
       if (!n) throw new Error('note introuvable');
       links.push({ label: `Ouvrir « ${n.title} »`, to: linkToNote(n.id) });
       return { updated: n.title };
     }
-    case 'read_note':
-      return readNote(str(input.note_id)) ?? { error: 'note introuvable' };
     case 'create_folder': {
       if (input.space === 'notes') {
         const f = useNotes.getState().createFolder(str(input.name), null);
         links.push({ label: f.name, to: `/notes?dossier=${f.id}` });
-        return { created: f.name };
+        return { created: f.name, id: f.id };
       }
       const f = createDriveFolder(str(input.name), str(input.parent) || undefined);
       links.push({ label: f.name, to: linkToDriveFolder(f.id) });
-      return { created: f.name };
+      return { created: f.name, id: f.id };
     }
-    case 'list_drive_folder': {
-      const res = listDriveFolder(str(input.folder) || undefined);
-      if (res) links.push({ label: res.folder, to: res.link });
-      return res ?? { error: 'dossier introuvable' };
+    case 'rename_item': {
+      const s = renameItem(str(input.id), str(input.new_name));
+      if (!s) throw new Error('élément introuvable ou nom vide');
+      links.push({ label: itemName(s), to: linkToItem(s) });
+      return { renamed: itemName(s) };
+    }
+    case 'move_item': {
+      const res = moveItem(str(input.id), str(input.folder) || undefined);
+      if ('error' in res) throw new Error(res.error);
+      links.push({ label: itemName(res.moved), to: linkToItem(res.moved) });
+      return { moved: itemName(res.moved), to: res.to };
+    }
+    case 'star_file': {
+      const it = setStar(str(input.id), input.starred !== false);
+      if (!it) throw new Error('fichier ou dossier du Drive introuvable');
+      return { item: it.name, starred: input.starred !== false };
+    }
+    case 'set_folder_color': {
+      const f = setFolderColor(str(input.folder), str(input.color));
+      if (!f) throw new Error('dossier du Drive ou couleur introuvable');
+      links.push({ label: f.name, to: linkToDriveFolder(f.id) });
+      return { folder: f.name, color: str(input.color) };
+    }
+    case 'trash_items': {
+      const res = trashItems(ids(input.ids));
+      if (!res.done.length) throw new Error('aucun élément trouvé avec ces id');
+      return { moved_to_trash: res.done, not_found: res.missing, note: 'récupérable 30 jours depuis la corbeille' };
+    }
+    case 'list_trash': {
+      const list = listTrash();
+      return list.length ? list : { result: 'la corbeille est vide' };
+    }
+    case 'restore_from_trash': {
+      const res = restoreFromTrash(ids(input.ids));
+      if (!res.restored.length) throw new Error('rien trouvé dans la corbeille avec ces id');
+      return res;
+    }
+    case 'list_todos': {
+      const list = listTodos(input.include_done === true);
+      return list.length ? list : { result: 'aucune tâche' };
+    }
+    case 'add_todo': {
+      if (!str(input.title)) throw new Error('title requis');
+      const t = addTodo(str(input.title), str(input.due) || undefined);
+      return { created: t.title, id: t.id, due: t.due };
+    }
+    case 'complete_todo': {
+      const t = completeTodo(str(input.todo_id), input.done !== false);
+      if (!t) throw new Error('tâche introuvable');
+      return { todo: t.title, done: input.done !== false };
+    }
+    case 'delete_todo': {
+      const t = deleteTodo(str(input.todo_id));
+      if (!t) throw new Error('tâche introuvable');
+      return { deleted: t.title };
+    }
+    case 'start_focus':
+      return { started: startFocus(str(input.subject)) };
+    case 'stop_focus':
+      return stopFocus() ?? { result: 'aucune session en cours' };
+    case 'update_settings': {
+      const changed = updateSettings({
+        accent: str(input.accent) || undefined,
+        theme: str(input.theme) || undefined,
+        reduceMotion: typeof input.reduce_motion === 'boolean' ? input.reduce_motion : undefined,
+        chattiness: str(input.chattiness) || undefined,
+      });
+      if (!changed) throw new Error('aucun réglage valide fourni');
+      links.push({ label: 'Réglages', to: '/profil' });
+      return { changed };
     }
     case 'open_page':
       goTo(str(input.path) || '/');
@@ -150,7 +263,7 @@ export const resetClaudeHistory = () => {
 
 const PAGES: Record<string, string> = { '/': 'Accueil', '/drive': 'Drive', '/calendrier': 'Calendrier', '/notes': 'Notes', '/profil': 'Profil et réglages' };
 
-/** Facts from the app that Claude can't see otherwise, prepended to each user turn. */
+/** Facts from the app that the AI can't see otherwise, prepended to each user turn. */
 function contextBlock(): string {
   const now = new Date();
   const msgs = useCopilot.getState().messages;
@@ -177,7 +290,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
   history.push({ role: 'user', content: [{ type: 'text', text: contextBlock() }, { type: 'text', text }] });
   try {
     for (let step = 0; step < 10; step++) {
-      const res = await post<{ content: Block[]; stop_reason: string }>('chat', { messages: history, userName });
+      const res = await post<{ content: Block[]; stop_reason: string }>('chat', { messages: history, userName, ...persona() });
       history.push({ role: 'assistant', content: res.content as Anthropic.Beta.BetaContentBlockParam[] });
       if (res.stop_reason === 'refusal') return { text: "Là je préfère ne pas m'aventurer. On parle d'autre chose ?" };
       if (res.stop_reason === 'pause_turn') continue;
@@ -192,13 +305,15 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
         const unique = links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4);
         return { text: answer || "C'est fait.", links: unique };
       }
-      const results: Anthropic.Beta.BetaToolResultBlockParam[] = toolUses.map(tu => {
+      const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
+      for (const tu of toolUses) {
         try {
-          return { type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, links)) };
+          const out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, links);
+          results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) });
         } catch (e) {
-          return { type: 'tool_result', tool_use_id: tu.id, content: (e as Error).message, is_error: true };
+          results.push({ type: 'tool_result', tool_use_id: tu.id, content: (e as Error).message, is_error: true });
         }
-      });
+      }
       history.push({ role: 'user', content: results });
     }
     return { text: "J'ai fait plusieurs choses, jette un œil.", links };
@@ -208,12 +323,19 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
   }
 }
 
-/** Lets Claude phrase a proactive remark in Copilot's voice. Returns null on any problem. */
-export async function aiNudge(situation: Record<string, unknown>, userName: string): Promise<string | null> {
+export type NudgeKind = 'remark' | 'brief' | 'review';
+const NUDGE_MAX: Record<NudgeKind, number> = { remark: 320, brief: 520, review: 640 };
+
+/** Lets the AI phrase a proactive remark in Copilot's voice. Returns null on any problem. */
+export async function aiNudge(situation: Record<string, unknown>, userName: string, kind: NudgeKind = 'remark'): Promise<string | null> {
   try {
-    const res = await post<{ text: string }>('nudge', { situation: { ...situation, maintenant: fmt(new Date(), "EEEE d MMMM 'à' HH:mm") }, userName }, 9000);
+    const res = await post<{ text: string }>(
+      'nudge',
+      { situation: { ...situation, maintenant: fmt(new Date(), "EEEE d MMMM 'à' HH:mm") }, userName, kind, ...persona() },
+      kind === 'remark' ? 9000 : 15000,
+    );
     const t = res.text?.trim();
-    return t && t.length <= 320 ? t : null;
+    return t && t.length <= NUDGE_MAX[kind] ? t : null;
   } catch {
     return null;
   }
@@ -223,6 +345,6 @@ export function describeApiError(e: unknown): string {
   const code = e instanceof CopilotApiError ? e.code : 'unknown';
   if (code === 'rate_limited') return 'Doucement, je reprends mon souffle deux secondes. Réessaie juste après.';
   if (code === 'network' || code === 'timeout') return "J'ai perdu la connexion une seconde.";
+  if (code === 'bad_key') return "Ma clé d'accès à l'IA ne marche pas (à vérifier dans la configuration du serveur).";
   return "J'ai un petit souci technique de mon côté.";
 }
-
