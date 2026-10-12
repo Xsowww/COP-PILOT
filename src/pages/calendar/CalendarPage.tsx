@@ -1,18 +1,46 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown } from 'lucide-react';
 import { useCalendar, CATEGORIES, guessCategory, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
-import { parseQuickAdd, toKey, fromKey, todayKey, fmt, weekStart, countdownLabel, daysUntil } from '../../lib/dates';
+import { parseQuickAdd, toKey, fromKey, todayKey, fmt, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
+import DayView from './DayView';
+import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
+import { isIcsFile } from '../../lib/ics';
+import { useEventDrag, type DropTarget } from './useEventDrag';
+
+type Mode = 'week' | 'month' | 'day';
+const MODES: { id: Mode; label: string }[] = [
+  { id: 'day', label: 'Jour' },
+  { id: 'week', label: 'Semaine' },
+  { id: 'month', label: 'Mois' },
+];
+const MODE_KEY = 'cop.calendar.mode';
+
+function savedMode(): Mode {
+  try {
+    const m = localStorage.getItem(MODE_KEY);
+    return m === 'day' || m === 'month' ? m : 'week';
+  } catch {
+    return 'week';
+  }
+}
 
 function Dot({ color, size = 8 }: { color: string; size?: number }) {
   return <span className="inline-block shrink-0 rounded-full" style={{ background: color, width: size, height: size }} />;
 }
 
-function EventItem({ ev, onEdit }: { ev: CalendarEvent; onEdit: () => void }) {
+interface EventItemProps {
+  ev: CalendarEvent;
+  onEdit: () => void;
+  dragging: boolean;
+  onDragStart: (e: ReactPointerEvent<HTMLElement>) => void;
+}
+
+function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   const { toggleDone, remove } = useCalendar.getState();
   const c = CATEGORIES[ev.category];
   return (
@@ -27,7 +55,11 @@ function EventItem({ ev, onEdit }: { ev: CalendarEvent; onEdit: () => void }) {
           <p className="text-stone-400">Journée</p>
         )}
       </div>
-      <div className={cx('flex flex-1 items-start gap-3 rounded-lg border border-stone-200/80 bg-white py-3 pl-3 pr-2 transition-colors hover:border-stone-300', ev.done && 'bg-stone-50')}>
+      <div
+        onPointerDown={onDragStart}
+        title="Glisse sur un autre jour pour déplacer"
+        className={cx('flex flex-1 touch-manipulation items-start gap-3 rounded-lg border border-stone-200/80 bg-white py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:border-stone-300', ev.done && 'bg-stone-50', dragging && 'opacity-40')}
+      >
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
         <button
           onClick={() => toggleDone(ev.id)}
@@ -77,11 +109,22 @@ export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
   const events = useCalendar(s => s.events);
   const [selected, setSelected] = useState(() => params.get('jour') ?? todayKey());
-  const [mode, setMode] = useState<'week' | 'month'>('week');
+  const [mode, setModeState] = useState<Mode>(savedMode);
   const [quick, setQuick] = useState('');
   const [hidden, setHidden] = useState<Set<EventCategory>>(new Set());
-  const [form, setForm] = useState<{ event?: CalendarEvent; date: string } | null>(null);
+  const [form, setForm] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string } | null>(null);
+  const [importing, setImporting] = useState<{ initial?: IcsSource } | null>(null);
+  const [fileOver, setFileOver] = useState(false);
   const quickRef = useRef<HTMLInputElement>(null);
+
+  const setMode = (m: Mode) => {
+    setModeState(m);
+    try {
+      localStorage.setItem(MODE_KEY, m);
+    } catch {
+      /* private mode: the choice just isn't remembered */
+    }
+  };
 
   // Follow links like /calendrier?jour=2026-10-12 (from search, dashboard or Copilot).
   const jour = params.get('jour');
@@ -128,7 +171,61 @@ export default function CalendarPage() {
     toast(`Ajouté : ${parsed.title}`, 'success');
   };
 
-  const shift = (dir: 1 | -1) => setSelected(toKey(mode === 'week' ? addDays(selDate, 7 * dir) : addMonths(selDate, dir)));
+  const shift = (dir: 1 | -1) => selectDay(toKey(mode === 'day' ? addDays(selDate, dir) : mode === 'week' ? addDays(selDate, 7 * dir) : addMonths(selDate, dir)));
+
+  // ← / → move one day (↑ / ↓ one week outside the day view), like a desktop agenda.
+  const keysRef = useRef<(e: KeyboardEvent) => void>(() => undefined);
+  useEffect(() => {
+    keysRef.current = e => {
+      if (form || importing || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [aria-modal="true"]')) return;
+      const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: mode === 'day' ? 0 : -7, ArrowDown: mode === 'day' ? 0 : 7 }[e.key];
+      if (!delta) return;
+      e.preventDefault();
+      selectDay(toKey(addDays(selDate, delta)));
+    };
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keysRef.current(e);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Drag an event onto another day, or onto another time in the day view.
+  const moveEvent = (ev: CalendarEvent, target: DropTarget) => {
+    const patch: Partial<CalendarEvent> = { date: target.day };
+    if (target.minutes !== undefined) {
+      const length = ev.start && ev.end ? toMinutes(ev.end) - toMinutes(ev.start) : ev.start ? null : 60;
+      patch.start = fromMinutes(target.minutes);
+      patch.end = length === null ? undefined : fromMinutes(target.minutes + length);
+    }
+    const dayChanged = patch.date !== ev.date;
+    const timeChanged = patch.start !== undefined && patch.start !== ev.start;
+    if (!dayChanged && !timeChanged) return;
+    const before = { date: ev.date, start: ev.start, end: ev.end };
+    const { update } = useCalendar.getState();
+    update(ev.id, patch);
+    const label = dayChanged ? `Déplacé au ${fmt(fromKey(target.day), 'EEEE d MMM')}${timeChanged ? ` à ${patch.start}` : ''}` : `Déplacé à ${patch.start}`;
+    toast(label, 'success', { label: 'Annuler', run: () => update(ev.id, before) });
+  };
+  const { drag, ghostRef, start: startDrag } = useEventDrag(moveEvent);
+  const dropDay = drag?.target && drag.target.minutes === undefined ? drag.target.day : null;
+
+  // Drop an .ics file anywhere on the page to import it.
+  const hasFiles = (e: React.DragEvent) => e.dataTransfer.types.includes('Files');
+  const onFileDrop = async (e: React.DragEvent) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    setFileOver(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!isIcsFile(file)) {
+      toast('Dépose un fichier .ics pour importer un emploi du temps', 'error');
+      return;
+    }
+    setImporting({ initial: { name: file.name, text: await file.text() } });
+  };
 
   const upcomingExams = events.filter(e => e.category === 'examen' && e.date >= today && !e.done).sort(sortEvents).slice(0, 4);
   const homework = events.filter(e => e.category === 'devoir' && !e.done && daysUntil(e.date) <= 14).sort(sortEvents).slice(0, 6);
@@ -143,17 +240,28 @@ export default function CalendarPage() {
   }, [selected]);
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
+    <div
+      className="h-full overflow-y-auto px-4 pb-12 md:px-8"
+      onDragOver={e => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        if (!fileOver) setFileOver(true);
+      }}
+      onDragLeave={e => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFileOver(false);
+      }}
+      onDrop={e => void onFileDrop(e)}
+    >
       <div className="mx-auto max-w-[1180px]">
         {/* Header */}
         <div className="flex flex-wrap items-center gap-2 pb-4 pt-2">
           <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">Calendrier</h1>
           <div className="ml-auto flex items-center gap-1">
-            <button className="icon-btn" onClick={() => shift(-1)} title="Précédent">
+            <button className="icon-btn" onClick={() => shift(-1)} title={mode === 'day' ? 'Jour précédent' : 'Précédent'}>
               <ChevronLeft size={17} />
             </button>
-            <span className="min-w-32 text-center text-[14px] font-medium capitalize">{fmt(selDate, 'MMMM yyyy')}</span>
-            <button className="icon-btn" onClick={() => shift(1)} title="Suivant">
+            <span className="min-w-32 text-center text-[14px] font-medium first-letter:uppercase">{fmt(selDate, mode === 'day' ? 'EEE d MMMM' : 'MMMM yyyy')}</span>
+            <button className="icon-btn" onClick={() => shift(1)} title={mode === 'day' ? 'Jour suivant' : 'Suivant'}>
               <ChevronRight size={17} />
             </button>
           </div>
@@ -161,12 +269,16 @@ export default function CalendarPage() {
             Aujourd'hui
           </button>
           <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px]">
-            {(['week', 'month'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)} className={cx('h-7 rounded-md px-3 font-medium transition-colors', mode === m ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
-                {m === 'week' ? 'Semaine' : 'Mois'}
+            {MODES.map(m => (
+              <button key={m.id} onClick={() => setMode(m.id)} className={cx('h-7 rounded-md px-3 font-medium transition-colors', mode === m.id ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
+                {m.label}
               </button>
             ))}
           </div>
+          <button className="btn-secondary h-8 px-2.5" onClick={() => setImporting({})} title="Importer un emploi du temps (.ics)">
+            <CalendarArrowDown size={15} />
+            <span className="hidden sm:inline">Importer (.ics)</span>
+          </button>
         </div>
 
         {/* Quick add */}
@@ -213,7 +325,7 @@ export default function CalendarPage() {
 
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_300px]">
           <section className="card p-4 md:p-5">
-            {mode === 'week' ? (
+            {mode !== 'month' ? (
               <div className="grid grid-cols-7 gap-1">
                 {week.map(d => {
                   const key = toKey(d);
@@ -223,9 +335,14 @@ export default function CalendarPage() {
                   return (
                     <button
                       key={key}
+                      data-drop-day={key}
                       onClick={() => selectDay(key)}
                       onDoubleClick={() => setForm({ date: key })}
-                      className={cx('flex flex-col items-center rounded-lg py-2.5 transition-colors', isSel ? 'bg-stone-100' : 'hover:bg-stone-50')}
+                      className={cx(
+                        'flex flex-col items-center rounded-lg py-2.5 transition-colors',
+                        dropDay === key ? 'bg-brand-50 ring-2 ring-brand-500/40' : isSel ? 'bg-stone-100' : 'hover:bg-stone-50',
+                        drag && dropDay !== key && 'ring-1 ring-stone-200 ring-inset',
+                      )}
                     >
                       <span className="text-[11px] font-medium capitalize text-stone-400">{fmt(d, 'EEE')}</span>
                       <span
@@ -260,11 +377,12 @@ export default function CalendarPage() {
                     return (
                       <button
                         key={key}
+                        data-drop-day={key}
                         onClick={() => selectDay(key)}
                         onDoubleClick={() => setForm({ date: key })}
                         className={cx(
                           'flex min-h-16 flex-col items-stretch p-1 text-left transition-colors md:min-h-[84px]',
-                          isSel ? 'bg-stone-50' : 'bg-white hover:bg-stone-50',
+                          dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'bg-stone-50' : 'bg-white hover:bg-stone-50',
                           !isSameMonth(d, selDate) && 'text-stone-300',
                         )}
                       >
@@ -277,7 +395,12 @@ export default function CalendarPage() {
                           {fmt(d, 'd')}
                         </span>
                         {evs.slice(0, 2).map(e => (
-                          <span key={e.id} className="mb-0.5 hidden items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 md:flex" style={{ textDecoration: e.done ? 'line-through' : undefined }}>
+                          <span
+                            key={e.id}
+                            onPointerDown={p => startDrag(e, p)}
+                            className={cx('mb-0.5 hidden cursor-grab select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 md:flex', drag?.ev.id === e.id && 'opacity-40')}
+                            style={{ textDecoration: e.done ? 'line-through' : undefined }}
+                          >
                             <Dot color={CATEGORIES[e.category].color} size={6} />
                             <span className="truncate">{e.title}</span>
                           </span>
@@ -310,7 +433,17 @@ export default function CalendarPage() {
                   <Plus size={14} /> Ajouter
                 </button>
               </div>
-              {dayEvents.length === 0 ? (
+              {mode === 'day' ? (
+                <DayView
+                  date={selected}
+                  isToday={selected === today}
+                  events={dayEvents}
+                  drag={drag}
+                  onDragStart={startDrag}
+                  onEdit={ev => setForm({ event: ev, date: ev.date })}
+                  onCreate={(start, end) => setForm({ date: selected, start, end })}
+                />
+              ) : dayEvents.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-stone-200 py-10 text-center">
                   <p className="text-[14px] font-medium">Journée libre</p>
                   <p className="mt-1 text-[13px] text-stone-500">Rien de prévu ce jour-là.</p>
@@ -318,8 +451,9 @@ export default function CalendarPage() {
               ) : (
                 <div className="space-y-2">
                   {dayEvents.map(ev => (
-                    <EventItem key={ev.id} ev={ev} onEdit={() => setForm({ event: ev, date: ev.date })} />
+                    <EventItem key={ev.id} ev={ev} dragging={drag?.ev.id === ev.id} onDragStart={e => startDrag(ev, e)} onEdit={() => setForm({ event: ev, date: ev.date })} />
                   ))}
+                  <p className="pt-1 text-center text-[11px] text-stone-400">Astuce : glisse un événement sur un autre jour pour le déplacer.</p>
                 </div>
               )}
             </div>
@@ -413,7 +547,33 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {form && <EventForm event={form.event} date={form.date} onClose={() => setForm(null)} />}
+      {form && <EventForm event={form.event} date={form.date} start={form.start} end={form.end} onClose={() => setForm(null)} />}
+      {importing && <ImportIcsDialog initial={importing.initial} onClose={() => setImporting(null)} onImported={selectDay} />}
+
+      {/* Chip that follows the pointer while an event is dragged */}
+      {drag && (
+        <div
+          ref={ghostRef}
+          className={cx(
+            'pointer-events-none fixed left-0 top-0 z-[80] flex max-w-56 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2 py-1 text-[12px] font-medium shadow-pop transition-opacity',
+            // Over the hourly grid the dashed preview already shows where it lands.
+            drag.target?.minutes !== undefined && 'opacity-0',
+          )}
+        >
+          <Dot color={CATEGORIES[drag.ev.category].color} size={7} />
+          <span className="truncate">{drag.ev.title}</span>
+        </div>
+      )}
+
+      {fileOver && (
+        <div className="pointer-events-none fixed inset-0 z-[75] flex items-center justify-center bg-stone-900/10 p-6">
+          <div className="pop flex flex-col items-center rounded-2xl border-2 border-dashed border-brand-500 bg-white/95 px-10 py-8 text-center shadow-pop">
+            <CalendarArrowDown size={26} className="text-brand-600" />
+            <p className="mt-2 text-[15px] font-semibold">Dépose ton emploi du temps</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">Fichier .ics exporté depuis ton ENT ou Google Agenda</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

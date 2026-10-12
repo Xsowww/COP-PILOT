@@ -108,3 +108,15 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
     end,
   };
 }
+
+/** "08:15" → 495 */
+export const toMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + (m || 0);
+};
+
+/** 495 → "08:15" (clamped to the day). */
+export const fromMinutes = (min: number) => {
+  const v = Math.max(0, Math.min(23 * 60 + 59, Math.round(min)));
+  return `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+};

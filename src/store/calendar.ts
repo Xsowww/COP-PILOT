@@ -32,6 +32,8 @@ export type NewEvent = Omit<CalendarEvent, 'id' | 'done' | 'createdAt'>;
 interface CalendarState {
   events: CalendarEvent[];
   add: (e: NewEvent) => CalendarEvent;
+  /** Adds many events in one update (.ics import). */
+  addMany: (list: NewEvent[]) => void;
   update: (id: string, patch: Partial<CalendarEvent>) => void;
   remove: (id: string) => void;
   toggleDone: (id: string) => void;
@@ -59,6 +61,7 @@ export const useCalendar = create<CalendarState>()(
         set(s => ({ events: [...s.events, ev] }));
         return ev;
       },
+      addMany: list => set(s => ({ events: [...s.events, ...list.map(e => ({ ...e, id: uid(), done: false, createdAt: nowIso() }))] })),
       update: (id, patch) => set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, ...patch } : e)) })),
       remove: id => set(s => ({ events: s.events.filter(e => e.id !== id) })),
       toggleDone: id => set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, done: !e.done } : e)) })),
