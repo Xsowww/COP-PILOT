@@ -31,7 +31,7 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
               onClick={() => setTarget(f.id)}
             >
               <button
-                className={cx('rounded p-0.5 text-stone-400 transition', !hasKids && 'invisible', expanded && 'rotate-90')}
+                className={cx('rounded p-0.5 text-stone-500 transition', !hasKids && 'invisible', expanded && 'rotate-90')}
                 onClick={e => {
                   e.stopPropagation();
                   setOpen(s => {

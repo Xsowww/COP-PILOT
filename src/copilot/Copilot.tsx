@@ -29,7 +29,7 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
           onClick={() => onOffer(o)}
           className={cx(
             'h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors disabled:opacity-40',
-            i === 0 ? 'bg-ink text-white hover:bg-stone-800' : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50',
+            i === 0 ? 'bg-ink text-paper hover:bg-stone-800' : 'border border-stone-200 bg-surface text-stone-700 hover:bg-stone-50',
           )}
         >
           {o.label}
@@ -39,7 +39,7 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
         <button
           key={l.to + l.label}
           onClick={() => onGo(l.to)}
-          className="h-7 max-w-full truncate rounded-md border border-stone-200 bg-white px-2.5 text-[12px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
+          className="h-7 max-w-full truncate rounded-md border border-stone-200 bg-surface px-2.5 text-[12px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
         >
           {l.label} →
         </button>
@@ -60,7 +60,7 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setDone(false), 1400);
         });
       }}
-      className="absolute -bottom-2.5 right-1 flex h-6 w-6 items-center justify-center rounded-md border border-stone-200 bg-white text-stone-400 opacity-0 shadow-card transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+      className="absolute -bottom-2.5 right-1 flex h-6 w-6 items-center justify-center rounded-md border border-stone-200 bg-surface text-stone-500 opacity-0 shadow-card transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
     >
       {done ? <Check size={12} /> : <Copy size={12} />}
     </button>
@@ -86,6 +86,7 @@ export default function Copilot() {
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const charRef = useRef<HTMLDivElement>(null);
   const [shift, setShift] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const drag = useRef<{ startY: number; moved: boolean } | null>(null);
@@ -188,9 +189,14 @@ export default function Copilot() {
     const t = setTimeout(() => inputRef.current?.focus(), 200);
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPose('hidden');
     window.addEventListener('keydown', onKey);
+    const panel = panelRef.current;
+    const character = charRef.current;
     return () => {
       clearTimeout(t);
       window.removeEventListener('keydown', onKey);
+      // Closing: give the focus back to the character rather than losing it.
+      const now = document.activeElement;
+      if (!now || now === document.body || panel?.contains(now)) character?.focus();
     };
   }, [pose, setPose]);
 
@@ -290,12 +296,14 @@ export default function Copilot() {
         {/* Conversation */}
         <div
           ref={panelRef}
+          id="copilot-panel"
           role="dialog"
           aria-label="Copilot"
           aria-hidden={!isOpen}
+          inert={!isOpen}
           style={{ marginTop: shift }}
           className={cx(
-            'absolute right-[104px] top-1/2 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-pop transition-all duration-200',
+            'absolute right-[104px] top-1/2 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-surface shadow-pop transition-all duration-200',
             wide ? 'h-[min(720px,86vh)] w-[min(600px,calc(100vw-120px))]' : 'max-h-[min(600px,80vh)] w-[min(380px,calc(100vw-120px))]',
             isOpen ? 'pointer-events-auto scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0',
           )}
@@ -311,28 +319,28 @@ export default function Copilot() {
               </p>
             </div>
             {speaking && (
-              <button title="Arrêter la lecture" onClick={stopSpeaking} className="icon-btn text-brand-600" tabIndex={isOpen ? 0 : -1}>
+              <button title="Arrêter la lecture" aria-label="Arrêter la lecture" onClick={stopSpeaking} className="icon-btn text-brand-600" tabIndex={isOpen ? 0 : -1}>
                 <Volume2 size={15} />
               </button>
             )}
-            <button title={wide ? 'Réduire' : 'Agrandir'} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
+            <button title={wide ? 'Réduire' : 'Agrandir'} aria-label={wide ? 'Réduire' : 'Agrandir'} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
               {wide ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             </button>
-            <button title="Nouvelle conversation" onClick={() => { clearHistory(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
+            <button title="Nouvelle conversation" aria-label="Nouvelle conversation" onClick={() => { clearHistory(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
               <RotateCcw size={15} />
             </button>
-            <button title="Fermer (Échap)" onClick={() => setPose('hidden')} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
+            <button title="Fermer (Échap)" aria-label="Fermer (Échap)" onClick={() => setPose('hidden')} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
               <X size={16} />
             </button>
           </header>
 
-          <div ref={listRef} className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3.5">
+          <div ref={listRef} role="log" aria-live="polite" aria-label="Conversation avec Copilot" className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3.5">
             {messages.map(m => (
               <div key={m.id} className={cx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                 <div
                   className={cx(
                     'group relative max-w-[88%] rounded-2xl px-3 py-2 text-[13px] leading-[1.55]',
-                    m.role === 'user' ? 'whitespace-pre-line rounded-br-md bg-ink text-white' : 'rounded-bl-md bg-stone-100 text-stone-800',
+                    m.role === 'user' ? 'whitespace-pre-line rounded-br-md bg-inverse text-on-inverse' : 'rounded-bl-md bg-stone-100 text-stone-800',
                   )}
                 >
                   {m.role === 'user' ? m.text : <Markdown text={m.text} />}
@@ -342,7 +350,7 @@ export default function Copilot() {
               </div>
             ))}
             {thinking && (
-              <div className="flex w-fit gap-1 rounded-2xl rounded-bl-md bg-stone-100 px-3 py-2.5">
+              <div className="flex w-fit gap-1 rounded-2xl rounded-bl-md bg-stone-100 px-3 py-2.5" role="img" aria-label="Copilot réfléchit…">
                 {[0, 1, 2].map(i => (
                   <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-stone-400" style={{ animationDelay: `${i * 120}ms` }} />
                 ))}
@@ -366,6 +374,7 @@ export default function Copilot() {
               value={input}
               onChange={e => setInput(e.target.value)}
               placeholder={dictation.listening ? 'Je t’écoute…' : 'Écris à Copilot…'}
+              aria-label="Message pour Copilot"
               className={cx(
                 'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-400 focus:bg-stone-100',
                 dictation.listening && 'bg-brand-50 placeholder:text-brand-600',
@@ -379,7 +388,7 @@ export default function Copilot() {
                 disabled={thinking}
                 className={cx(
                   'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30',
-                  dictation.listening ? 'bg-brand-500 text-white' : 'text-stone-500 hover:bg-stone-100 hover:text-ink',
+                  dictation.listening ? 'bg-brand-solid text-on-brand' : 'text-stone-500 hover:bg-stone-100 hover:text-ink',
                 )}
                 title={dictation.listening ? 'Arrêter et envoyer' : 'Parler à Copilot'}
                 aria-label={dictation.listening ? 'Arrêter la dictée' : 'Dicter un message'}
@@ -388,7 +397,7 @@ export default function Copilot() {
                 {dictation.listening ? <Square size={13} fill="currentColor" /> : <Mic size={16} />}
               </button>
             )}
-            <button type="submit" disabled={!input.trim() || thinking} className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-white transition-colors hover:bg-stone-800 disabled:opacity-30" title="Envoyer" tabIndex={isOpen ? 0 : -1}>
+            <button type="submit" disabled={!input.trim() || thinking} className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-stone-800 disabled:opacity-30" title="Envoyer" aria-label="Envoyer" tabIndex={isOpen ? 0 : -1}>
               <ArrowUp size={16} />
             </button>
           </form>
@@ -396,10 +405,15 @@ export default function Copilot() {
           {voiceReplies && !canSpeak() && <p className="px-3.5 pb-2 text-[11px] text-stone-500">Ton navigateur ne sait pas lire les réponses à voix haute.</p>}
         </div>
 
+        {/* Spontaneous remarks are read out even though the bubble only appears visually. */}
+        <div role="status" aria-live="polite" className="sr-only">
+          {bubble && !isOpen ? bubble.text : ''}
+        </div>
+
         {/* Spontaneous remark */}
         {bubble && !isOpen && (
-          <div className="pop pointer-events-auto absolute right-[92px] top-1/2 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-white px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop">
-            <button onClick={clearBubble} className="absolute right-1.5 top-1.5 rounded p-1 text-stone-300 hover:text-stone-600" title="Fermer">
+          <div className="pop pointer-events-auto absolute right-[92px] top-1/2 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop">
+            <button onClick={clearBubble} className="absolute right-1.5 top-1.5 rounded p-1 text-stone-400 hover:text-stone-600" title="Fermer" aria-label="Fermer le message">
               <X size={12} />
             </button>
             <div className="pr-3">
@@ -419,8 +433,18 @@ export default function Copilot() {
           onMouseEnter={() => pose === 'hidden' && setPose('peek')}
           onMouseLeave={() => pose === 'peek' && !bubble && setPose('hidden')}
           title={isOpen ? 'Fermer' : 'Parler à Copilot'}
+          ref={charRef}
           role="button"
-          aria-label="Copilot"
+          tabIndex={0}
+          aria-label={isOpen ? 'Fermer Copilot' : 'Parler à Copilot'}
+          aria-expanded={isOpen}
+          aria-controls="copilot-panel"
+          onKeyDown={e => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            if (isOpen) setPose('hidden');
+            else open();
+          }}
         >
           <Character pose={pose} look={look} blink={blink} mood={mood} size={104} />
         </div>

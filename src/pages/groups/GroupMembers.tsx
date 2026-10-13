@@ -80,7 +80,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
             <Copy size={14} /> Copier
           </button>
           {isOwner && (
-            <button className="icon-btn" title="Nouveau code (l’ancien ne marchera plus)" disabled={busy} onClick={() => void newCode()}>
+            <button className="icon-btn" title="Nouveau code (l’ancien ne marchera plus)" aria-label="Nouveau code (l’ancien ne marchera plus)" disabled={busy} onClick={() => void newCode()}>
               <RefreshCw size={15} />
             </button>
           )}
@@ -89,20 +89,20 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
 
       <p className="eyebrow mb-2 mt-6">{members ? `${members.length} membre${members.length > 1 ? 's' : ''}` : 'Membres'}</p>
       <div className="card divide-y divide-stone-100">
-        {!members && <p className="p-4 text-[13px] text-stone-400">Chargement…</p>}
+        {!members && <p className="p-4 text-[13px] text-stone-500">Chargement…</p>}
         {members?.map(m => (
           <div key={m.userId} className="group flex items-center gap-3 px-4 py-2.5">
             <MemberDot userId={m.userId} name={m.name} size={30} className="ring-0" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium">
                 {m.name}
-                {m.userId === me && <span className="font-normal text-stone-400"> (toi)</span>}
+                {m.userId === me && <span className="font-normal text-stone-500"> (toi)</span>}
               </p>
-              <p className="text-[12px] text-stone-400">Depuis le {fmt(new Date(m.joinedAt), 'd MMMM yyyy')}</p>
+              <p className="text-[12px] text-stone-500">Depuis le {fmt(new Date(m.joinedAt), 'd MMMM yyyy')}</p>
             </div>
             {m.isOwner && <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">Propriétaire</span>}
             {isOwner && m.userId !== me && (
-              <button className="icon-btn hover:text-red-600" title={`Retirer ${m.name}`} disabled={busy} onClick={() => void kick(m)}>
+              <button className="icon-btn hover:text-red-600" title={`Retirer ${m.name}`} aria-label={`Retirer ${m.name}`} disabled={busy} onClick={() => void kick(m)}>
                 <UserMinus size={15} />
               </button>
             )}
@@ -120,7 +120,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
           </button>
         )}
       </div>
-      <p className="mt-3 text-[12px] text-stone-400">Les membres voient seulement ton prénom, jamais ton adresse e-mail.</p>
+      <p className="mt-3 text-[12px] text-stone-500">Les membres voient seulement ton prénom, jamais ton adresse e-mail.</p>
     </div>
   );
 }

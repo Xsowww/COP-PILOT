@@ -1,27 +1,137 @@
 @import "tailwindcss";
 
+/* `dark:` targets the dark theme set by applyAppearance() (data-theme on <html>). */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @theme {
   --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-paper: #fafaf8;
   --color-ink: #1c1b19;
+  /* Cards, menus, dialogs. `white` itself is never remapped so `text-white` stays white. */
+  --color-surface: #ffffff;
+  /* A touch darker than Tailwind's stone-500 so secondary text stays above 4.5:1 on stone-100. */
+  --color-stone-500: #716a64;
 
-  --color-brand-50: #fdf3ef;
-  --color-brand-100: #fbe4da;
-  --color-brand-200: #f6c6b2;
-  --color-brand-500: #e8613c;
-  --color-brand-600: #d24e2a;
-  --color-brand-700: #ad3e20;
+  /* Accent: applyAppearance() sets the --accent-* variables. */
+  --color-brand-50: var(--accent-50, #fdf3ef);
+  --color-brand-100: var(--accent-100, #fbe4da);
+  --color-brand-200: var(--accent-200, #f6c6b2);
+  --color-brand-500: var(--accent-500, #e8613c);
+  --color-brand-600: var(--accent-600, #c94a26);
+  --color-brand-700: var(--accent-700, #ad3e20);
+  /* Filled accent (buttons, checkboxes) and the text drawn on it. */
+  --color-brand-solid: var(--accent-600, #c94a26);
+  --color-brand-solid-hover: var(--accent-700, #ad3e20);
+  --color-on-brand: #ffffff;
+  /* Small dark chips on a light page (toasts, tooltips, selection bar); raised grey in dark mode. */
+  --color-inverse: #1c1b19;
+  --color-on-inverse: #ffffff;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
 
   --shadow-card: 0 1px 2px rgb(28 27 25 / 0.04), 0 1px 1px rgb(28 27 25 / 0.02);
   --shadow-pop: 0 12px 32px -8px rgb(28 27 25 / 0.18), 0 2px 6px rgb(28 27 25 / 0.06);
+}
+
+:root {
+  /* Calendar categories (soft background + readable text), see CATEGORIES in store/calendar.ts. */
+  --cat-cours-soft: #eef3fc;
+  --cat-cours-text: #2a55b0;
+  --cat-examen-soft: #fcefed;
+  --cat-examen-text: #b13428;
+  --cat-devoir-soft: #fcf4e6;
+  --cat-devoir-text: #9a620c;
+  --cat-perso-soft: #ebf7f1;
+  --cat-perso-text: #217a51;
+  --cat-sport-soft: #f3effc;
+  --cat-sport-text: #5c3fb3;
+
+  --scrollbar: rgb(28 27 25 / 0.12);
+  --note-text: #2b2925;
+  --code-block: #1c1b19;
+  --mark: #fdecb2;
+}
+
+/* ── Dark theme ──────────────────────────────────────────────────
+   The neutral scale is inverted so existing stone-* / ink / paper / surface
+   classes keep their role (background stays background, text stays text). */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-paper: #141311;
+  --color-surface: #1d1c1a;
+  --color-ink: #edeae5;
+  --color-inverse: #3a3835;
+  --color-on-inverse: #f2efea;
+
+  --color-stone-50: #222120;
+  --color-stone-100: #2a2926;
+  --color-stone-200: #363431;
+  --color-stone-300: #4a4743;
+  --color-stone-400: #99938c;
+  --color-stone-500: #a8a29b;
+  --color-stone-600: #bfb9b2;
+  --color-stone-700: #d4cfc9;
+  --color-stone-800: #e2ded9;
+  --color-stone-900: #eeebe6;
+  --color-stone-950: #f7f5f2;
+
+  --color-brand-50: color-mix(in oklab, var(--accent-500, #e8613c) 15%, #1d1c1a);
+  --color-brand-100: color-mix(in oklab, var(--accent-500, #e8613c) 24%, #1d1c1a);
+  --color-brand-200: color-mix(in oklab, var(--accent-500, #e8613c) 42%, #1d1c1a);
+  --color-brand-600: color-mix(in oklab, var(--accent-500, #e8613c) 78%, white);
+  --color-brand-700: color-mix(in oklab, var(--accent-500, #e8613c) 58%, white);
+
+  --color-red-50: #34201d;
+  --color-red-100: #432520;
+  --color-red-200: #5b2c26;
+  --color-red-300: #7c3a32;
+  --color-red-400: #f58a7e;
+  --color-red-600: #f47c70;
+  --color-red-700: #f8a097;
+  --color-red-800: #fbc0b8;
+  --color-amber-50: #322815;
+  --color-amber-100: #3f3117;
+  --color-amber-200: #57431c;
+  --color-amber-600: #ecb04a;
+  --color-amber-700: #f0bf66;
+  --color-amber-900: #f8dca0;
+  --color-emerald-50: #172b22;
+  --color-emerald-200: #22493a;
+  --color-emerald-600: #4cc78f;
+  --color-emerald-700: #6fd3a5;
+  --color-emerald-800: #a2e4c4;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-pop: 0 14px 36px -8px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.35);
+
+  --cat-cours-soft: color-mix(in oklab, #3b6fd8 22%, #1d1c1a);
+  --cat-cours-text: #9dbbf5;
+  --cat-examen-soft: color-mix(in oklab, #d9483b 22%, #1d1c1a);
+  --cat-examen-text: #f59a8f;
+  --cat-devoir-soft: color-mix(in oklab, #d48a17 22%, #1d1c1a);
+  --cat-devoir-text: #ebbd6e;
+  --cat-perso-soft: color-mix(in oklab, #2f9e6b 22%, #1d1c1a);
+  --cat-perso-text: #7fd5aa;
+  --cat-sport-soft: color-mix(in oklab, #7a5ad6 24%, #1d1c1a);
+  --cat-sport-text: #c0abf5;
+
+  --scrollbar: rgb(255 255 255 / 0.14);
+  --note-text: #e2ded9;
+  --code-block: #0e0d0c;
+  --mark: rgb(234 179 8 / 0.32);
 }
 
 html,
 body,
 #root {
   height: 100%;
+}
+
+html {
+  background: var(--color-paper);
 }
 
 body {
@@ -42,7 +152,7 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgb(28 27 25 / 0.12);
+  background: var(--scrollbar);
   border-radius: 10px;
   border: 3px solid transparent;
   background-clip: padding-box;
@@ -51,30 +161,57 @@ body {
   background: transparent;
 }
 
+/* ── Accessibility ───────────────────────────────────────────── */
+@layer base {
+  /* Visible keyboard focus everywhere; components with their own ring override it. */
+  :where(a, button, input, select, textarea, summary, [tabindex], [role='button'], [contenteditable='true']):focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--color-brand-500) 75%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: -48px;
+  z-index: 100;
+  border-radius: 8px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-pop);
+  transition: top 0.15s;
+}
+.skip-link:focus {
+  top: 12px;
+}
+
 /* ── Design system ───────────────────────────────────────────── */
 @utility card {
-  @apply rounded-xl border border-stone-200/80 bg-white shadow-card;
+  @apply rounded-xl border border-stone-200/80 bg-surface shadow-card;
 }
 @utility btn {
-  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 disabled:pointer-events-none disabled:opacity-45;
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 disabled:pointer-events-none disabled:opacity-45;
 }
 @utility btn-primary {
-  @apply btn bg-brand-600 text-white shadow-[inset_0_1px_0_rgb(255_255_255_/0.15)] hover:bg-brand-700;
+  @apply btn bg-brand-solid text-on-brand shadow-[inset_0_1px_0_rgb(255_255_255_/0.15)] hover:bg-brand-solid-hover;
 }
 @utility btn-secondary {
-  @apply btn border border-stone-200 bg-white text-stone-700 shadow-card hover:bg-stone-50 hover:text-ink;
+  @apply btn border border-stone-200 bg-surface text-stone-700 shadow-card hover:bg-stone-50 hover:text-ink;
 }
 @utility btn-ghost {
   @apply btn text-stone-600 hover:bg-stone-100 hover:text-ink;
 }
 @utility btn-danger {
-  @apply btn bg-red-600 text-white hover:bg-red-700;
+  @apply btn bg-danger text-white hover:bg-danger-hover;
 }
 @utility icon-btn {
-  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-stone-500 transition-colors outline-none hover:bg-stone-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand-500/40;
+  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-stone-500 transition-colors outline-none hover:bg-stone-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand-500/50;
 }
 @utility field {
-  @apply h-9 rounded-lg border border-stone-200 bg-white px-3 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-3 focus:ring-stone-900/5;
+  @apply h-9 rounded-lg border border-stone-200 bg-surface px-3 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-3 focus:ring-stone-900/5 focus-visible:ring-brand-500/20;
 }
 @utility eyebrow {
   @apply text-[12px] font-medium text-stone-500;
@@ -136,6 +273,14 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .enter, .pop, .cop-breathe, .cop-bounce, .cop-talk, .cop-wiggle, .cop-z, .cop-tap { animation: none; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ── Rich text editor (Tiptap) ─────────────────────────────────── */
@@ -143,7 +288,7 @@ body {
   outline: none;
   font-size: 15px;
   line-height: 1.7;
-  color: #2b2925;
+  color: var(--note-text);
   min-height: 50vh;
 }
 .prose-note > * + * { margin-top: 0.65em; }
@@ -154,23 +299,24 @@ body {
 .prose-note strong { font-weight: 600; color: var(--color-ink); }
 .prose-note ul { list-style: disc; padding-left: 1.4em; }
 .prose-note ol { list-style: decimal; padding-left: 1.4em; }
-.prose-note li::marker { color: #a8a29e; }
+.prose-note li::marker { color: var(--color-stone-400); }
 .prose-note ul[data-type='taskList'] { list-style: none; padding-left: 0.1em; }
 .prose-note ul[data-type='taskList'] li { display: flex; gap: 0.55em; align-items: flex-start; }
 .prose-note ul[data-type='taskList'] li > label { margin-top: 0.28em; }
 .prose-note ul[data-type='taskList'] input { accent-color: var(--color-ink); width: 15px; height: 15px; }
-.prose-note ul[data-type='taskList'] li[data-checked='true'] > div { text-decoration: line-through; color: #a8a29e; }
-.prose-note blockquote { border-left: 2px solid #d6d3d1; padding-left: 1em; color: #57534e; }
-.prose-note code { background: #f5f5f4; border-radius: 4px; padding: 0.1em 0.35em; font-family: var(--font-mono); font-size: 0.86em; }
-.prose-note pre { background: #1c1b19; color: #e7e5e4; border-radius: 8px; padding: 0.9em 1em; overflow-x: auto; }
+.prose-note ul[data-type='taskList'] li[data-checked='true'] > div { text-decoration: line-through; color: var(--color-stone-500); }
+.prose-note blockquote { border-left: 2px solid var(--color-stone-300); padding-left: 1em; color: var(--color-stone-600); }
+.prose-note code { background: var(--color-stone-100); border-radius: 4px; padding: 0.1em 0.35em; font-family: var(--font-mono); font-size: 0.86em; }
+.prose-note pre { background: var(--code-block); color: #e7e5e4; border: 1px solid transparent; border-radius: 8px; padding: 0.9em 1em; overflow-x: auto; }
+[data-theme='dark'] .prose-note pre { border-color: var(--color-stone-200); }
 .prose-note pre code { background: none; padding: 0; color: inherit; }
-.prose-note a { color: var(--color-ink); text-decoration: underline; text-decoration-color: #d6d3d1; text-underline-offset: 3px; }
+.prose-note a { color: var(--color-ink); text-decoration: underline; text-decoration-color: var(--color-stone-300); text-underline-offset: 3px; }
 .prose-note a:hover { text-decoration-color: var(--color-ink); }
-.prose-note mark { background: #fdecb2; border-radius: 2px; padding: 0 2px; }
-.prose-note hr { border: none; border-top: 1px solid #e7e5e4; margin: 1.6em 0; }
+.prose-note mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 2px; }
+.prose-note hr { border: none; border-top: 1px solid var(--color-stone-200); margin: 1.6em 0; }
 .prose-note p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  color: #a8a29e;
+  color: var(--color-stone-400);
   float: left;
   height: 0;
   pointer-events: none;

@@ -39,14 +39,15 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-export function Segmented<T extends string | number>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
+export function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label?: string }) {
   return (
-    <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[12px]">
+    <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[12px]" role="group" aria-label={label}>
       {options.map(o => (
         <button
           key={String(o.value)}
+          aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cx('h-7 rounded-md px-2.5 font-medium transition-colors', value === o.value ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+          className={cx('h-7 rounded-md px-2.5 font-medium transition-colors', value === o.value ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
         >
           {o.label}
         </button>
@@ -57,13 +58,13 @@ export function Segmented<T extends string | number>({ value, options, onChange 
 
 export function Stepper({ value, min, max, onChange, suffix }: { value: number; min: number; max: number; onChange: (v: number) => void; suffix?: string }) {
   return (
-    <div className="flex h-8 items-center rounded-lg border border-stone-200 bg-white shadow-card">
+    <div className="flex h-8 items-center rounded-lg border border-stone-200 bg-surface shadow-card">
       <button className="flex h-full w-8 items-center justify-center text-stone-500 hover:text-ink disabled:opacity-30" disabled={value <= min} onClick={() => onChange(value - 1)} aria-label="Moins">
         <Minus size={13} />
       </button>
       <span className="tabular min-w-12 text-center text-[13px] font-medium">
         {value}
-        {suffix && <span className="font-normal text-stone-400"> {suffix}</span>}
+        {suffix && <span className="font-normal text-stone-500"> {suffix}</span>}
       </span>
       <button className="flex h-full w-8 items-center justify-center text-stone-500 hover:text-ink disabled:opacity-30" disabled={value >= max} onClick={() => onChange(value + 1)} aria-label="Plus">
         <Plus size={13} />

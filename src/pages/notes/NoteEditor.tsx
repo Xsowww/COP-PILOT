@@ -40,7 +40,7 @@ function Toolbar({ editor }: { editor: Editor }) {
     <button
       key={label}
       type="button"
-      title={label}
+      title={label} aria-label={label}
       onMouseDown={e => e.preventDefault()}
       onClick={run}
       className={cx('flex h-7 w-7 items-center justify-center rounded-md transition-colors', active ? 'bg-stone-200/70 text-ink' : 'text-stone-500 hover:bg-stone-100 hover:text-ink')}
@@ -116,7 +116,7 @@ export default function NoteEditor({ note, readOnly = false }: { note: Note; rea
     ],
     content: note.content,
     editorProps: {
-      attributes: { class: 'prose-note' },
+      attributes: { class: 'prose-note', 'aria-label': 'Contenu de la note', 'aria-multiline': 'true' },
       handlePaste: (view, event) => {
         const files = imageFiles(event.clipboardData?.files);
         if (!files.length) return false;
@@ -162,7 +162,7 @@ export default function NoteEditor({ note, readOnly = false }: { note: Note; rea
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {!readOnly && (
-        <div className="sticky top-0 z-10 border-b border-stone-100 bg-white px-4 py-1.5 md:px-11">
+        <div className="sticky top-0 z-10 border-b border-stone-100 bg-surface px-4 py-1.5 md:px-11">
           <Toolbar editor={editor} />
         </div>
       )}

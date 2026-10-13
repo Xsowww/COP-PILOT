@@ -37,7 +37,7 @@ function Kpi({ icon: Icon, label, value, sub, color }: { icon: typeof Users; lab
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, white)`, color }}>
+        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, var(--color-surface))`, color }}>
           <Icon size={14} />
         </span>
         <span className="text-[12px] font-medium text-stone-500">{label}</span>
@@ -66,12 +66,12 @@ function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; v
       <p className="tabular text-[13px] text-stone-500">
         <span className="text-[20px] font-semibold text-ink">{total}</span> {label} sur 30 jours
       </p>
-      <svg viewBox={`0 0 ${W} ${H + 18}`} className="mt-3 w-full overflow-visible" role="img" aria-label={`${label} par jour sur 30 jours`} onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${H + 18}`} className="mt-3 w-full overflow-visible" role="img" aria-label={`${label} par jour sur 30 jours : ${total} au total, maximum ${max} par jour`} onMouseLeave={() => setHover(null)}>
         {[0, 0.5, 1].map(f => (
           <g key={f}>
-            <line x1="0" x2={W} y1={H - f * H} y2={H - f * H} stroke="#e7e5e4" strokeWidth="1" />
+            <line x1="0" x2={W} y1={H - f * H} y2={H - f * H} stroke="var(--color-stone-200)" strokeWidth="1" />
             {f > 0 && (
-              <text x={W} y={H - f * H - 4} textAnchor="end" fontSize="10" fill="#a8a29e">
+              <text x={W} y={H - f * H - 4} textAnchor="end" fontSize="10" fill="var(--color-stone-500)">
                 {Math.round(top * f)}
               </text>
             )}
@@ -95,17 +95,17 @@ function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; v
           );
         })}
         {[0, 14, 29].map(i => (
-          <text key={i} x={i * slot + slot / 2} y={H + 14} textAnchor={i === 0 ? 'start' : i === 29 ? 'end' : 'middle'} fontSize="10" fill="#a8a29e">
+          <text key={i} x={i * slot + slot / 2} y={H + 14} textAnchor={i === 0 ? 'start' : i === 29 ? 'end' : 'middle'} fontSize="10" fill="var(--color-stone-500)">
             {fmt(fromKey(data[i].day), 'd MMM')}
           </text>
         ))}
       </svg>
       {tip && hover !== null && (
         <div
-          className="pointer-events-none absolute top-8 z-10 rounded-md bg-ink px-2.5 py-1.5 text-[12px] text-white shadow-pop"
+          className="pointer-events-none absolute top-8 z-10 rounded-md bg-inverse px-2.5 py-1.5 text-[12px] text-on-inverse shadow-pop"
           style={{ left: `clamp(0px, calc(${((hover + 0.5) / data.length) * 100}% - 60px), calc(100% - 120px))` }}
         >
-          <p className="text-white/60">{fmt(fromKey(tip.day), 'EEEE d MMMM')}</p>
+          <p className="text-on-inverse/60">{fmt(fromKey(tip.day), 'EEEE d MMMM')}</p>
           <p className="tabular font-medium">
             {tip[valueKey]} {label}
           </p>
@@ -210,14 +210,14 @@ export default function AdminPage() {
             <div className="mt-3 grid gap-3 lg:grid-cols-2">
               <section className="card p-4">
                 <h2 className="text-[13px] font-medium text-stone-600">Activité</h2>
-                <p className="text-[12px] text-stone-400">Notes, événements et fichiers créés par jour</p>
+                <p className="text-[12px] text-stone-500">Notes, événements et fichiers créés par jour</p>
                 <div className="mt-3">
                   <DailyColumns data={stats.days} valueKey="created" label="éléments créés" color="var(--color-brand-500)" />
                 </div>
               </section>
               <section className="card p-4">
                 <h2 className="text-[13px] font-medium text-stone-600">Inscriptions</h2>
-                <p className="text-[12px] text-stone-400">Nouveaux comptes par jour</p>
+                <p className="text-[12px] text-stone-500">Nouveaux comptes par jour</p>
                 <div className="mt-3">
                   <DailyColumns data={stats.days} valueKey="signups" label="inscriptions" color="#3b6fd8" />
                 </div>
@@ -245,7 +245,7 @@ export default function AdminPage() {
             <section className="card mt-3 overflow-hidden">
               <div className="flex flex-wrap items-center gap-3 border-b border-stone-100 px-4 py-3">
                 <h2 className="mr-auto text-[13px] font-medium text-stone-600">
-                  Comptes <span className="tabular text-stone-400">({accounts.length})</span>
+                  Comptes <span className="tabular text-stone-500">({accounts.length})</span>
                 </h2>
                 <div className="relative">
                   <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -255,7 +255,7 @@ export default function AdminPage() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[820px] text-[13px]">
                   <thead>
-                    <tr className="border-b border-stone-100 text-left text-[12px] text-stone-400">
+                    <tr className="border-b border-stone-100 text-left text-[12px] text-stone-500">
                       <th className="px-4 py-2 font-medium">Compte</th>
                       <th className="px-3 py-2 font-medium">Inscrit</th>
                       <th className="px-3 py-2 font-medium">Dernière connexion</th>
@@ -279,7 +279,7 @@ export default function AdminPage() {
                         <td className="px-3 py-2.5 text-stone-600">{fmt(new Date(a.created_at), 'd MMM yyyy')}</td>
                         <td className="px-3 py-2.5 text-stone-600">{a.last_sign_in_at ? relativeTime(a.last_sign_in_at) : 'jamais'}</td>
                         <td className="px-3 py-2.5">
-                          <span className={cx('inline-flex items-center gap-1 text-[12px]', a.mfa ? 'text-emerald-700' : 'text-stone-400')}>
+                          <span className={cx('inline-flex items-center gap-1 text-[12px]', a.mfa ? 'text-emerald-700' : 'text-stone-500')}>
                             <ShieldCheck size={13} /> {a.mfa ? '2FA active' : 'Sans 2FA'}
                           </span>
                         </td>
@@ -293,7 +293,7 @@ export default function AdminPage() {
                 </table>
               </div>
             </section>
-            <p className="mt-3 text-[11px] text-stone-400">
+            <p className="mt-3 text-[11px] text-stone-500">
               Seuls des chiffres sont affichés : le contenu des notes, des événements et des fichiers des étudiants n'est jamais visible ici.
             </p>
           </>

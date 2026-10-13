@@ -10,7 +10,7 @@ function Inlines({ nodes }: { nodes: Inline[] }) {
             return <span key={i}>{n.v}</span>;
           case 'code':
             return (
-              <code key={i} className="rounded bg-black/[0.06] px-1 py-px font-mono text-[0.92em]">
+              <code key={i} className="rounded bg-stone-900/[0.07] px-1 py-px font-mono text-[0.92em]">
                 {n.v}
               </code>
             );
@@ -61,7 +61,7 @@ export default function Markdown({ text }: { text: string }) {
             );
           case 'code':
             return (
-              <pre key={i} className="overflow-x-auto rounded-lg bg-stone-800 px-3 py-2 font-mono text-[12px] leading-[1.55] text-stone-100">
+              <pre key={i} className="overflow-x-auto rounded-lg bg-[var(--code-block)] px-3 py-2 font-mono text-[12px] leading-[1.55] text-[#e7e5e4]">
                 <code>{b.v}</code>
               </pre>
             );

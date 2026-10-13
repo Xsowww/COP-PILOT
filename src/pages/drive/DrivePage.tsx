@@ -20,6 +20,7 @@ import MoveDialog from './MoveDialog';
 import ShareDialog from './ShareDialog';
 import TagDialog, { TagPill } from './TagDialog';
 import { filesFromDrop, filesFromInput, uploadPending } from './upload';
+import { isMenuKey, menuPoint } from '../../lib/a11y';
 
 type Tab = 'all' | 'starred' | 'recent' | 'trash';
 type SortKey = 'name' | 'date' | 'size';
@@ -332,11 +333,33 @@ export default function DrivePage() {
     setAnchor(item.id);
   };
 
-  const onItemContext = (e: React.MouseEvent, item: DriveItem) => {
+  const onItemContext = (e: React.MouseEvent | React.KeyboardEvent, item: DriveItem) => {
     e.preventDefault();
     e.stopPropagation();
     if (!selected.has(item.id)) setSelected(new Set([item.id]));
-    setMenu({ x: e.clientX, y: e.clientY, target: item.id });
+    setMenu({ ...menuPoint(e), target: item.id });
+  };
+
+  // Items are focusable: Space selects, Enter opens, Shift+F10 / menu key opens the context menu.
+  const onItemKey = (e: React.KeyboardEvent, item: DriveItem) => {
+    if (isMenuKey(e)) onItemContext(e, item);
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      openItem(item);
+    } else if (e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.ctrlKey || e.metaKey)
+        setSelected(s => {
+          const n = new Set(s);
+          if (n.has(item.id)) n.delete(item.id);
+          else n.add(item.id);
+          return n;
+        });
+      else setSelected(new Set([item.id]));
+      setAnchor(item.id);
+    }
   };
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -460,14 +483,14 @@ export default function DrivePage() {
             onClick: () => {},
             content: (
               <div className="px-2 pb-1.5 pt-1">
-                <p className="text-[11px] font-medium text-stone-400">Couleur du dossier</p>
+                <p className="text-[11px] font-medium text-stone-500">Couleur du dossier</p>
                 <div className="mt-1.5 flex items-center gap-1">
                   {[null, ...Object.keys(FOLDER_COLORS)].map(key => {
                     const on = targets.every(t => (t.color ?? null) === key);
                     return (
                       <button
                         key={key ?? 'none'}
-                        title={key ? FOLDER_COLORS[key].label : 'Par défaut'}
+                        title={key ? FOLDER_COLORS[key].label : 'Par défaut'} aria-label={key ? FOLDER_COLORS[key].label : 'Par défaut'}
                         onClick={() => {
                           for (const t of targets) useDrive.getState().update(t.id, { color: key ?? undefined });
                           setMenu(null);
@@ -513,6 +536,10 @@ export default function DrivePage() {
     onClick: (e: React.MouseEvent) => onItemClick(e, item),
     onDoubleClick: () => openItem(item),
     onContextMenu: (e: React.MouseEvent) => onItemContext(e, item),
+    onKeyDown: (e: React.KeyboardEvent) => onItemKey(e, item),
+    tabIndex: 0,
+    'aria-selected': selected.has(item.id),
+    role: 'option',
     ...(item.kind === 'folder' && !inTrash ? folderDropProps(item.id, item.id) : {}),
   });
 
@@ -574,7 +601,7 @@ export default function DrivePage() {
             <button
               key={k}
               onClick={() => { setTab(k); setSelected(new Set()); if (k === 'trash') { setQuery(''); setTagFilter(null); } }}
-              className={cx('flex h-7 items-center gap-1.5 rounded-md px-2.5 font-medium transition-colors', tab === k ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+              className={cx('flex h-7 items-center gap-1.5 rounded-md px-2.5 font-medium transition-colors', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
               <Icon size={13} />
               <span className="hidden sm:inline">{label}</span>
@@ -590,10 +617,11 @@ export default function DrivePage() {
                 onChange={e => { setQuery(e.target.value); setSelected(new Set()); }}
                 onKeyDown={e => e.key === 'Escape' && setQuery('')}
                 placeholder="Rechercher, y compris dans les PDF"
+                aria-label="Rechercher dans le Drive"
                 className="field h-8 w-full pl-8 pr-7 sm:w-52 xl:w-72"
               />
               {query && (
-                <button className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-stone-400 hover:text-ink" onClick={() => setQuery('')} title="Effacer">
+                <button className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-stone-500 hover:text-ink" onClick={() => setQuery('')} title="Effacer" aria-label="Effacer">
                   <X size={13} />
                 </button>
               )}
@@ -601,7 +629,7 @@ export default function DrivePage() {
           )}
           <button
             className="icon-btn"
-            title={view === 'grid' ? 'Affichage liste' : 'Affichage grille'}
+            title={view === 'grid' ? 'Affichage liste' : 'Affichage grille'} aria-label={view === 'grid' ? 'Affichage liste' : 'Affichage grille'}
             onClick={() => setView(v => {
               const n = v === 'grid' ? 'list' : 'grid';
               try { localStorage.setItem('cop:drive-view', n); } catch { /* ignore */ }
@@ -610,7 +638,7 @@ export default function DrivePage() {
           >
             {view === 'grid' ? <List size={16} /> : <LayoutGrid size={16} />}
           </button>
-          <button className="icon-btn" title="Importer un dossier" onClick={() => folderInput.current?.click()}>
+          <button className="icon-btn" title="Importer un dossier" aria-label="Importer un dossier" onClick={() => folderInput.current?.click()}>
             <FolderUp size={16} />
           </button>
           <button className="btn-secondary" onClick={() => void newFolder()}>
@@ -625,12 +653,12 @@ export default function DrivePage() {
       {/* Breadcrumb / selection bar */}
       <div className="flex h-10 items-center gap-1 text-[13px]">
         {bar ? (
-          <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-ink px-1.5 text-white shadow-pop">
-            <button className="rounded-md p-1.5 hover:bg-white/10" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)">
+          <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-on-inverse shadow-pop">
+            <button className="rounded-md p-1.5 hover:bg-on-inverse/10" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)" aria-label="Désélectionner (Échap)">
               <X size={15} />
             </button>
             <span className="mr-2 whitespace-nowrap px-1 font-medium">{selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
-            <span className="mr-1 h-4 w-px bg-white/15" />
+            <span className="mr-1 h-4 w-px bg-on-inverse/20" />
             {(inTrash
               ? [
                   { icon: RotateCcw, label: 'Restaurer', fn: () => restore(selectedIds) },
@@ -646,7 +674,7 @@ export default function DrivePage() {
               { icon: Tag, label: 'Étiquettes', fn: () => setTagIds(selectedIds) },
               { icon: Trash2, label: 'Corbeille', fn: () => remove(selectedIds) },
             ]).map(a => (
-              <button key={a.label} onClick={a.fn} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-white/85 hover:bg-white/10 hover:text-white" title={a.label}>
+              <button key={a.label} onClick={a.fn} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse" title={a.label}>
                 <a.icon size={14} /> <span className="hidden lg:inline">{a.label}</span>
               </button>
             ))}
@@ -665,7 +693,7 @@ export default function DrivePage() {
             {visible.length} résultat{visible.length > 1 ? 's' : ''}
             {q && <> pour « <span className="text-ink">{q}</span> »</>}
             {activeTag && <> avec l'étiquette « <span className="text-ink">{activeTag}</span> »</>}
-            {q && contentHits.size > 0 && <span className="font-normal text-stone-400"> · noms et contenu des documents</span>}
+            {q && contentHits.size > 0 && <span className="font-normal text-stone-500"> · noms et contenu des documents</span>}
           </p>
         ) : tabAll ? (
           <>
@@ -757,13 +785,14 @@ export default function DrivePage() {
           </div>
         ) : inTrash ? (
           <div className="card overflow-hidden">
-            <div className="grid grid-cols-[1fr_96px_70px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-400 md:grid-cols-[1fr_190px_120px_130px_80px]">
+            <div className="grid grid-cols-[1fr_96px_70px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-500 md:grid-cols-[1fr_190px_120px_130px_80px]">
               <span>Nom</span>
               <span className="hidden md:block">Emplacement d'origine</span>
               <span className="hidden md:block">Supprimé le</span>
               <span>Expiration</span>
               <span>Taille</span>
             </div>
+            <div role="listbox" aria-label="Contenu du dossier" aria-multiselectable="true">
             {visible.map(item => {
               const sel = selected.has(item.id);
               const parentGone = !!item.parentId && !items.some(i => i.id === item.parentId);
@@ -782,7 +811,7 @@ export default function DrivePage() {
                     <span className="truncate font-medium text-stone-700">{item.name}</span>
                   </span>
                   <span className="hidden truncate text-[12px] text-stone-500 md:block" title={parentGone ? "Le dossier d'origine a été supprimé : restauré dans Mon Drive" : undefined}>
-                    {parentGone ? <span className="italic text-stone-400">Dossier supprimé</span> : ['Mon Drive', ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}
+                    {parentGone ? <span className="italic text-stone-500">Dossier supprimé</span> : ['Mon Drive', ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}
                   </span>
                   <span className="tabular hidden text-[12px] text-stone-500 md:block">{format(new Date(item.deletedAt!), 'd MMM yyyy', { locale: fr })}</span>
                   <span className={cx('tabular text-[12px]', left <= 3 ? 'font-medium text-red-600' : 'text-stone-500')}>
@@ -792,9 +821,10 @@ export default function DrivePage() {
                 </div>
               );
             })}
+            </div>
           </div>
         ) : view === 'grid' && !q ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-1.5">
+          <div role="listbox" aria-label="Contenu du dossier" aria-multiselectable="true" className="grid grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-1.5">
             {visible.map(item => {
               const sel = selected.has(item.id);
               return (
@@ -812,13 +842,13 @@ export default function DrivePage() {
                   {item.starred && <Star size={11} className="absolute right-2.5 top-2.5 fill-amber-400 text-amber-400" />}
                   <FileIcon category={categoryOf(item)} size={56} ext={extOf(item)} color={folderColor(item)} />
                   <p className="mt-2 line-clamp-2 w-full break-words text-[12.5px] font-medium leading-tight">{item.name}</p>
-                  <p className="tabular mt-0.5 text-[11px] text-stone-400">
+                  <p className="tabular mt-0.5 text-[11px] text-stone-500">
                     {item.kind === 'folder' ? `${items.filter(i => i.parentId === item.id).length} élément${items.filter(i => i.parentId === item.id).length > 1 ? 's' : ''}` : formatBytes(item.size)}
                   </p>
                   {item.tags?.length ? (
                     <div className="mt-1.5 flex max-w-full flex-wrap justify-center gap-1">
                       {item.tags.slice(0, 2).map(t => <TagPill key={t} tag={t} />)}
-                      {item.tags.length > 2 && <span className="text-[10.5px] text-stone-400">+{item.tags.length - 2}</span>}
+                      {item.tags.length > 2 && <span className="text-[10.5px] text-stone-500">+{item.tags.length - 2}</span>}
                     </div>
                   ) : null}
                 </div>
@@ -827,12 +857,13 @@ export default function DrivePage() {
           </div>
         ) : (
           <div className="card overflow-hidden">
-            <div className="grid grid-cols-[1fr_110px_80px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-400 md:grid-cols-[1fr_200px_130px_90px]">
+            <div className="grid grid-cols-[1fr_110px_80px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-500 md:grid-cols-[1fr_200px_130px_90px]">
               {sortBtn('name', 'Nom')}
               <span className="hidden md:block">Emplacement</span>
               {sortBtn('date', 'Modifié')}
               {sortBtn('size', 'Taille')}
             </div>
+            <div role="listbox" aria-label="Contenu du dossier" aria-multiselectable="true">
             {visible.map(item => {
               const sel = selected.has(item.id);
               return (
@@ -868,17 +899,18 @@ export default function DrivePage() {
                 </div>
               );
             })}
+            </div>
           </div>
         )}
 
         {dropTarget === 'here' && (
-          <div className="pointer-events-none sticky bottom-4 mx-auto mt-4 w-fit rounded-lg bg-ink px-3.5 py-2 text-[13px] font-medium text-white shadow-pop">
+          <div className="pointer-events-none sticky bottom-4 mx-auto mt-4 w-fit rounded-lg bg-inverse px-3.5 py-2 text-[13px] font-medium text-on-inverse shadow-pop">
             Déposer dans « {current?.name ?? 'Mon Drive'} »
           </div>
         )}
       </div>
 
-      <p className="hidden pt-2.5 text-center text-[11px] text-stone-400 lg:block">
+      <p className="hidden pt-2.5 text-center text-[11px] text-stone-500 lg:block">
         Double-clic pour ouvrir · Clic droit pour plus d'options · <span className="font-mono">{MOD}C {MOD}X {MOD}V</span> copier, couper, coller · <span className="font-mono">{MOD}D</span> dupliquer · <span className="font-mono">F2</span> renommer · Alt + glisser pour copier
       </p>
 

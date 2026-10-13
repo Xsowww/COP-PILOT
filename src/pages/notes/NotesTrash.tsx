@@ -40,7 +40,7 @@ export default function NotesTrash({ onOpen, onBack }: { onOpen: (noteId: string
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-start gap-2 border-b border-stone-100 px-4 pb-4 pt-6 md:px-8">
-        <button className="icon-btn mt-0.5 md:hidden" onClick={onBack} title="Retour">
+        <button className="icon-btn mt-0.5 md:hidden" onClick={onBack} title="Retour" aria-label="Retour">
           <ArrowLeft size={17} />
         </button>
         <div className="min-w-0 flex-1">
@@ -72,13 +72,13 @@ export default function NotesTrash({ onOpen, onBack }: { onOpen: (noteId: string
               </button>
               <span className="hidden shrink-0 text-right text-[12px] sm:block">
                 <span className="block text-stone-500">Supprimé le {deletedOn(r.deletedAt)}</span>
-                <span className={daysLeft(r.deletedAt) <= 3 ? 'text-red-600' : 'text-stone-400'}>{leftLabel(r.deletedAt)}</span>
+                <span className={daysLeft(r.deletedAt) <= 3 ? 'text-red-600' : 'text-stone-500'}>{leftLabel(r.deletedAt)}</span>
               </span>
               <div className="flex shrink-0 gap-0.5">
-                <button className="icon-btn" title="Restaurer" onClick={() => restore(r.id, r.title)}>
+                <button className="icon-btn" title="Restaurer" aria-label="Restaurer" onClick={() => restore(r.id, r.title)}>
                   <RotateCcw size={15} />
                 </button>
-                <button className="icon-btn hover:bg-red-50 hover:text-red-600" title="Supprimer définitivement" onClick={() => void purge(r.id, r.title, r.folder)}>
+                <button className="icon-btn hover:bg-red-50 hover:text-red-600" title="Supprimer définitivement" aria-label="Supprimer définitivement" onClick={() => void purge(r.id, r.title, r.folder)}>
                   <Trash2 size={15} />
                 </button>
               </div>

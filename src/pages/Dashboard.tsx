@@ -21,12 +21,12 @@ function Widget({ icon: Icon, title, to, className, color, children }: { icon: t
   return (
     <section className={cx('card enter flex flex-col p-4', className)}>
       <header className="mb-3 flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, white)`, color }}>
+        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, var(--color-surface))`, color }}>
           <Icon size={14} strokeWidth={2} />
         </span>
         <h2 className="text-[13px] font-medium text-stone-600">{title}</h2>
         {to && (
-          <Link to={to} className="ml-auto flex items-center gap-0.5 rounded px-1 text-[12px] text-stone-400 transition-colors hover:text-ink">
+          <Link to={to} className="ml-auto flex items-center gap-0.5 rounded px-1 text-[12px] text-stone-500 transition-colors hover:text-ink">
             Ouvrir <ArrowUpRight size={13} />
           </Link>
         )}
@@ -46,15 +46,15 @@ function EventRow({ e, showDay }: { e: CalendarEvent; showDay?: boolean }) {
       <button
         onClick={() => toggleDone(e.id)}
         className={cx('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', e.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
-        title={e.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
+        title={e.done ? 'Marquer comme à faire' : 'Marquer comme fait'} aria-label={e.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
       >
-        {e.done && <Check size={10} strokeWidth={3} className="text-white" />}
+        {e.done && <Check size={10} strokeWidth={3} className="text-paper" />}
       </button>
       <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: c.color }} />
       <Link to={linkToDay(e.date)} className="min-w-0 flex-1">
-        <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-400 line-through' : 'font-medium')}>{e.title}</span>
+        <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-500 line-through' : 'font-medium')}>{e.title}</span>
       </Link>
-      <span className="tabular shrink-0 text-[12px] text-stone-400">
+      <span className="tabular shrink-0 text-[12px] text-stone-500">
         {showDay && <span className="capitalize">{e.date === todayKey() ? "Auj." : fmt(fromKey(e.date), 'EEE d')} </span>}
         {hm(e.start)}
       </span>
@@ -130,7 +130,7 @@ export default function Dashboard() {
           {/* Today */}
           <Widget icon={ListTodo} title="Aujourd'hui" to={linkToDay(today)} className="xl:col-span-5" color="var(--color-brand-500)">
             {todayEvents.length === 0 ? (
-              <p className="flex flex-1 items-center py-6 text-[13px] text-stone-400">Rien de prévu aujourd'hui.</p>
+              <p className="flex flex-1 items-center py-6 text-[13px] text-stone-500">Rien de prévu aujourd'hui.</p>
             ) : (
               <ul className="-mx-1.5">
                 {todayEvents.map(e => (
@@ -145,7 +145,7 @@ export default function Dashboard() {
             {nextExam ? (
               <div className="flex flex-1 flex-col">
                 <Link to={linkToDay(nextExam.date)} className="group">
-                  <p className={cx('tabular text-[40px] font-semibold leading-none tracking-[-0.03em]', daysUntil(nextExam.date) <= 3 ? 'text-[#d9483b]' : daysUntil(nextExam.date) <= 7 ? 'text-[#c47a10]' : 'text-ink')}>
+                  <p className={cx('tabular text-[40px] font-semibold leading-none tracking-[-0.03em]', daysUntil(nextExam.date) <= 3 ? 'text-[#d9483b] dark:text-[var(--cat-examen-text)]' : daysUntil(nextExam.date) <= 7 ? 'text-[#c47a10] dark:text-[var(--cat-devoir-text)]' : 'text-ink')}>
                     {daysUntil(nextExam.date) === 0 ? "Aujourd'hui" : `J-${daysUntil(nextExam.date)}`}
                   </p>
                   <p className="mt-2 truncate text-[13px] font-medium group-hover:underline">{nextExam.title}</p>
@@ -167,7 +167,7 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
-              <p className="flex flex-1 items-center text-[13px] text-stone-400">Aucun examen à venir.</p>
+              <p className="flex flex-1 items-center text-[13px] text-stone-500">Aucun examen à venir.</p>
             )}
           </Widget>
 
@@ -178,7 +178,7 @@ export default function Dashboard() {
               <span className="text-[13px] text-stone-500">
                 {week.length === 0 ? 'rien de prévu' : week.length - weekDone === 0 ? 'tout est fait, bravo' : `tâche${week.length - weekDone > 1 ? 's' : ''} à faire`}
               </span>
-              <span className="tabular ml-auto text-[12px] text-stone-400">
+              <span className="tabular ml-auto text-[12px] text-stone-500">
                 {weekDone}/{week.length} faite{weekDone > 1 ? 's' : ''}
               </span>
             </div>
@@ -194,7 +194,7 @@ export default function Dashboard() {
                       style={{ height: `${Math.max(8, (perDay[i] / maxPerDay) * 100)}%` }}
                     />
                   </span>
-                  <span className={cx('text-[11px] capitalize', d === today ? 'font-semibold text-ink' : 'text-stone-400')}>{fmt(fromKey(d), 'EEEEE')}</span>
+                  <span className={cx('text-[11px] capitalize', d === today ? 'font-semibold text-ink' : 'text-stone-500')}>{fmt(fromKey(d), 'EEEEE')}</span>
                 </Link>
               ))}
             </div>
@@ -203,7 +203,7 @@ export default function Dashboard() {
           {/* Upcoming */}
           <Widget icon={CalendarDays} title="À venir" to="/calendrier" className="xl:col-span-5" color="#7a5ad6">
             {upcoming.length === 0 ? (
-              <p className="py-6 text-[13px] text-stone-400">Rien dans les 7 prochains jours.</p>
+              <p className="py-6 text-[13px] text-stone-500">Rien dans les 7 prochains jours.</p>
             ) : (
               <ul className="-mx-1.5">
                 {upcoming.slice(0, 7).map(e => (
@@ -216,7 +216,7 @@ export default function Dashboard() {
           {/* Notes */}
           <Widget icon={NotebookText} title="Notes récentes" to="/notes" className="xl:col-span-4" color="#d48a17">
             {recentNotes.length === 0 ? (
-              <p className="py-6 text-[13px] text-stone-400">Aucune note pour l'instant.</p>
+              <p className="py-6 text-[13px] text-stone-500">Aucune note pour l'instant.</p>
             ) : (
               <ul className="-mx-1.5 divide-y divide-stone-100">
                 {recentNotes.map(n => (
@@ -224,7 +224,7 @@ export default function Dashboard() {
                     <Link to={linkToNote(n.id)} className="block rounded-lg px-1.5 py-2 transition-colors hover:bg-stone-50">
                       <span className="flex items-baseline gap-2">
                         <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{n.title}</span>
-                        <span className="shrink-0 text-[11px] text-stone-400">{relativeTime(n.updatedAt)}</span>
+                        <span className="shrink-0 text-[11px] text-stone-500">{relativeTime(n.updatedAt)}</span>
                       </span>
                       <span className="mt-0.5 block truncate text-[12px] text-stone-500">
                         {folders.find(f => f.id === n.folderId)?.name ?? 'Notes'} · {stripHtml(n.content) || 'Vide'}
@@ -248,7 +248,7 @@ export default function Dashboard() {
               <div className="h-full rounded-full bg-[#3b6fd8]" style={{ width: `${Math.max(1, Math.min(100, (used / quota) * 100))}%` }} />
             </div>
             {recentFiles.length === 0 ? (
-              <p className="mt-auto pt-6 text-[13px] text-stone-400">Importe ton premier fichier.</p>
+              <p className="mt-auto pt-6 text-[13px] text-stone-500">Importe ton premier fichier.</p>
             ) : (
               <ul className="-mx-1.5 mt-3">
                 {recentFiles.map(f => (
@@ -257,7 +257,7 @@ export default function Dashboard() {
                       <FileIcon category={categoryOf(f)} size={28} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-medium">{f.name}</span>
-                        <span className="block truncate text-[11px] text-stone-400">{['Drive', ...pathOf(items, f.parentId).map(p => p.name)].join(' / ')}</span>
+                        <span className="block truncate text-[11px] text-stone-500">{['Drive', ...pathOf(items, f.parentId).map(p => p.name)].join(' / ')}</span>
                       </span>
                     </Link>
                   </li>
@@ -288,15 +288,15 @@ export default function Dashboard() {
                 ))}
               </ul>
             ) : (
-              <p className="mt-3 text-[13px] text-stone-400">Lance une session focus pour suivre ton temps par matière.</p>
+              <p className="mt-3 text-[13px] text-stone-500">Lance une session focus pour suivre ton temps par matière.</p>
             )}
             <div className="mt-auto grid grid-cols-7 items-end gap-1.5 pt-4" role="img" aria-label="Minutes de focus sur les 7 derniers jours">
               {focusDays.map(d => (
                 <span key={d.day} className="flex flex-col items-center gap-1.5" title={`${fmt(fromKey(d.day), 'EEEE d')} : ${d.minutes ? formatMinutes(d.minutes) : 'pas de session'}`}>
                   <span className="flex h-10 w-full items-end justify-center">
-                    <span className="w-full max-w-6 rounded-t-[4px]" style={{ height: d.minutes ? `${Math.max(8, (d.minutes / focusMax) * 100)}%` : 2, background: d.minutes ? FOCUS_COLOR : '#e7e5e4' }} />
+                    <span className="w-full max-w-6 rounded-t-[4px]" style={{ height: d.minutes ? `${Math.max(8, (d.minutes / focusMax) * 100)}%` : 2, background: d.minutes ? FOCUS_COLOR : 'var(--color-stone-200)' }} />
                   </span>
-                  <span className={cx('text-[11px] capitalize', d.day === today ? 'font-semibold text-ink' : 'text-stone-400')}>{fmt(fromKey(d.day), 'EEEEE')}</span>
+                  <span className={cx('text-[11px] capitalize', d.day === today ? 'font-semibold text-ink' : 'text-stone-500')}>{fmt(fromKey(d.day), 'EEEEE')}</span>
                 </span>
               ))}
             </div>
@@ -311,7 +311,7 @@ export default function Dashboard() {
               <div className="mt-3">
                 <div className="flex flex-wrap gap-1.5">
                   {earnedBadges.slice(0, 6).map(b => (
-                    <span key={b.id} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fcf4e6] text-[#9a620c]" title={b.title}>
+                    <span key={b.id} className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--cat-devoir-soft)] text-[var(--cat-devoir-text)]" title={b.title}>
                       <b.icon size={15} />
                     </span>
                   ))}
@@ -321,7 +321,7 @@ export default function Dashboard() {
                 </p>
               </div>
             ) : (
-              <p className="mt-3 text-[13px] text-stone-400">Ton premier badge n'est pas loin.</p>
+              <p className="mt-3 text-[13px] text-stone-500">Ton premier badge n'est pas loin.</p>
             )}
             {nextBadge && (
               <div className="mt-auto pt-4">
@@ -329,7 +329,7 @@ export default function Dashboard() {
                   <span className="min-w-0 flex-1 truncate text-stone-600">
                     Prochain : <span className="font-medium text-ink">{nextBadge.title}</span>
                   </span>
-                  <span className="tabular text-stone-400">
+                  <span className="tabular text-stone-500">
                     {nextBadge.current}/{nextBadge.target}
                   </span>
                 </p>

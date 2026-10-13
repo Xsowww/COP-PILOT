@@ -70,7 +70,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
               <button
                 key={d.days}
                 onClick={() => setDays(d.days)}
-                className={cx('h-8 rounded-md px-3 font-medium transition-colors', days === d.days ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                className={cx('h-8 rounded-md px-3 font-medium transition-colors', days === d.days ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
               >
                 {d.label}
               </button>
@@ -84,7 +84,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
                   {copied ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />} {copied ? 'Copié' : 'Copier'}
                 </button>
               </div>
-              <p className="mt-1.5 text-[12px] text-stone-400">
+              <p className="mt-1.5 text-[12px] text-stone-500">
                 Valable {link.days === 1 ? '24 heures' : `${link.days} jours`}.
               </p>
             </div>

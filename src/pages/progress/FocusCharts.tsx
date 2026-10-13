@@ -12,7 +12,7 @@ export function SubjectBars({ rows }: { rows: { subject: string; minutes: number
   const max = Math.max(1, ...rows.map(r => r.minutes));
   const total = rows.reduce((a, r) => a + r.minutes, 0);
 
-  if (rows.length === 0) return <p className="py-8 text-center text-[13px] text-stone-400">Aucune session sur cette période.</p>;
+  if (rows.length === 0) return <p className="py-8 text-center text-[13px] text-stone-500">Aucune session sur cette période.</p>;
 
   return (
     <ul className="space-y-[2px]" onMouseLeave={() => setHover(null)}>
@@ -34,10 +34,10 @@ export function SubjectBars({ rows }: { rows: { subject: string; minutes: number
           <span className="tabular w-[64px] text-right text-stone-600">{formatMinutes(r.minutes)}</span>
           {hover === i && (
             <span
-              className="pointer-events-none absolute bottom-full z-10 mb-1 rounded-md bg-ink px-2.5 py-1.5 text-[12px] whitespace-nowrap text-white shadow-pop"
+              className="pointer-events-none absolute bottom-full z-10 mb-1 rounded-md bg-inverse px-2.5 py-1.5 text-[12px] whitespace-nowrap text-on-inverse shadow-pop"
               style={{ left: `clamp(0px, calc(30% + ${(r.minutes / max) * 50}%), calc(100% - 170px))` }}
             >
-              <span className="block text-white/60">{r.subject}</span>
+              <span className="block text-on-inverse/60">{r.subject}</span>
               <span className="tabular font-medium">
                 {formatMinutes(r.minutes)} · {r.sessions} session{r.sessions > 1 ? 's' : ''} · {Math.round((r.minutes / total) * 100)} %
               </span>
@@ -75,12 +75,12 @@ export function DailyFocus({ data }: { data: { day: string; minutes: number }[] 
 
   return (
     <div ref={box} className="relative pt-1">
-      <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full overflow-visible" role="img" aria-label="Minutes de travail par jour sur les 30 derniers jours" onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full overflow-visible" role="img" aria-label={`Minutes de travail par jour sur les 30 derniers jours : ${data.reduce((a, d) => a + d.minutes, 0)} min au total, ${data.filter(d => d.minutes > 0).length} jours actifs, maximum ${max} min`} onMouseLeave={() => setHover(null)}>
         {[0, 0.5, 1].map(f => (
           <g key={f}>
-            <line x1="0" x2={W} y1={H - f * H} y2={H - f * H} stroke="#e7e5e4" strokeWidth="1" />
+            <line x1="0" x2={W} y1={H - f * H} y2={H - f * H} stroke="var(--color-stone-200)" strokeWidth="1" />
             {f > 0 && (
-              <text x={W} y={H - f * H - 4} textAnchor="end" fontSize="10" fill="#a8a29e">
+              <text x={W} y={H - f * H - 4} textAnchor="end" fontSize="10" fill="var(--color-stone-500)">
                 {formatMinutes(Math.round(top * f))}
               </text>
             )}
@@ -104,17 +104,17 @@ export function DailyFocus({ data }: { data: { day: string; minutes: number }[] 
           );
         })}
         {[0, Math.floor(last / 2), last].map(i => (
-          <text key={i} x={i * slot + slot / 2} y={H + 14} textAnchor={i === 0 ? 'start' : i === last ? 'end' : 'middle'} fontSize="10" fill="#a8a29e">
+          <text key={i} x={i * slot + slot / 2} y={H + 14} textAnchor={i === 0 ? 'start' : i === last ? 'end' : 'middle'} fontSize="10" fill="var(--color-stone-500)">
             {data[i].day === today ? "Aujourd'hui" : fmt(fromKey(data[i].day), 'd MMM')}
           </text>
         ))}
       </svg>
       {tip && hover !== null && (
         <div
-          className="pointer-events-none absolute top-0 z-10 rounded-md bg-ink px-2.5 py-1.5 text-[12px] text-white shadow-pop"
+          className="pointer-events-none absolute top-0 z-10 rounded-md bg-inverse px-2.5 py-1.5 text-[12px] text-on-inverse shadow-pop"
           style={{ left: `clamp(0px, calc(${((hover + 0.5) / data.length) * 100}% - 70px), calc(100% - 140px))` }}
         >
-          <p className="text-white/60 first-letter:uppercase">{fmt(fromKey(tip.day), 'EEEE d MMMM')}</p>
+          <p className="text-on-inverse/60 first-letter:uppercase">{fmt(fromKey(tip.day), 'EEEE d MMMM')}</p>
           <p className="tabular font-medium">{tip.minutes ? formatMinutes(tip.minutes) : 'Pas de session'}</p>
         </div>
       )}
@@ -128,8 +128,8 @@ export function DataTable({ head, rows, className }: { head: string[]; rows: (st
   return (
     <div className={cx('max-h-[260px] overflow-auto rounded-lg border border-stone-100', className)}>
       <table className="w-full text-[13px]">
-        <thead className="sticky top-0 bg-white">
-          <tr className="border-b border-stone-100 text-left text-[12px] text-stone-400">
+        <thead className="sticky top-0 bg-surface">
+          <tr className="border-b border-stone-100 text-left text-[12px] text-stone-500">
             {head.map((h, i) => (
               <th key={h} className={cx('px-3 py-2 font-medium', i > 0 && 'text-right')}>
                 {h}

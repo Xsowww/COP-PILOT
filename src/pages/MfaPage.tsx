@@ -70,13 +70,13 @@ export default function MfaPage() {
           {isSetup && (
             <ol className="mt-6 space-y-4 text-[13px]">
               <li className="flex gap-3">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-white">1</span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-paper">1</span>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">Scanne ce QR code avec ton téléphone</p>
                   <p className="mt-0.5 text-stone-500">
                     iPhone : l’appareil photo, puis « Ajouter dans Mots de passe ». Android : Google Authenticator ou Microsoft Authenticator.
                   </p>
-                  <div className="mt-3 flex h-[180px] w-[180px] items-center justify-center rounded-xl border border-stone-200 bg-white p-2.5">
+                  <div className="mt-3 flex h-[180px] w-[180px] items-center justify-center rounded-xl border border-stone-200 bg-surface p-2.5">
                     {enrollment ? <img src={enrollment.qrCode} alt="QR code à scanner" className="h-full w-full" /> : <Loader2 className="animate-spin text-stone-400" />}
                   </div>
                   {enrollment && (
@@ -94,7 +94,7 @@ export default function MfaPage() {
                 </div>
               </li>
               <li className="flex gap-3">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-white">2</span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-paper">2</span>
                 <p className="font-medium">Tape le code à 6 chiffres affiché par ton téléphone</p>
               </li>
             </ol>
@@ -129,7 +129,7 @@ export default function MfaPage() {
               Se déconnecter
             </button>
           </p>
-          {!isSetup && <p className="mt-2 text-center text-[12px] text-stone-400">Contacte le support de COP-PILOT pour réinitialiser ta double authentification.</p>}
+          {!isSetup && <p className="mt-2 text-center text-[12px] text-stone-500">Contacte le support de COP-PILOT pour réinitialiser ta double authentification.</p>}
         </form>
       </div>
     </div>
