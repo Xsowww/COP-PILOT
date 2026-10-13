@@ -17,7 +17,8 @@ const PAGE =
 
 const extOf = (name: string) => name.split('.').pop()?.toLowerCase() ?? '';
 
-export default function PreviewModal({ item, onClose }: { item: DriveItem; onClose: () => void }) {
+/** `getUrl` : d'où vient le contenu (par défaut le Drive personnel ; les groupes donnent le leur). */
+export default function PreviewModal({ item, onClose, getUrl = getFileUrl }: { item: DriveItem; onClose: () => void; getUrl?: (id: string) => Promise<string | null> }) {
   const [url, setUrl] = useState<string | null>(null);
   const [text, setText] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
@@ -32,7 +33,7 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
     let revoked = false;
     let current: string | null = null;
     let built: Slide[] = [];
-    void getFileUrl(item.id).then(async u => {
+    void getUrl(item.id).then(async u => {
       if (revoked) return u && URL.revokeObjectURL(u);
       if (!u) return setMissing(true);
       current = u;
@@ -62,7 +63,7 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
       if (current) URL.revokeObjectURL(current);
       revokeSlides(built);
     };
-  }, [item.id, cat, office]);
+  }, [item.id, cat, office, getUrl]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -94,7 +95,7 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
             {formatBytes(item.size)} · modifié {relativeTime(item.updatedAt)}
           </p>
         </div>
-        <button onClick={() => downloadItem(item)} className="btn h-8 bg-white/10 text-white hover:bg-white/20">
+        <button onClick={() => downloadItem(item, getUrl)} className="btn h-8 bg-white/10 text-white hover:bg-white/20">
           <Download size={15} /> Télécharger
         </button>
         <button data-autofocus onClick={onClose} className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white" title="Fermer (Échap)" aria-label="Fermer (Échap)">
@@ -162,7 +163,7 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
               <FileIcon category={cat} size={64} />
               <p className="mt-4 text-[14px] font-medium">{failed ? "Ce fichier n'a pas pu être lu" : "Pas d'aperçu pour ce type de fichier"}</p>
               {(cat === 'doc' || cat === 'slides') && !failed && <p className="mt-1 text-[13px] text-stone-500">L'aperçu fonctionne avec les formats .docx et .pptx.</p>}
-              <button onClick={() => downloadItem(item)} className="btn-primary mt-4">
+              <button onClick={() => downloadItem(item, getUrl)} className="btn-primary mt-4">
                 <Download size={15} /> Télécharger
               </button>
             </div>

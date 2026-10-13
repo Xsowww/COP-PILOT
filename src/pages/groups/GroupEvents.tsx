@@ -8,7 +8,7 @@ import { createEvent, deleteEvent, groupError, setAttendance, type Group, type G
 import { countdownLabel, fmt, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { MemberDot } from './shared';
-import { groupColor, useMemberName } from './util';
+import { groupColor, useMemberName, useRights } from './util';
 
 const isUrl = (s: string) => /^https?:\/\/\S+$/i.test(s.trim());
 
@@ -72,11 +72,13 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
   const nameOf = useMemberName(group.id);
   const attendance = useGroups(s => s.attendance[group.id]);
   const inCalendar = useCalendar(s => s.events.some(e => e.externalId === `groupe:${ev.id}`));
+  const { canEdit } = useRights(group);
   const [busy, setBusy] = useState(false);
   // Soi-même en dernier : « Hugo, Inès et toi viennent ».
   const coming = (attendance ?? []).filter(a => a.eventId === ev.id).map(a => a.userId).sort((a, b) => Number(a === me) - Number(b === me));
   const iCome = coming.includes(me);
-  const canDelete = ev.createdBy === me || group.ownerId === me;
+  // Comme la base : l'auteur (s'il est encore éditeur) ou le propriétaire.
+  const canDelete = canEdit && (ev.createdBy === me || group.ownerId === me);
 
   const toggle = async () => {
     setBusy(true);
@@ -189,26 +191,29 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
 export default function GroupEvents({ group }: { group: Group }) {
   const events = useGroups(s => s.events[group.id]);
   const [adding, setAdding] = useState(false);
+  const { canEdit } = useRights(group);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 pb-3">
         <p className="eyebrow mr-auto">Révisions à venir</p>
-        {!adding && (
+        {!adding && canEdit && (
           <button className="btn-primary h-8 px-3" onClick={() => setAdding(true)}>
             <Plus size={14} /> Proposer une révision
           </button>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-        {adding && <EventForm group={group} onDone={() => setAdding(false)} />}
+        {adding && canEdit && <EventForm group={group} onDone={() => setAdding(false)} />}
         {!events && <p className="text-[13px] text-stone-500">Chargement…</p>}
         {events && events.length === 0 && !adding && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <CalendarPlus size={26} strokeWidth={1.5} className="text-stone-300" />
             <p className="mt-3 text-[14px] font-medium">Aucune révision prévue</p>
             <p className="mt-1 max-w-[380px] text-[13px] text-stone-500">
-              Propose une séance à la BU ou en visio : chaque membre indique s’il vient et peut l’ajouter à son calendrier.
+              {canEdit
+                ? 'Propose une séance à la BU ou en visio : chaque membre indique s’il vient et peut l’ajouter à son calendrier.'
+                : 'Les séances proposées par les éditeurs du groupe apparaîtront ici.'}
             </p>
           </div>
         )}
