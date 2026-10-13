@@ -1,13 +1,16 @@
 import { Minus, Plus } from 'lucide-react';
 import { cx } from '../../lib/utils';
 
-export function Section({ title, description, children, danger }: { title: string; description?: string; children: React.ReactNode; danger?: boolean }) {
+/** A settings card. Without a title (when it would only repeat the tab name), it is labelled by `label`. */
+export function Section({ title, label, description, children, danger }: { title?: string; label?: string; description?: string; children: React.ReactNode; danger?: boolean }) {
   return (
-    <section className={cx('card enter', danger && 'border-red-200')}>
-      <header className="border-b border-stone-100 px-5 py-4">
-        <h2 className={cx('text-[14px] font-semibold', danger && 'text-red-700')}>{title}</h2>
-        {description && <p className="mt-0.5 text-[13px] text-stone-500">{description}</p>}
-      </header>
+    <section className={cx('card enter', danger && 'border-red-200')} aria-label={title ? undefined : label}>
+      {title && (
+        <header className="border-b border-stone-100 px-5 py-4">
+          <h2 className={cx('text-[14px] font-semibold', danger && 'text-red-700')}>{title}</h2>
+          {description && <p className="mt-0.5 text-[13px] text-stone-500">{description}</p>}
+        </header>
+      )}
       <div className="divide-y divide-stone-100">{children}</div>
     </section>
   );

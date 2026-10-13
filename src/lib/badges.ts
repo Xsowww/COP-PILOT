@@ -32,6 +32,7 @@ import { useFocusLog, type FocusSession } from '../store/focusLog';
 import { useSettings, getSettings } from '../store/settings';
 import { useCopilot } from '../store/copilot';
 import { useAuth } from '../store/auth';
+import { useFocus } from '../store/focus';
 import { getStorageUser } from './userStorage';
 import { toKey, todayKey, fromKey, weekStart } from './dates';
 import { normalize } from './utils';
@@ -290,6 +291,10 @@ function evaluate() {
   }
   const fresh = earned.filter(b => !seen.includes(b.id));
   if (!fresh.length) return;
+  // Announcements are opt-in: otherwise the badges are just marked as seen, silently.
+  if (!settings.badgeAnnouncements) return void settings.set({ badgesSeen: [...seen, ...fresh.map(b => b.id)] });
+  // Never interrupt a focus session: celebrate once it is over.
+  if (useFocus.getState().phase === 'focus') return void setTimeout(evaluate, 30_000);
   // Let Copilot finish what he is saying (e.g. « session terminée ») before celebrating.
   if (useCopilot.getState().bubble) return void setTimeout(evaluate, 5000);
   settings.set({ badgesSeen: [...seen, ...fresh.map(b => b.id)] });
@@ -297,7 +302,7 @@ function evaluate() {
     fresh.length === 1
       ? `Nouveau badge : « ${fresh[0].title} ». ${fresh[0].description}`
       : `${fresh.length} nouveaux badges : ${fresh.map(b => `« ${b.title} »`).join(', ')}.`;
-  useCopilot.getState().say({ text, mood: 'happy', links: [{ label: 'Voir mes badges', to: '/progression#badges' }] });
+  useCopilot.getState().say({ text, mood: 'happy', links: [{ label: 'Voir mes badges', to: '/profil#badges' }] });
 }
 
 /** Watches the data stores and announces newly earned badges (debounced). Safe to call several times. */

@@ -109,7 +109,7 @@ function QuickAdd() {
 
   return (
     <div className="flex items-center gap-1.5">
-      <div className="relative min-w-0 flex-1">
+      <div className="min-w-0 flex-1">
         <input
           value={title}
           onChange={e => setTitle(e.target.value)}
@@ -117,9 +117,8 @@ function QuickAdd() {
           placeholder="Ajouter une tâche…"
           aria-label="Nouvelle tâche"
           maxLength={160}
-          className="field w-full pr-14"
+          className="field w-full"
         />
-        <span className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">Entrée</span>
       </div>
       {showDate || due ? (
         <span className="flex shrink-0 items-center">
@@ -138,7 +137,7 @@ function QuickAdd() {
           </button>
         </span>
       ) : (
-        <button onClick={() => setShowDate(true)} className="icon-btn h-9 w-9 border border-stone-200 bg-surface shadow-card" title="Ajouter une échéance" aria-label="Ajouter une échéance">
+        <button onClick={() => setShowDate(true)} className="icon-btn h-9 w-9" title="Ajouter une échéance" aria-label="Ajouter une échéance">
           <CalendarPlus size={15} />
         </button>
       )}
@@ -169,15 +168,15 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
     <div className="flex flex-1 flex-col">
       <QuickAdd />
       {open.length === 0 ? (
-        <p className="py-5 text-[13px] text-stone-500">{done.length ? 'Tout est coché. Profites-en.' : 'Rien à faire pour l’instant. Note ici ce qui ne rentre pas dans le calendrier.'}</p>
+        <p className="py-5 text-[13px] text-stone-500">{done.length ? 'Tout est coché. Profites-en.' : 'Rien à faire pour l’instant.'}</p>
       ) : (
         <div className="mt-2">
           {groups.map(g => (
             <div key={g.label} className={cx(g.label && 'mt-3 first:mt-1')}>
               {g.label && (
-                <p className="eyebrow mb-0.5 flex items-center gap-1.5 px-1.5" style={g.label === 'En retard' ? { color: OVERDUE } : undefined}>
-                  {g.label} <span className="tabular text-stone-500">{g.items.length}</span>
-                </p>
+                <h3 className="eyebrow mb-0.5 px-1.5" style={g.label === 'En retard' ? { color: OVERDUE } : undefined}>
+                  {g.label}
+                </h3>
               )}
               <ul className="-mx-1.5">
                 {g.items.map(t => (
@@ -187,7 +186,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
             </div>
           ))}
           {limit && open.length > limit && (
-            <Link to="/progression" className="mt-1 inline-flex items-center gap-0.5 px-0.5 text-[12px] text-stone-500 hover:text-ink">
+            <Link to="/taches" className="mt-1 inline-flex items-center gap-0.5 px-0.5 text-[12px] text-stone-500 hover:text-ink">
               {open.length - limit} autre{open.length - limit > 1 ? 's' : ''} <ChevronRight size={13} />
             </Link>
           )}

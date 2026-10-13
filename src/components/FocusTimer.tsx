@@ -5,7 +5,7 @@ import { useSettings } from '../store/settings';
 import { useFocusLog } from '../store/focusLog';
 import { useCalendar } from '../store/calendar';
 import { startBadgeWatcher } from '../lib/badges';
-import { subjectSuggestions } from '../pages/progress/focusStats';
+import { subjectSuggestions } from '../pages/tasks/focusStats';
 import { cx } from '../lib/utils';
 
 /** Asks what the session is about before starting (optional, free text + quick chips). */

@@ -421,6 +421,9 @@ export function localReply(raw: string): BotReply {
   if (/(ouvre|va|aller|emmene|montre).*(drive|fichiers)/.test(q)) return { text: 'On y va.', links: [{ label: 'Drive', to: '/drive' }] };
   if (/(ouvre|va|aller|emmene|montre).*(calendrier|agenda|planning)/.test(q)) return { text: 'Direction le calendrier.', links: [{ label: 'Calendrier', to: '/calendrier' }] };
   if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: 'Tes notes t\'attendent.', links: [{ label: 'Notes', to: '/notes' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(taches|todo|to-do|a faire|progression|temps de travail)/.test(q)) return { text: 'Voilà ta liste.', links: [{ label: 'Tâches', to: '/taches' }] };
+  if (/(ouvre|va|aller|emmene|montre).*badges?/.test(q)) return { text: 'Tes badges sont dans ton profil.', links: [{ label: 'Mes badges', to: '/profil#badges' }] };
+  if (/(ouvre|va|aller|emmene|montre).*groupes?/.test(q)) return { text: 'Tes groupes de travail.', links: [{ label: 'Groupes', to: '/groupes' }] };
   if (/(ouvre|va|aller|emmene|montre).*(dashboard|accueil|tableau)/.test(q)) return { text: 'Retour au QG.', links: [{ label: 'Dashboard', to: '/' }] };
 
   // ── Overview ──────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
+  ChevronDown, ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, X, MousePointer2, Search, Tag, Link2, RotateCcw, Ban, Check,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -72,6 +72,7 @@ export default function DrivePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; target: string | null } | null>(null);
+  const [importMenu, setImportMenu] = useState<{ x: number; y: number } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | 'here' | null>(null);
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -449,6 +450,12 @@ export default function DrivePage() {
   const tabAll = tab === 'all' && !filtering;
 
   // ── Context menu definitions ──────────────────────────────────────────────
+  /** « 3 éléments » under a folder, nothing when it is empty. */
+  const childCount = (id: string) => {
+    const n = items.filter(i => i.parentId === id).length;
+    return n ? `${n} élément${n > 1 ? 's' : ''}` : '';
+  };
+
   const menuItems: MenuItem[] = useMemo(() => {
     if (!menu) return [];
     if (inTrash) {
@@ -638,15 +645,31 @@ export default function DrivePage() {
           >
             {view === 'grid' ? <List size={16} /> : <LayoutGrid size={16} />}
           </button>
-          <button className="icon-btn" title="Importer un dossier" aria-label="Importer un dossier" onClick={() => folderInput.current?.click()}>
-            <FolderUp size={16} />
-          </button>
-          <button className="btn-secondary" onClick={() => void newFolder()}>
-            <FolderPlus size={15} /> <span className="hidden sm:inline">Nouveau dossier</span>
-          </button>
-          <button className="btn-primary" onClick={() => fileInput.current?.click()} disabled={busy}>
-            <Upload size={15} /> <span className="hidden sm:inline">{busy ? 'Import…' : 'Importer'}</span>
-          </button>
+          {!inTrash && (
+            <>
+              <button className="btn-secondary" onClick={() => void newFolder()} title="Nouveau dossier">
+                <FolderPlus size={15} /> <span className="hidden sm:inline">Nouveau dossier</span>
+              </button>
+              <div className="flex">
+                <button className="btn-primary rounded-r-none" onClick={() => fileInput.current?.click()} disabled={busy} title="Importer des fichiers">
+                  <Upload size={15} /> <span className="hidden sm:inline">{busy ? 'Import…' : 'Importer'}</span>
+                </button>
+                <button
+                  className="btn-primary rounded-l-none border-l border-white/20 px-1.5"
+                  disabled={busy}
+                  title="Plus d’options d’import"
+                  aria-label="Plus d’options d’import"
+                  aria-haspopup="menu"
+                  onClick={e => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setImportMenu({ x: r.right - 208, y: r.bottom + 6 });
+                  }}
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -681,7 +704,7 @@ export default function DrivePage() {
           </div>
         ) : inTrash ? (
           <>
-            <p className="px-1.5 text-stone-500">Les éléments sont supprimés définitivement au bout de {TRASH_DAYS} jours.</p>
+            {trash.length > 0 && <p className="px-1.5 text-stone-500">Effacés définitivement après {TRASH_DAYS} jours.</p>}
             {trash.length > 0 && (
               <button className="btn-ghost ml-auto h-8 text-[12px] text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => void emptyTrash()}>
                 <Trash2 size={14} /> Vider la corbeille
@@ -697,13 +720,13 @@ export default function DrivePage() {
           </p>
         ) : tabAll ? (
           <>
-            <button
+            {breadcrumb.length > 0 && <button
               onClick={() => openFolder(null)}
               {...folderDropProps(null, 'crumb-root')}
               className={cx('rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100', breadcrumb.length ? 'text-stone-500' : 'text-ink', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
             >
               Mon Drive
-            </button>
+            </button>}
             {breadcrumb.map(b => (
               <span key={b.id} className="flex min-w-0 items-center gap-1">
                 <ChevronRight size={14} className="shrink-0 text-stone-300" />
@@ -726,9 +749,7 @@ export default function DrivePage() {
               </button>
             ) : null}
           </>
-        ) : (
-          <p className="px-1.5 font-medium text-stone-500">{tab === 'starred' ? 'Éléments favoris' : 'Fichiers modifiés récemment'}</p>
-        )}
+        ) : null}
       </div>
 
       {/* Label filter */}
@@ -775,12 +796,14 @@ export default function DrivePage() {
             </p>
             <p className="mt-1 max-w-xs text-[13px] text-stone-500">
               {filtering
-                ? 'La recherche porte sur les noms et sur le texte des PDF, documents Word et fichiers texte.'
+                ? 'Essaie un autre mot : les noms et le texte des documents sont cherchés.'
                 : inTrash
-                  ? `Ce que tu supprimes reste ici ${TRASH_DAYS} jours, le temps de changer d'avis.`
+                  ? `Ce que tu supprimes reste ici ${TRASH_DAYS} jours.`
                   : tab === 'all'
-                    ? 'Dépose des fichiers ou des dossiers ici, ou utilise le bouton Importer.'
-                    : 'Clic droit sur un élément, puis « Ajouter aux favoris ».'}
+                    ? 'Dépose des fichiers ici, ou utilise Importer.'
+                    : tab === 'starred'
+                      ? 'Ajoute un favori avec un clic droit sur un élément.'
+                      : 'Tes derniers fichiers apparaîtront ici.'}
             </p>
           </div>
         ) : inTrash ? (
@@ -843,7 +866,7 @@ export default function DrivePage() {
                   <FileIcon category={categoryOf(item)} size={56} ext={extOf(item)} color={folderColor(item)} />
                   <p className="mt-2 line-clamp-2 w-full break-words text-[12.5px] font-medium leading-tight">{item.name}</p>
                   <p className="tabular mt-0.5 text-[11px] text-stone-500">
-                    {item.kind === 'folder' ? `${items.filter(i => i.parentId === item.id).length} élément${items.filter(i => i.parentId === item.id).length > 1 ? 's' : ''}` : formatBytes(item.size)}
+                    {item.kind === 'folder' ? childCount(item.id) : formatBytes(item.size)}
                   </p>
                   {item.tags?.length ? (
                     <div className="mt-1.5 flex max-w-full flex-wrap justify-center gap-1">
@@ -895,7 +918,7 @@ export default function DrivePage() {
                   </span>
                   <span className="hidden truncate text-[12px] text-stone-500 md:block">{['Drive', ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}</span>
                   <span className="text-[12px] text-stone-500">{relativeTime(item.updatedAt)}</span>
-                  <span className="tabular text-[12px] text-stone-500">{item.kind === 'folder' ? formatBytes(folderSize(items, item.id)) : formatBytes(item.size)}</span>
+                  <span className="tabular text-[12px] text-stone-500">{item.kind === 'folder' ? (folderSize(items, item.id) ? formatBytes(folderSize(items, item.id)) : '') : formatBytes(item.size)}</span>
                 </div>
               );
             })}
@@ -910,11 +933,18 @@ export default function DrivePage() {
         )}
       </div>
 
-      <p className="hidden pt-2.5 text-center text-[11px] text-stone-500 lg:block">
-        Double-clic pour ouvrir · Clic droit pour plus d'options · <span className="font-mono">{MOD}C {MOD}X {MOD}V</span> copier, couper, coller · <span className="font-mono">{MOD}D</span> dupliquer · <span className="font-mono">F2</span> renommer · Alt + glisser pour copier
-      </p>
-
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
+      {importMenu && (
+        <ContextMenu
+          x={importMenu.x}
+          y={importMenu.y}
+          onClose={() => setImportMenu(null)}
+          items={[
+            { label: 'Importer des fichiers', icon: <Upload size={15} />, onClick: () => fileInput.current?.click() },
+            { label: 'Importer un dossier', icon: <FolderUp size={15} />, onClick: () => folderInput.current?.click() },
+          ]}
+        />
+      )}
       {previewItem && <PreviewModal item={previewItem} onClose={closePreview} />}
       {tagIds && <TagDialog ids={tagIds} onClose={() => setTagIds(null)} />}
       {shareItem && <ShareDialog item={shareItem} onClose={() => setShareItem(null)} />}

@@ -54,6 +54,7 @@ export interface Settings {
   focusSound: boolean;
   // motivation
   badgesSeen: string[]; // badges already announced
+  badgeAnnouncements: boolean; // Copilot announces newly earned badges
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -69,7 +70,7 @@ export const DEFAULT_SETTINGS: Settings = {
   copilotVisible: true,
   proactive: true,
   eventReminders: true,
-  chattiness: 'normal',
+  chattiness: 'calme',
   revisionSessions: 3,
   revisionTime: '18:00',
   persona: 'pote',
@@ -84,6 +85,7 @@ export const DEFAULT_SETTINGS: Settings = {
   browserNotifications: false,
   focusSound: true,
   badgesSeen: [],
+  badgeAnnouncements: false,
 };
 
 interface SettingsState extends Settings {

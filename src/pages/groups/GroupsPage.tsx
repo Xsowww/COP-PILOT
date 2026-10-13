@@ -112,47 +112,27 @@ function JoinForm({ onDone }: { onDone: (id?: string) => void }) {
 }
 
 function Intro({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
-  const points = [
-    { icon: NotebookText, title: 'Des notes à plusieurs', text: 'Fiches, corrections de TD, résumés de cours : chacun complète, tout le monde voit la dernière version.' },
-    { icon: CalendarClock, title: 'Des révisions en commun', text: 'Propose une séance, les autres indiquent s’ils viennent, et chacun l’ajoute à son calendrier.' },
-    { icon: Users, title: 'Juste ton groupe', text: 'On entre seulement avec le code d’invitation. Les autres membres voient ton prénom, jamais ton adresse e-mail.' },
-  ];
   return (
-    <div className="mx-auto flex max-w-[560px] flex-col py-10 md:py-16">
-      <h2 className="text-[20px] font-semibold tracking-[-0.01em]">Travaille avec ta promo</h2>
-      <p className="mt-1.5 text-[14px] text-stone-500">Crée un groupe pour ton TD, ton binôme ou ton équipe de projet, puis partage son code.</p>
-      <div className="mt-7 flex flex-col gap-5">
-        {points.map(p => (
-          <div key={p.title} className="flex gap-3.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
-              <p.icon size={17} strokeWidth={1.9} />
-            </span>
-            <div>
-              <p className="text-[14px] font-medium">{p.title}</p>
-              <p className="mt-0.5 text-[13px] text-stone-500">{p.text}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-8 flex flex-wrap gap-2">
+    <div className="mx-auto flex max-w-[480px] flex-col py-10 md:py-16">
+      <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Travaille avec ta promo</h2>
+      <p className="mt-1.5 text-[13px] text-stone-500">Notes partagées et séances de révision en commun, avec ceux qui ont le code du groupe.</p>
+      <div className="mt-6 flex flex-wrap gap-2">
         <button className="btn-primary" onClick={onCreate}><Plus size={15} /> Créer un groupe</button>
         <button className="btn-secondary" onClick={onJoin}><LogIn size={15} /> J’ai un code</button>
       </div>
+      <p className="mt-6 text-[12px] text-stone-500">Les membres voient ton prénom, jamais ton adresse e-mail.</p>
     </div>
   );
 }
 
 function OfflineNotice() {
   return (
-    <div className="flex h-full items-center justify-center px-4 pb-10">
-      <div className="card max-w-[440px] p-7 text-center">
-        <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-stone-100 text-stone-500">
-          <CloudOff size={20} strokeWidth={1.8} />
-        </span>
-        <h1 className="mt-4 text-[17px] font-semibold">Les groupes nécessitent la version en ligne</h1>
-        <p className="mt-2 text-[13px] leading-relaxed text-stone-500">
-          Cette copie de COP-PILOT garde tes données uniquement dans ce navigateur. Pour partager des notes et organiser des révisions avec d’autres étudiants, connecte-toi à la version en ligne avec ton compte.
-        </p>
+    <div className="flex h-full flex-col px-4 pb-10 md:px-8">
+      <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">Groupes</h1>
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
+        <p className="mt-3 text-[14px] font-medium">Disponible dans la version en ligne</p>
+        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur. Connecte-toi en ligne pour partager des notes avec d’autres étudiants.</p>
       </div>
     </div>
   );

@@ -324,7 +324,6 @@ export default function NotesPage() {
           <ChevronRight size={13} className={cx('shrink-0 text-stone-400 transition-transform', open && 'rotate-90')} />
           {open ? <FolderOpen size={15} className="shrink-0 text-stone-500" /> : <Folder size={15} className="shrink-0 text-stone-500" />}
           <span className="flex-1 truncate">{f.name}</span>
-          <span className="tabular text-[11px] font-normal text-stone-500 group-hover:hidden">{fnotes.length || ''}</span>
           <button
             className="hidden rounded p-0.5 text-stone-500 hover:text-ink group-hover:block"
             tabIndex={-1}
@@ -430,7 +429,6 @@ export default function NotesPage() {
             <span className="flex-1 text-left">Corbeille</span>
             {trashCount > 0 && <span className="tabular text-[11px] text-stone-500">{trashCount}</span>}
           </button>
-          <p className="hidden px-2.5 pt-1.5 text-[11px] text-stone-500 md:block">Glisse une note sur un dossier pour la ranger.</p>
         </div>
       </aside>
 
@@ -495,23 +493,13 @@ export default function NotesPage() {
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
             <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">Aucune note ouverte</p>
-            <p className="mt-1 text-[13px] text-stone-500">Choisis une note à gauche, ou pars d’un modèle.</p>
-            <div className="mt-5 grid w-full max-w-[460px] grid-cols-2 gap-2 text-left sm:grid-cols-3">
-              {NOTE_TEMPLATES.map((t, i) => {
-                const Icon = TEMPLATE_ICONS[t.id] ?? FileText;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => newNote(targetFolder, i === 0 ? undefined : t)}
-                    className="rounded-lg border border-stone-200 px-3 py-2.5 transition-colors hover:border-stone-300 hover:bg-stone-50"
-                  >
-                    <Icon size={16} className="text-brand-600" />
-                    <span className="mt-1.5 block text-[13px] font-medium">{t.label}</span>
-                    <span className="mt-0.5 block text-[11.5px] leading-snug text-stone-500">{t.hint}</span>
-                  </button>
-                );
-              })}
+            <p className="mt-3 text-[13px] text-stone-500">Choisis une note, ou pars d’un modèle.</p>
+            <div className="mt-4 flex max-w-[460px] flex-wrap justify-center gap-1.5">
+              {NOTE_TEMPLATES.map((t, i) => (
+                <button key={t.id} onClick={() => newNote(targetFolder, i === 0 ? undefined : t)} title={t.hint} className="btn-secondary h-8 px-3 text-[12px]">
+                  {t.label}
+                </button>
+              ))}
             </div>
           </div>
         )}

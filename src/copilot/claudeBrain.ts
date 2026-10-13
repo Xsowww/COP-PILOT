@@ -261,7 +261,7 @@ export const resetClaudeHistory = () => {
   history = [];
 };
 
-const PAGES: Record<string, string> = { '/': 'Accueil', '/drive': 'Drive', '/calendrier': 'Calendrier', '/notes': 'Notes', '/profil': 'Profil et réglages' };
+const PAGES: Record<string, string> = { '/': 'Accueil', '/drive': 'Drive', '/calendrier': 'Calendrier', '/taches': 'Tâches', '/notes': 'Notes', '/groupes': 'Groupes', '/profil': 'Profil et réglages' };
 
 /** Facts from the app that the AI can't see otherwise, prepended to each user turn. */
 function contextBlock(): string {

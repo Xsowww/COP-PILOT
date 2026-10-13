@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, Trophy, Users } from 'lucide-react';
+import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
 import { startProactive } from '../copilot/proactive';
@@ -15,10 +15,10 @@ const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calenda
 
 const NAV = [
   { to: '/', label: 'Accueil', icon: House, end: true, color: SPACE_COLORS.home },
-  { to: '/drive', label: 'Drive', icon: FolderClosed, color: SPACE_COLORS.drive },
   { to: '/calendrier', label: 'Calendrier', icon: CalendarDays, color: SPACE_COLORS.calendar },
+  { to: '/taches', label: 'Tâches', icon: ListChecks, color: '#2f9e6b' },
   { to: '/notes', label: 'Notes', icon: NotebookText, color: SPACE_COLORS.notes },
-  { to: '/progression', label: 'Progression', icon: Trophy, color: '#2f9e6b' },
+  { to: '/drive', label: 'Drive', icon: FolderClosed, color: SPACE_COLORS.drive },
   { to: '/groupes', label: 'Groupes', icon: Users, color: '#1f8a8a' },
 ];
 
@@ -59,8 +59,8 @@ function GlobalSearch() {
   };
 
   return (
-    <div className="relative w-full max-w-[420px]">
-      <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+    <div className="relative w-full max-w-[300px]">
+      <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
       <input
         ref={inputRef}
         value={q}
@@ -84,11 +84,11 @@ function GlobalSearch() {
         aria-expanded={open && !!q.trim()}
         aria-controls="recherche-resultats"
         aria-activedescendant={open && hits[active] ? `recherche-${active}` : undefined}
-        className="field w-full pl-9 pr-16"
+        className="h-8 w-full rounded-lg border border-transparent bg-stone-100/70 pl-8 pr-14 text-[13px] text-ink outline-none transition placeholder:text-stone-500 hover:bg-stone-100 focus:border-stone-300 focus:bg-surface focus:shadow-card focus-visible:ring-3 focus-visible:ring-brand-500/20"
       />
-      <span aria-hidden className="kbd pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
+      <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 border-transparent bg-transparent sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
       {open && q.trim() && (
-        <div id="recherche-resultats" role="listbox" aria-label="Résultats de recherche" className="enter absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-xl border border-stone-200 bg-surface p-1 shadow-pop">
+        <div id="recherche-resultats" role="listbox" aria-label="Résultats de recherche" className="enter absolute left-0 right-0 top-10 z-40 overflow-hidden rounded-xl border border-stone-200 bg-surface p-1 shadow-pop">
           {hits.length === 0 && <p className="px-3 py-5 text-center text-[13px] text-stone-500">Aucun résultat pour « {q} »</p>}
           {hits.map((h, i) => {
             const Icon = HIT_ICON[h.type];

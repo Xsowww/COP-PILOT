@@ -96,14 +96,6 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="card p-4">
-      <h3 className="mb-3 text-[13px] font-medium text-stone-600">{title}</h3>
-      {children}
-    </section>
-  );
-}
 
 export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
@@ -268,16 +260,15 @@ export default function CalendarPage() {
           <button className="btn-secondary h-8" onClick={() => selectDay(today)}>
             Aujourd'hui
           </button>
-          <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px]">
+          <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px]" role="group" aria-label="Affichage">
             {MODES.map(m => (
-              <button key={m.id} onClick={() => setMode(m.id)} className={cx('h-7 rounded-md px-3 font-medium transition-colors', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
+              <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('h-7 rounded-md px-3 font-medium transition-colors', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
                 {m.label}
               </button>
             ))}
           </div>
-          <button className="btn-secondary h-8 px-2.5" onClick={() => setImporting({})} title="Importer un emploi du temps (.ics)">
-            <CalendarArrowDown size={15} />
-            <span className="hidden sm:inline">Importer (.ics)</span>
+          <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title="Importer un emploi du temps (.ics)" aria-label="Importer un emploi du temps (.ics)">
+            <CalendarArrowDown size={16} />
           </button>
         </div>
 
@@ -324,7 +315,7 @@ export default function CalendarPage() {
           )}
         </form>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_300px]">
+        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1fr_300px]">
           <section className="card p-4 md:p-5">
             {mode !== 'month' ? (
               <div className="grid grid-cols-7 gap-1">
@@ -425,11 +416,6 @@ export default function CalendarPage() {
             <div className="mt-5 border-t border-stone-100 pt-5">
               <div className="mb-4 flex items-baseline gap-2">
                 <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? "Aujourd'hui" : fmt(selDate, 'EEEE d MMMM')}</h2>
-                {dayEvents.length > 0 && (
-                  <span className="tabular text-[12px] text-stone-500">
-                    {dayEvents.filter(e => e.done).length}/{dayEvents.length} terminé
-                  </span>
-                )}
                 <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>
                   <Plus size={14} /> Ajouter
                 </button>
@@ -445,105 +431,86 @@ export default function CalendarPage() {
                   onCreate={(start, end) => setForm({ date: selected, start, end })}
                 />
               ) : dayEvents.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-stone-200 py-10 text-center">
-                  <p className="text-[14px] font-medium">Journée libre</p>
-                  <p className="mt-1 text-[13px] text-stone-500">Rien de prévu ce jour-là.</p>
-                </div>
+                <p className="py-8 text-center text-[13px] text-stone-500">Rien de prévu ce jour-là.</p>
               ) : (
                 <div className="space-y-2">
                   {dayEvents.map(ev => (
                     <EventItem key={ev.id} ev={ev} dragging={drag?.ev.id === ev.id} onDragStart={e => startDrag(ev, e)} onEdit={() => setForm({ event: ev, date: ev.date })} />
                   ))}
-                  <p className="pt-1 text-center text-[11px] text-stone-500">Astuce : glisse un événement sur un autre jour pour le déplacer.</p>
                 </div>
               )}
             </div>
           </section>
 
-          <aside className="space-y-4">
-            <Panel title="Examens à venir">
-              {upcomingExams.length === 0 ? (
-                <p className="text-[13px] text-stone-500">Aucun examen prévu.</p>
-              ) : (
-                <ul className="-mx-1.5">
-                  {upcomingExams.map(e => {
-                    const n = daysUntil(e.date);
-                    return (
-                      <li key={e.id}>
-                        <button onClick={() => selectDay(e.date)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-2 text-left transition-colors hover:bg-stone-50">
-                          <span
-                            className={cx(
-                              'tabular flex h-9 w-11 shrink-0 items-center justify-center rounded-md text-[13px] font-semibold',
-                              n <= 3 ? 'bg-red-50 text-red-700' : n <= 7 ? 'bg-amber-50 text-amber-700' : 'bg-stone-100 text-stone-600',
-                            )}
-                          >
-                            {n === 0 ? 'Auj.' : `J-${n}`}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-[13px] font-medium">{e.title}</span>
-                            <span className="block text-[12px] first-letter:uppercase text-stone-500">
-                              {fmt(fromKey(e.date), 'EEE d MMM')}
-                              {e.start && ` · ${e.start}`}
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Panel>
-
-            <Panel title="À rendre">
-              {homework.length === 0 ? (
-                <p className="text-[13px] text-stone-500">Rien à rendre pour l'instant.</p>
-              ) : (
-                <ul className="space-y-0.5">
-                  {homework.map(e => (
-                    <li key={e.id} className="flex h-8 items-center gap-2.5">
-                      <button
-                        onClick={() => useCalendar.getState().toggleDone(e.id)}
-                        className="h-4 w-4 shrink-0 rounded border-[1.5px] border-stone-300 transition-colors hover:border-stone-500"
-                        title="Marquer comme fait" aria-label="Marquer comme fait"
-                      />
-                      <button onClick={() => selectDay(e.date)} className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline">
-                        {e.title}
-                      </button>
-                      <span className={cx('tabular text-[12px]', e.date < today ? 'font-medium text-red-600' : 'text-stone-500')}>{countdownLabel(e.date)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
-
-            <Panel title="Catégories">
-              <div className="space-y-0.5">
-                {(Object.keys(CATEGORIES) as EventCategory[]).map(k => {
-                  const c = CATEGORIES[k];
-                  const off = hidden.has(k);
+          <aside aria-labelledby="a-venir-titre" className="card self-start p-4">
+            <h2 id="a-venir-titre" className="mb-2 text-[13px] font-medium text-stone-600">
+              À venir
+            </h2>
+            {upcomingExams.length === 0 && homework.length === 0 ? (
+              <p className="py-1 text-[13px] text-stone-500">Aucun examen ni rendu prévu.</p>
+            ) : (
+              <ul className="-mx-1.5">
+                {upcomingExams.map(e => {
+                  const n = daysUntil(e.date);
                   return (
-                    <button
-                      key={k}
-                      onClick={() =>
-                        setHidden(s => {
-                          const n = new Set(s);
-                          if (n.has(k)) n.delete(k);
-                          else n.add(k);
-                          return n;
-                        })
-                      }
-                      className="flex h-8 w-full items-center gap-2.5 rounded-md px-1.5 text-[13px] transition-colors hover:bg-stone-50"
-                    >
-                      <span className="flex h-4 w-4 items-center justify-center rounded border-[1.5px]" style={{ borderColor: c.color, background: off ? 'transparent' : c.color }}>
-                        {!off && <Check size={10} strokeWidth={3} className="text-white" />}
-                      </span>
-                      <span className={off ? 'text-stone-500' : ''}>{c.label}</span>
-                      <span className="tabular ml-auto text-[12px] text-stone-500">{events.filter(e => e.category === k && e.date >= today).length}</span>
-                    </button>
+                    <li key={e.id}>
+                      <button onClick={() => selectDay(e.date)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
+                        <span className={cx('tabular w-9 shrink-0 text-[13px] font-semibold', n <= 3 ? 'text-[var(--cat-examen-text)]' : 'text-ink')}>{n === 0 ? 'Auj.' : `J-${n}`}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium">{e.title}</span>
+                          <span className="block text-[12px] first-letter:uppercase text-stone-500">
+                            {fmt(fromKey(e.date), 'EEE d MMM')}
+                            {e.start && ` · ${e.start}`}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
                   );
                 })}
-              </div>
-            </Panel>
+                {homework.map(e => (
+                  <li key={e.id} className="flex h-8 items-center gap-3 px-1.5">
+                    <span className="flex w-9 shrink-0">
+                      <button
+                        onClick={() => useCalendar.getState().toggleDone(e.id)}
+                        className="h-4 w-4 rounded border-[1.5px] border-stone-300 transition-colors hover:border-stone-500"
+                        title="Marquer comme rendu"
+                        aria-label={`Marquer « ${e.title} » comme rendu`}
+                      />
+                    </span>
+                    <button onClick={() => selectDay(e.date)} className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline">
+                      {e.title}
+                    </button>
+                    <span className={cx('tabular shrink-0 text-[12px]', e.date < today ? 'font-medium text-[var(--cat-examen-text)]' : 'text-stone-500')}>{countdownLabel(e.date)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-stone-100 pt-3" role="group" aria-label="Catégories affichées">
+              {(Object.keys(CATEGORIES) as EventCategory[]).map(k => {
+                const c = CATEGORIES[k];
+                const off = hidden.has(k);
+                return (
+                  <button
+                    key={k}
+                    aria-pressed={!off}
+                    title={off ? `Afficher : ${c.label}` : `Masquer : ${c.label}`}
+                    onClick={() =>
+                      setHidden(s => {
+                        const n = new Set(s);
+                        if (n.has(k)) n.delete(k);
+                        else n.add(k);
+                        return n;
+                      })
+                    }
+                    className={cx('flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] transition-colors', off ? 'border-dashed border-stone-200 text-stone-500 hover:text-ink' : 'border-stone-200 bg-surface text-ink hover:bg-stone-50')}
+                  >
+                    <span className="h-2 w-2 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: c.color, background: off ? 'transparent' : c.color }} />
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
           </aside>
         </div>
       </div>
