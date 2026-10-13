@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CalendarClock, CloudOff, Copy, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useGroups, watchFocus } from '../../store/groups';
+import { useGroupActivity, totalUnread } from '../../store/groupActivity';
 import { toast } from '../../store/ui';
 import { Modal } from '../../components/Overlays';
 import { cloudEnabled } from '../../lib/supabase';
@@ -154,6 +155,10 @@ function Groups() {
 
   const gid = params.get('g');
   const tab = (TABS.find(t => t.id === params.get('onglet'))?.id ?? 'notes') as Tab;
+  const unread = useGroupActivity(s => s.unread);
+  useEffect(() => {
+    if (gid) useGroupActivity.getState().markSeen(gid, tab);
+  }, [gid, tab, unread]);
   const active = groups.find(g => g.id === gid) ?? null;
   const code = useGroups(s => (active ? s.codes[active.id] : null));
   const rights = useRights(active ?? { id: '', ownerId: null });
@@ -215,6 +220,11 @@ function Groups() {
                 <span className="block truncate text-[13px] font-medium">{g.name}</span>
                 <span className="block text-[11px] text-stone-500">{g.ownerId === userId ? 'Tu l’as créé' : 'Membre'}</span>
               </span>
+              {totalUnread(unread[g.id]) > 0 && g.id !== active?.id && (
+                <span className="rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={`${totalUnread(unread[g.id])} nouveautés`}>
+                  {totalUnread(unread[g.id])}
+                </span>
+              )}
             </button>
           ))}
           {loaded && !failed && groups.length === 0 && (
@@ -278,6 +288,7 @@ function Groups() {
                 >
                   <t.icon size={15} strokeWidth={1.9} />
                   {t.label}
+                  {tab !== t.id && (unread[active.id]?.[t.id as 'notes'] ?? 0) > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-solid" aria-label="nouveau" />}
                 </button>
               ))}
             </div>

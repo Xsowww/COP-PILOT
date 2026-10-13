@@ -55,6 +55,7 @@ export interface Settings {
   // motivation
   badgesSeen: string[]; // badges already announced
   badgeAnnouncements: boolean; // Copilot announces newly earned badges
+  groupsSeen: Record<string, string>; // « groupId:tab » → last time the student looked (synced across devices)
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -86,6 +87,7 @@ export const DEFAULT_SETTINGS: Settings = {
   focusSound: true,
   badgesSeen: [],
   badgeAnnouncements: false,
+  groupsSeen: {},
 };
 
 interface SettingsState extends Settings {

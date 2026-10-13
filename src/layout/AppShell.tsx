@@ -10,6 +10,7 @@ import Avatar from '../components/Avatar';
 import FocusTimer from '../components/FocusTimer';
 import { cx } from '../lib/utils';
 import { checkIsAdmin, cloudEnabled } from '../lib/supabase';
+import { useGroupActivity, totalUnread } from '../store/groupActivity';
 import { useTrashCount } from '../lib/trash';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
@@ -128,6 +129,14 @@ export default function AppShell() {
   useEffect(() => registerNavigate(navigate), [navigate]);
   useEffect(() => startProactive(), []);
 
+  // Nouveautés dans les groupes : pastilles + notifications (version en ligne).
+  useEffect(() => {
+    if (!cloudEnabled) return;
+    void useGroupActivity.getState().start();
+    return () => useGroupActivity.getState().stop();
+  }, [user.id]);
+  const groupNews = useGroupActivity(s => Object.values(s.unread).reduce((n, c) => n + totalUnread(c), 0));
+
   // Lien « Administration » : seulement pour les comptes déclarés dans public.admins.
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -166,6 +175,11 @@ export default function AppShell() {
                 <>
                   <n.icon size={16} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
                   {n.label}
+                  {n.to === '/groupes' && groupNews > 0 && (
+                    <span className="ml-auto rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={`${groupNews} nouveautés dans tes groupes`}>
+                      {groupNews}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
@@ -246,7 +260,10 @@ export default function AppShell() {
           >
             {({ isActive }) => (
               <>
-                <n.icon size={19} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
+                <span className="relative">
+                  <n.icon size={19} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
+                  {n.to === '/groupes' && groupNews > 0 && <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-brand-solid ring-2 ring-paper" aria-label="nouveautés" />}
+                </span>
                 {n.label}
               </>
             )}
