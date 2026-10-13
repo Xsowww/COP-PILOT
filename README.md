@@ -70,7 +70,7 @@ Pour qu'il comprenne tout, choisis un fournisseur dans `.env` (détails dans `.e
 | `AI_PROVIDER` | Prix | Modèle par défaut | Clé |
 | --- | --- | --- | --- |
 | `gemini` | gratuit (limites par minute et par jour) | `gemini-2.5-flash` | [Google AI Studio](https://aistudio.google.com/apikey) |
-| `groq` | gratuit (≈ 14 000 requêtes/jour pour tout le site ; quand c’est épuisé, Copilot passe tout seul en mode simple) | `llama-3.1-8b-instant` (mettre `AI_MODEL=llama-3.3-70b-versatile` pour plus malin, ≈ 1 000/jour) | [console.groq.com](https://console.groq.com/keys) |
+| `groq` | gratuit (≈ 1 000 requêtes/jour et 8 000 tokens/min pour tout le site ; quand c’est épuisé, Copilot passe tout seul en mode simple) | `openai/gpt-oss-120b` (autres choix : `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`) | [console.groq.com](https://console.groq.com/keys) |
 | `openrouter` | gratuit avec les modèles `:free` | `meta-llama/llama-3.3-70b-instruct:free` | [openrouter.ai](https://openrouter.ai/keys) |
 | `mistral` | offre gratuite « Experiment » | `mistral-small-latest` | [console.mistral.ai](https://console.mistral.ai) |
 | `ollama` | gratuit, tourne sur ta machine | `llama3.1` | aucune ([ollama.com](https://ollama.com)) |
