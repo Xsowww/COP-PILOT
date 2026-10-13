@@ -34,7 +34,9 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
 
 /** Limits also enforced by Supabase (bucket size limit and storage policy, see supabase/schema.sql). */
 export const MAX_FILE = 50 * 1024 * 1024;
-export const QUOTA = 200 * 1024 * 1024;
+/** Space per account (Drive + group files), or null for no limit. Keep in step with storage_quota() in SQL. */
+export const QUOTA: number | null = null; // personal use for now: to set before opening to the public (e.g. 50 Mo)
+export const quotaLabel = () => (QUOTA ? `${Math.round(QUOTA / 1048576)} Mo` : '');
 
 /** A failure the student can act on: its message is meant to be shown as is. */
 export class StorageError extends Error {}
@@ -43,7 +45,7 @@ export class StorageError extends Error {}
 export function storageError(e: { message?: string; statusCode?: string | number } | null): StorageError {
   const m = `${e?.statusCode ?? ''} ${e?.message ?? ''}`;
   if (/413|maximum allowed size|too large/i.test(m)) return new StorageError('Fichier trop lourd : 50 Mo maximum.');
-  if (/403|row-level security|unauthorized/i.test(m)) return new StorageError('Plus de place : ton espace en ligne (200 Mo) est plein. Vide la corbeille ou supprime des fichiers.');
+  if (/403|row-level security|unauthorized/i.test(m)) return new StorageError(`Plus de place : ton espace en ligne${QUOTA ? ` (${quotaLabel()})` : ''} est plein. Vide la corbeille ou supprime des fichiers.`);
   return new StorageError("L'envoi a échoué. Vérifie ta connexion et réessaie.");
 }
 

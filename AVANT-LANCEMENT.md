@@ -64,4 +64,6 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [ ] (au dernier moment) Compléter les passages [À COMPLÉTER] de `src/pages/legal/LegalPage.tsx` (éditeur, contact, hébergeur, fournisseur d'IA)
 - [x] Supprimer le compte de test `test-sync-…` resté dans Supabase (Authentication › Users)
 - [ ] (au dernier moment) Révoquer le jeton Supabase (sbp_…) et régénérer la clé Groq (passés dans le chat)
-- [x] Offre Supabase : gratuite pour l'instant (1 Go pour tout le site) — quota par élève à ajuster
+- [x] Offre Supabase : gratuite pour l'instant (1 Go pour tout le site)
+- [ ] (avant l'ouverture au public) Remettre un quota par élève : `QUOTA` dans `src/lib/blobStore.ts` + `storage_quota()` en SQL (désactivés pour l'usage perso)
+- [ ] (avant l'ouverture au public) Choisir une IA avec un plus gros quota (`AI_PROVIDER`, `AI_DAILY_QUESTIONS`, `AI_DAILY_BUDGET`)

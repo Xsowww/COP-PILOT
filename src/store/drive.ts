@@ -153,11 +153,11 @@ export const useDrive = create<DriveState>()(
       async uploadFiles(files, parentId) {
         const big = files.find(f => f.size > MAX_FILE);
         if (big) throw new StorageError(`« ${big.name} » est trop lourd : 50 Mo maximum par fichier.`);
-        if (cloudEnabled) {
+        if (cloudEnabled && QUOTA) {
           const used = [...get().items, ...get().trash].reduce((s, i) => s + (i.kind === 'file' ? (i.size ?? 0) : 0), 0);
           const adding = files.reduce((s, f) => s + f.size, 0);
           if (used + adding > QUOTA)
-            throw new StorageError(`Plus assez de place : ${Math.max(0, Math.floor((QUOTA - used) / 1048576))} Mo libres sur 200 Mo. Vide la corbeille ou supprime des fichiers.`);
+            throw new StorageError(`Plus assez de place : ${Math.max(0, Math.floor((QUOTA - used) / 1048576))} Mo libres sur ${Math.round(QUOTA / 1048576)} Mo. Vide la corbeille ou supprime des fichiers.`);
         }
         const created: DriveItem[] = [];
         for (const file of files) {

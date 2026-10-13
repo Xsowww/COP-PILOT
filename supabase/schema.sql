@@ -898,11 +898,11 @@ drop trigger if exists drive_items_keep_newest on public.drive_items;
 create trigger drive_items_keep_newest before update on public.drive_items
   for each row execute function public.keep_newest();
 
--- ── Stockage : 50 Mo par fichier, 200 Mo par compte ──────────────────────────
+-- ── Stockage : 50 Mo par fichier, quota par compte ──────────────────────────────
 update storage.buckets set file_size_limit = 52428800 where id in ('drive', 'groups');
 
 create or replace function public.storage_quota() returns bigint
-language sql immutable as $$ select 200::bigint * 1024 * 1024 $$;
+language sql immutable as $$ select 1024::bigint * 1024 * 1024 * 1024 $$; -- 1 To = pas de limite (usage perso) ; 50 Mo : 50::bigint * 1024 * 1024
 
 -- Place utilisée par le compte connecté, d'après la taille enregistrée de chaque fichier.
 create or replace function public.storage_used() returns bigint

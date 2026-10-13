@@ -115,7 +115,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Ton compte',
         body: [
           'Tu es responsable de ton mot de passe et de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.',
-          'Limites actuelles : 50 Mo par fichier, 200 Mo de stockage par compte, un nombre limité de questions par jour à Copilot en mode intelligent.',
+          'Limites actuelles : 50 Mo par fichier, [À COMPLÉTER : espace de stockage par compte], un nombre limité de questions par jour à Copilot en mode intelligent.',
         ],
       },
       {

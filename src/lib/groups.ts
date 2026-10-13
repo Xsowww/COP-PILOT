@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { toast } from '../store/ui';
-import { QUOTA, StorageError } from './blobStore';
+import { QUOTA, StorageError, quotaLabel } from './blobStore';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
 // fonctions de supabase/migrations/2026-10-13_groupes.sql), indépendants de cloudSync.
@@ -320,10 +320,12 @@ export async function fetchFiles(groupId: string): Promise<GroupFile[]> {
 /** Envoie le contenu puis enregistre le fichier ; rien ne reste à moitié si l'une des deux étapes est refusée. */
 export async function uploadFile(groupId: string, blob: Blob, name: string): Promise<GroupFile> {
   if (blob.size > MAX_GROUP_FILE) throw new Error('file too large');
-  // Group files count in the uploader's 200 Mo, like their Drive (the storage policy checks it too:
+  // Group files count in the uploader's quota, like their Drive (the storage policy checks it too:
   // asking first gives a clear message instead of a « not allowed »).
-  const used = await db().rpc('storage_used');
-  if (!used.error && Number(used.data) + blob.size > QUOTA) throw new StorageError('Plus de place : ton espace en ligne (200 Mo) est plein. Vide la corbeille de ton Drive ou supprime des fichiers.');
+  if (QUOTA) {
+    const used = await db().rpc('storage_used');
+    if (!used.error && Number(used.data) + blob.size > QUOTA) throw new StorageError(`Plus de place : ton espace en ligne (${quotaLabel()}) est plein. Vide la corbeille de ton Drive ou supprime des fichiers.`);
+  }
   const id = crypto.randomUUID();
   const path = filePath({ groupId, id });
   const mime = blob.type || 'application/octet-stream';
