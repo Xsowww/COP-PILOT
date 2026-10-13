@@ -2,10 +2,23 @@
 
 import { useCopilot, type CopilotOffer, type CopilotLink } from '../store/copilot';
 import { useCalendar } from '../store/calendar';
-import { createRevisionNote, planRevisions, goTo, linkToNote, linkToDay } from './actions';
+import { useTodos } from '../store/todos';
+import { createRevisionNote, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems } from './actions';
 import { fmt, fromKey } from '../lib/dates';
 
-export function runOffer(offer: CopilotOffer): { text: string; links?: CopilotLink[] } {
+type OfferResult = { text: string; links?: CopilotLink[] };
+
+/** What the student did with buttons since the AI last spoke (it doesn't see the clicks otherwise). */
+export const offerLog: string[] = [];
+
+export function runOffer(offer: CopilotOffer): OfferResult {
+  const r = run(offer);
+  offerLog.push(`« ${offer.label} » → ${r.text}`);
+  if (offerLog.length > 5) offerLog.shift();
+  return r;
+}
+
+function run(offer: CopilotOffer): OfferResult {
   const p = offer.payload ?? {};
   switch (offer.kind) {
     case 'plan_revisions': {
@@ -34,6 +47,22 @@ export function runOffer(offer: CopilotOffer): { text: string; links?: CopilotLi
     case 'open':
       goTo(p.to ?? '/');
       return { text: "C'est ouvert." };
+    case 'confirm_delete': {
+      // Deletions asked to the AI only happen here, on the student's click (or « oui »).
+      const ids = (p.ids ?? '').split(',').filter(Boolean);
+      if (p.what === 'event') {
+        const ev = deleteEvent(ids[0]);
+        return ev ? { text: `« ${ev.title} » est dans la corbeille, récupérable 30 jours.`, links: [{ label: 'Corbeille', to: '/corbeille?type=calendrier' }] } : { text: 'Introuvable, il a déjà dû être supprimé.' };
+      }
+      if (p.what === 'todo') {
+        const t = useTodos.getState().todos.find(x => x.id === ids[0]);
+        if (!t) return { text: 'Introuvable, elle a déjà dû être supprimée.' };
+        useTodos.getState().remove(t.id);
+        return { text: `Tâche « ${t.title} » supprimée.` };
+      }
+      const res = trashItems(ids);
+      return res.done.length ? { text: `Mis à la corbeille : ${res.done.join(', ')}. Récupérable 30 jours.`, links: [{ label: 'Corbeille', to: '/corbeille' }] } : { text: 'Introuvable, déjà supprimé.' };
+    }
   }
 }
 

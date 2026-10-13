@@ -159,6 +159,7 @@ export function parseWait(v) {
 export function mapStatus(status) {
   if (status === 401 || status === 403) return 'bad_key';
   if (status === 429) return 'rate_limited';
+  if (status === 413) return 'too_large'; // Groq: request bigger than the per-minute token allowance
   return 'upstream';
 }
 

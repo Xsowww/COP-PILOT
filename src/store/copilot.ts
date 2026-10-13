@@ -12,7 +12,7 @@ export interface CopilotLink {
 /** A button Copilot offers (serialisable, executed by copilot/offers.ts). */
 export interface CopilotOffer {
   label: string;
-  kind: 'plan_revisions' | 'revision_note' | 'mark_done' | 'open';
+  kind: 'plan_revisions' | 'revision_note' | 'mark_done' | 'open' | 'confirm_delete';
   payload?: Record<string, string>;
 }
 
@@ -77,13 +77,16 @@ export const useCopilot = create<CopilotState>()(
       push: (role, text, extra = {}) =>
         set(s => ({
           messages: [...s.messages, { id: uid(), role, text, at: nowIso(), ...extra }].slice(-MAX_MESSAGES),
-          pendingOffer: role === 'bot' ? (extra.offers?.[0] ?? null) : s.pendingOffer,
+          // A remark without a button doesn't replace the question waiting for « oui ».
+          pendingOffer: role === 'bot' && !(extra.proactive && !extra.offers?.length) ? (extra.offers?.[0] ?? null) : s.pendingOffer,
         })),
 
       setPose: pose => set({ pose }),
 
       /** Proactive remark: Copilot leans out and says something; it is also kept in the conversation. */
       say(bubble) {
+        // In the middle of a conversation, a suggestion with buttons would hijack the next « oui ».
+        if (get().pose === 'open' && bubble.offers?.length) return;
         get().push('bot', bubble.text, { links: bubble.links, offers: bubble.offers, proactive: true });
         if (get().pose === 'open') return;
         clearTimeout(bubbleTimer);

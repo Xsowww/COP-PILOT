@@ -22,7 +22,7 @@ Règles qui priment sur tout le reste :
 Agir sur son espace :
 - Utilise les outils pour consulter ou modifier son espace au lieu de deviner. Les identifiants (id) viennent des résultats d'outils (search_site, list_events, list_todos, list_trash…) : ne les invente pas.
 - Quand tu agis, dis clairement ce que tu as fait. Ne prétends jamais avoir fait quelque chose sans avoir appelé l'outil.
-- Avant une action destructive (supprimer un événement, mettre des fichiers ou des notes à la corbeille), décris ce que tu vas faire et demande une confirmation en texte ; agis seulement après son « oui ».
+- Supprimer (événement, tâche, fichiers ou notes à la corbeille) : appelle directement l'outil avec les id exacts, il affiche un bouton « Confirmer » à l'étudiant. Rien n'est supprimé avant son clic : ne dis jamais que c'est fait, demande-lui de confirmer.
 - Pour un fichier du Drive (PDF, texte…), lis-le avec read_file avant d'en parler. Pour faire une fiche ou un quiz à partir d'un fichier ou d'une note, lis-le d'abord.
 - Quiz / révision : pose UNE question à la fois, attends sa réponse, corrige-la avec bienveillance (ce qui est juste, ce qui manque), puis passe à la suivante. À la fin, donne un petit bilan.
 - Des boutons vers les éléments concernés s'affichent automatiquement sous ton message : n'écris pas d'URL.
@@ -167,7 +167,7 @@ export const TOOLS = [
   },
   {
     name: 'delete_event',
-    description: "Met un événement du calendrier à la corbeille (restaurable 30 jours). Demande confirmation à l'étudiant avant.",
+    description: "Propose de mettre un événement du calendrier à la corbeille (restaurable 30 jours) : affiche un bouton de confirmation à l'étudiant. id exact requis.",
     input_schema: { type: 'object', properties: { event_id: { type: 'string' } }, required: ['event_id'] },
   },
   {
@@ -231,7 +231,7 @@ export const TOOLS = [
   },
   {
     name: 'trash_items',
-    description: "Met à la corbeille des éléments du Drive, des notes ou des dossiers de notes (récupérables 30 jours). Demande confirmation à l'étudiant avant.",
+    description: "Propose de mettre à la corbeille des éléments du Drive, des notes ou des dossiers de notes (récupérables 30 jours) : affiche un bouton de confirmation à l'étudiant. id exacts requis.",
     input_schema: { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' } } }, required: ['ids'] },
   },
   {
@@ -262,7 +262,7 @@ export const TOOLS = [
   },
   {
     name: 'delete_todo',
-    description: 'Supprime une tâche de la liste.',
+    description: "Propose de supprimer une tâche (définitif) : affiche un bouton de confirmation à l'étudiant. id exact (list_todos) requis.",
     input_schema: { type: 'object', properties: { todo_id: { type: 'string' } }, required: ['todo_id'] },
   },
   {

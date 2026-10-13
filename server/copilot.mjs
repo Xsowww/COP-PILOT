@@ -9,16 +9,13 @@ import { resolveProvider, openAiChat, ProviderError } from './aiProviders.mjs';
 import { chatSystem, nudgeSystem, TOOLS, NUDGE_MAX_CHARS } from './copilotPrompt.mjs';
 
 const MAX_BODY = 1_500_000; // bytes (file contents read by Copilot travel in the history)
-const MAX_MESSAGES = 120;
-const RATE_LIMIT = { windowMs: 60_000, max: 40 };
+const RATE_WINDOW_MS = 60_000;
+const PER_USER_PER_MIN = 40;
+const PER_IP_PER_MIN = 120; // a school network puts many students behind one address
+const BLOCK_TYPES = new Set(['text', 'tool_use', 'tool_result', 'thinking', 'redacted_thinking']);
 
 let client = null;
 let clientKey = '';
-
-/** True when an AI provider is configured (see aiProviders.mjs and .env.example). */
-export function copilotEnabled(env = process.env) {
-  return Boolean(resolveProvider(env));
-}
 
 /** Provider name and model, for the start-up log and /status. */
 export function copilotProvider(env = process.env) {
@@ -63,17 +60,18 @@ const tokenCache = new Map();
 async function authenticate(req, env) {
   const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
   const key = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !key) return { id: null }; // local mode: no accounts on the server
+  // Local mode has no accounts: the AI then only answers this computer, never the internet.
+  if (!url || !key) return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress) ? { id: null } : null;
   const token = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
   if (!token) return null;
   const cached = tokenCache.get(token);
   if (cached && cached.until > Date.now()) return cached.user;
   try {
     const r = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${token}` } });
-    if (!r.ok) return null;
-    const user = { id: (await r.json()).id };
-    tokenCache.set(token, { user, until: Date.now() + 60_000 });
+    // Refused tokens are remembered too: a loop of fake tokens must not hammer Supabase Auth.
+    const user = r.ok ? { id: (await r.json()).id } : null;
     if (tokenCache.size > 5000) tokenCache.clear();
+    tokenCache.set(token, { user, until: Date.now() + 60_000 });
     return user;
   } catch {
     return null;
@@ -81,13 +79,87 @@ async function authenticate(req, env) {
 }
 
 const hits = new Map();
-function rateLimited(ip) {
+function rateLimited(key, max) {
   const now = Date.now();
-  const list = (hits.get(ip) ?? []).filter(t => now - t < RATE_LIMIT.windowMs);
+  const list = (hits.get(key) ?? []).filter(t => now - t < RATE_WINDOW_MS);
   list.push(now);
-  hits.set(ip, list);
-  return list.length > RATE_LIMIT.max;
+  if (hits.size > 10_000) hits.clear();
+  hits.set(key, list);
+  return list.length > max;
 }
+
+/** Behind a host's proxy every request comes from the proxy: TRUST_PROXY=1 reads the real address. */
+const ipOf = (req, env) =>
+  (env.TRUST_PROXY === '1' && String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim()) || req.socket?.remoteAddress || 'unknown';
+
+// ── Daily quota ─────────────────────────────────────────────────────────────
+// A free AI has a daily allowance for the whole site (Groq: 1 000 requests). Without a cap per
+// student, one person could use it up in minutes. A « question » is a message the student typed;
+// the tool calls that follow it count as calls. Counters reset at midnight, Paris time.
+// shortcut: kept in this process's memory (one server; a restart resets the day).
+let quotaDay = '';
+let usage = new Map();
+let siteCalls = 0;
+const parisDay = () => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+function secondsToParisMidnight() {
+  const [h, m, s] = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).split(':').map(Number);
+  return 86_400 - (h * 3600 + m * 60 + s);
+}
+
+/** Counts one call. Returns the error code when a limit is reached, else null. */
+function overQuota(who, question, provider, env) {
+  if (quotaDay !== parisDay()) {
+    quotaDay = parisDay();
+    usage = new Map();
+    siteCalls = 0;
+  }
+  const perStudent = Number(env.AI_DAILY_QUESTIONS) || 30;
+  const site = Number(env.AI_DAILY_BUDGET) || (provider.id === 'groq' ? 900 : Infinity);
+  const u = usage.get(who) ?? { questions: 0, calls: 0 };
+  if (siteCalls >= site) return 'site_limit';
+  if ((question && u.questions >= perStudent) || u.calls >= perStudent * 6) return 'daily_limit';
+  if (question) u.questions++;
+  u.calls++;
+  siteCalls++;
+  usage.set(who, u);
+  return null;
+}
+
+// ── Conversation size ───────────────────────────────────────────────────────
+
+const isQuestion = m => m.role === 'user' && (typeof m.content === 'string' || m.content.some(b => b.type === 'text'));
+const validMessage = m =>
+  (m?.role === 'user' || m?.role === 'assistant') &&
+  (typeof m.content === 'string' || (Array.isArray(m.content) && m.content.length > 0 && m.content.every(b => BLOCK_TYPES.has(b?.type))));
+
+/**
+ * Keeps the most recent exchanges that fit in `budget` characters, always starting on a question
+ * (never between a tool call and its result). Tool results of earlier exchanges are cut short:
+ * the AI already used them, it can read again if needed. In the current exchange they are cut
+ * at `toolChars` (a whole course PDF doesn't fit in a free AI's per-minute allowance).
+ */
+export function trimHistory(messages, { budget, toolChars }) {
+  const starts = messages.flatMap((m, i) => (isQuestion(m) ? [i] : []));
+  if (!starts.length) return [];
+  const last = starts.at(-1);
+  const out = messages.map((m, i) => {
+    if (m.role !== 'user' || typeof m.content === 'string') return m;
+    const max = i < last ? 300 : toolChars;
+    const note = i < last ? ' […]' : "\n[… coupé : trop long pour l'IA, seul le début a été lu. Dis-le à l'étudiant.]";
+    return { ...m, content: m.content.map(b => (b.type === 'tool_result' && typeof b.content === 'string' && b.content.length > max ? { ...b, content: b.content.slice(0, max) + note } : b)) };
+  });
+  let from = last;
+  let size = JSON.stringify(out.slice(last)).length;
+  for (let k = starts.length - 2; k >= 0; k--) {
+    size += JSON.stringify(out.slice(starts[k], from)).length;
+    if (size > budget) break;
+    from = starts[k];
+  }
+  return out.slice(from);
+}
+
+// Groq's free tier allows 8 000 tokens per minute and the prompt with its tools already takes ~3 700.
+const sizeFor = provider => (provider.id === 'anthropic' ? { budget: 400_000, toolChars: 30_000 } : { budget: 10_000, toolChars: 6_000 });
 
 function readJson(req) {
   return new Promise((resolve, reject) => {
@@ -96,7 +168,7 @@ function readJson(req) {
     req.on('data', c => {
       size += c.length;
       if (size > MAX_BODY) {
-        reject(Object.assign(new Error('payload too large'), { status: 413 }));
+        reject(Object.assign(new Error('too_large'), { status: 413 }));
         // Drain the rest instead of cutting the socket, so the browser gets the 413 answer.
         chunks.length = 0;
         req.removeAllListeners('data');
@@ -135,6 +207,11 @@ export async function handleCopilot(req, res, env = process.env) {
     send(res, 404, { error: 'not_found' });
     return true;
   }
+  const ip = ipOf(req, env);
+  if (rateLimited(`ip:${ip}`, PER_IP_PER_MIN)) {
+    send(res, 429, { error: 'rate_limited', retryAfter: 60 });
+    return true;
+  }
   const caller = await authenticate(req, env);
   if (!caller) {
     send(res, 401, { error: 'unauthorized' });
@@ -145,7 +222,8 @@ export async function handleCopilot(req, res, env = process.env) {
     send(res, 503, { error: 'disabled' });
     return true;
   }
-  if (rateLimited(caller.id ?? req.socket?.remoteAddress ?? 'unknown')) {
+  const who = caller.id ?? ip;
+  if (rateLimited(`user:${who}`, PER_USER_PER_MIN)) {
     send(res, 429, { error: 'rate_limited', retryAfter: 60 });
     return true;
   }
@@ -157,6 +235,10 @@ export async function handleCopilot(req, res, env = process.env) {
       // Free providers have a tight quota (Groq: 8 000 tokens/min): keep it for the student's own
       // requests, spontaneous remarks are then phrased by the app itself. AI_NUDGES=1 turns them back on.
       if (provider.id !== 'anthropic' && env.AI_NUDGES !== '1') {
+        send(res, 200, { text: '' });
+        return true;
+      }
+      if (overQuota(who, false, provider, env)) {
         send(res, 200, { text: '' });
         return true;
       }
@@ -173,15 +255,24 @@ export async function handleCopilot(req, res, env = process.env) {
       return true;
     }
 
-    const messages = Array.isArray(body.messages) ? body.messages.slice(-MAX_MESSAGES) : [];
-    if (!messages.length || messages[0].role !== 'user') {
+    if (!Array.isArray(body.messages) || !body.messages.every(validMessage)) {
       send(res, 400, { error: 'bad_messages' });
+      return true;
+    }
+    const messages = trimHistory(body.messages, sizeFor(provider));
+    if (!messages.length) {
+      send(res, 400, { error: 'bad_messages' });
+      return true;
+    }
+    const limit = overQuota(who, messages.at(-1) && isQuestion(messages.at(-1)), provider, env);
+    if (limit) {
+      send(res, 429, { error: limit, retryAfter: secondsToParisMidnight() });
       return true;
     }
     const response = await chat(provider, { system: chatSystem(body), tools: TOOLS, messages, maxTokens: provider.id === 'anthropic' ? 16000 : 8000 });
     send(res, 200, response);
   } catch (e) {
-    if (e instanceof ProviderError) send(res, e.code === 'timeout' ? 504 : e.code === 'rate_limited' ? 429 : 502, { error: e.code, status: e.status, retryAfter: e.retryAfter });
+    if (e instanceof ProviderError) send(res, { timeout: 504, rate_limited: 429, too_large: 413 }[e.code] ?? 502, { error: e.code, status: e.status, retryAfter: e.retryAfter });
     else if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) send(res, 502, { error: 'bad_key' });
     else if (e instanceof Anthropic.RateLimitError) send(res, 429, { error: 'rate_limited' });
     else if (e instanceof Anthropic.APIConnectionTimeoutError) send(res, 504, { error: 'timeout' });

@@ -5,17 +5,19 @@
 
 import type Anthropic from '@anthropic-ai/sdk';
 import { fmt, todayKey } from '../lib/dates';
-import { useCopilot, type CopilotLink } from '../store/copilot';
-import type { EventCategory } from '../store/calendar';
+import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
+import { useCalendar, type EventCategory } from '../store/calendar';
+import { useTodos } from '../store/todos';
 import { useNotes } from '../store/notes';
 import { getSettings } from '../store/settings';
 import { accessToken } from '../lib/supabase';
 import {
   search, analyzeCalendar, eventsBetween, addEvent, createNote, createDriveFolder, listDriveFolder, readNote, overview,
   linkToNote, linkToDriveFolder, linkToDay, describeEvent, findExam, planRevisions, appendToNote, updateEvent, goTo,
-  deleteEvent, findItem, linkToItem, itemName, renameItem, moveItem, setStar, setFolderColor, trashItems, listTrash, restoreFromTrash,
-  searchNotes, listTodos, addTodo, completeTodo, deleteTodo, startFocus, stopFocus, updateSettings,
+  findItem, linkToItem, itemName, renameItem, moveItem, setStar, setFolderColor, listTrash, restoreFromTrash,
+  searchNotes, listTodos, addTodo, completeTodo, startFocus, stopFocus, updateSettings,
 } from './actions';
+import { offerLog } from './offers';
 import { readFileText } from './fileText';
 import type { BotReply } from './localBrain';
 import { aiPausedUntil, pauseAi } from './aiPause';
@@ -53,7 +55,7 @@ async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       // Quota of the free AI reached: simple mode until the provider accepts requests again.
-      if (data.error === 'rate_limited') pauseAi(Number(data.retryAfter) || 60);
+      if (['rate_limited', 'daily_limit', 'site_limit'].includes(data.error)) pauseAi(Number(data.retryAfter) || 60);
       throw new CopilotApiError(data.error ?? `http_${res.status}`);
     }
     return data as T;
@@ -90,7 +92,13 @@ export async function checkAiStatus(): Promise<AiStatus> {
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : typeof v === 'string' ? [v] : []);
 
-async function runTool(name: string, input: Record<string, unknown>, links: CopilotLink[]): Promise<unknown> {
+/** Deletions wait for the student: a tool call (maybe triggered by text hidden in a file) never deletes by itself. */
+const awaitingClick = (what: string) => ({
+  awaiting_confirmation: what,
+  note: "Rien n'est supprimé : un bouton de confirmation est affiché sous ta réponse. Demande-lui de cliquer (ou de répondre « oui »). Ne dis pas que c'est fait.",
+});
+
+async function runTool(name: string, input: Record<string, unknown>, links: CopilotLink[], offers: CopilotOffer[]): Promise<unknown> {
   if ('_invalid_arguments' in input) throw new Error('arguments illisibles (JSON invalide), réessaie avec des arguments JSON valides');
   switch (name) {
     case 'search_site': {
@@ -151,10 +159,10 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       return { updated: describeEvent(ev) };
     }
     case 'delete_event': {
-      const ev = deleteEvent(str(input.event_id));
-      if (!ev) throw new Error('événement introuvable');
-      links.push({ label: 'Corbeille', to: '/corbeille?type=calendrier' });
-      return { moved_to_trash: describeEvent(ev), note: 'récupérable 30 jours depuis la corbeille' };
+      const ev = useCalendar.getState().events.find(e => e.id === str(input.event_id));
+      if (!ev) throw new Error('événement introuvable (il faut son id exact, voir list_events)');
+      offers.push({ label: `Supprimer « ${ev.title} »`, kind: 'confirm_delete', payload: { what: 'event', ids: ev.id } });
+      return awaitingClick(describeEvent(ev));
     }
     case 'plan_revisions': {
       const exam = findExam(str(input.exam));
@@ -209,9 +217,18 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       return { folder: f.name, color: str(input.color) };
     }
     case 'trash_items': {
-      const res = trashItems(ids(input.ids));
-      if (!res.done.length) throw new Error('aucun élément trouvé avec ces id');
-      return { moved_to_trash: res.done, not_found: res.missing, note: 'récupérable 30 jours depuis la corbeille' };
+      const found = ids(input.ids).flatMap(id => {
+        const s = findItem(id);
+        return s && s.item.id === id ? [s] : [];
+      });
+      if (!found.length) throw new Error('aucun élément avec ces id exacts (trouve-les avec list_drive_folder ou search_site)');
+      const names = found.map(itemName);
+      offers.push({
+        label: found.length === 1 ? `Mettre « ${names[0]} » à la corbeille` : `Mettre ${found.length} éléments à la corbeille`,
+        kind: 'confirm_delete',
+        payload: { what: 'items', ids: found.map(s => s.item.id).join(',') },
+      });
+      return awaitingClick(names.join(', '));
     }
     case 'list_trash': {
       const list = listTrash();
@@ -239,9 +256,10 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       return { todo: t.title, done: input.done !== false };
     }
     case 'delete_todo': {
-      const t = deleteTodo(str(input.todo_id));
-      if (!t) throw new Error('tâche introuvable');
-      return { deleted: t.title };
+      const t = useTodos.getState().todos.find(x => x.id === str(input.todo_id));
+      if (!t) throw new Error('tâche introuvable (il faut son id exact, voir list_todos)');
+      offers.push({ label: `Supprimer « ${t.title} »`, kind: 'confirm_delete', payload: { what: 'todo', ids: t.id } });
+      return awaitingClick(t.title);
     }
     case 'start_focus':
       return { started: startFocus(str(input.subject)) };
@@ -287,6 +305,7 @@ function contextBlock(): string {
   const profile = [year, program, school].filter(Boolean).join(', ');
   if (profile) lines.push(`Profil de l'étudiant : ${profile}`);
   if (recentProactive.length) lines.push(`Tu lui as dit récemment, de toi-même : ${recentProactive.join(' ')}`);
+  if (offerLog.length) lines.push(`Boutons utilisés depuis : ${offerLog.splice(0).join(' | ')}`);
   if (history.length === 0) {
     const earlier = msgs.slice(-9, -1).filter(m => !m.proactive);
     if (earlier.length) lines.push(`Fin de votre conversation précédente : ${earlier.map(m => `${m.role === 'user' ? 'Lui' : 'Toi'}: ${m.text}`).join(' | ').slice(0, 1500)}`);
@@ -294,8 +313,14 @@ function contextBlock(): string {
   return `[Contexte]\n${lines.join('\n')}`;
 }
 
+/** Questions kept in the browser (the server trims further to what the AI accepts). */
+const KEEP_QUESTIONS = 20;
+
 export async function claudeReply(text: string, userName: string): Promise<BotReply> {
   const links: CopilotLink[] = [];
+  const offers: CopilotOffer[] = [];
+  const starts = history.flatMap((m, i) => (m.role === 'user' && Array.isArray(m.content) && m.content.some(b => b.type === 'text') ? [i] : []));
+  if (starts.length >= KEEP_QUESTIONS) history = history.slice(starts[starts.length - KEEP_QUESTIONS + 1]);
   const before = history.length;
   history.push({ role: 'user', content: [{ type: 'text', text: contextBlock() }, { type: 'text', text }] });
   try {
@@ -313,12 +338,12 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
           .join('\n')
           .trim();
         const unique = links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4);
-        return { text: answer || "C'est fait.", links: unique };
+        return { text: answer || (offers.length ? 'Tu confirmes ?' : "C'est fait."), links: unique, offers };
       }
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       for (const tu of toolUses) {
         try {
-          const out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, links);
+          const out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, links, offers);
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) });
         } catch (e) {
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: (e as Error).message, is_error: true });
@@ -326,7 +351,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
       }
       history.push({ role: 'user', content: results });
     }
-    return { text: "J'ai fait plusieurs choses, jette un œil.", links };
+    return { text: "J'ai fait plusieurs choses, jette un œil.", links, offers };
   } catch (e) {
     history = history.slice(0, before); // keep the conversation valid for the next try
     throw e;
@@ -360,6 +385,9 @@ export function describeApiError(e: unknown): string {
       ? `L'IA gratuite a atteint sa limite pour l'instant : je passe en mode simple jusqu'à ${fmt(new Date(until), "HH'h'mm")}.`
       : "L'IA gratuite est très demandée : je passe en mode simple une minute.";
   }
+  if (code === 'daily_limit') return "Tu as utilisé toutes tes questions à l'IA pour aujourd'hui : je passe en mode simple jusqu'à minuit.";
+  if (code === 'site_limit') return "L'IA gratuite a atteint sa limite du jour pour tout le site : je passe en mode simple jusqu'à minuit.";
+  if (code === 'too_large') return "C'est trop long pour l'IA gratuite d'un coup : demande-moi une partie précise, ou ouvre une nouvelle conversation.";
   if (code === 'network' || code === 'timeout') return "J'ai perdu la connexion une seconde.";
   if (code === 'bad_key') return "Ma clé d'accès à l'IA ne marche pas (à vérifier dans la configuration du serveur).";
   return "J'ai un petit souci technique de mon côté.";

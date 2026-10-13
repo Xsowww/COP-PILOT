@@ -266,7 +266,7 @@ export default function Copilot() {
       reply = localReply(clean);
     }
     setThinking(false);
-    push('bot', reply.text, { links: reply.links });
+    push('bot', reply.text, { links: reply.links, offers: reply.offers });
     speak(reply.text, true);
   }
 
@@ -302,7 +302,7 @@ export default function Copilot() {
 
   const mood: CopilotMood = thinking ? 'think' : talking ? 'talk' : bubble ? (bubble.mood ?? 'happy') : asleep && pose === 'hidden' ? 'sleep' : 'idle';
   const isOpen = pose === 'open';
-  const lastBot = [...messages].reverse().find(m => m.role === 'bot');
+  const lastBot = [...messages].reverse().find(m => m.role === 'bot' && (!m.proactive || m.offers?.length));
 
   return (
     <div ref={rootRef} className="pointer-events-none fixed right-0 z-50" style={{ top: `${offsetY * 100}%`, transform: 'translateY(-50%)' }}>

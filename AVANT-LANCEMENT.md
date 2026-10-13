@@ -13,13 +13,13 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [x] Requête trop grosse : connexion coupée au lieu d'un message clair
 
 ## Lot 2 — Copilot / IA gratuite
-- [ ] Quota par élève et par jour + taille maximale des messages
-- [ ] Fichier de cours trop long pour Groq → limite adaptée + message clair
-- [ ] Historique de conversation coupé proprement (plus de blocage après de longues sessions)
-- [ ] Suppressions par l'IA : bouton « Confirmer » obligatoire, identifiant exact
-- [ ] Un « oui » qui déclenche une suggestion au lieu de répondre à l'IA
-- [ ] Faux jetons de connexion : limite par IP, mémoire qui grossit
-- [ ] Mode local qui ouvre l'IA sans connexion en production
+- [x] Quota par élève et par jour + taille maximale des messages
+- [x] Fichier de cours trop long pour Groq → limite adaptée + message clair
+- [x] Historique de conversation coupé proprement (plus de blocage après de longues sessions)
+- [x] Suppressions par l'IA : bouton « Confirmer » obligatoire, identifiant exact
+- [x] Un « oui » qui déclenche une suggestion au lieu de répondre à l'IA
+- [x] Faux jetons de connexion : limite par IP, mémoire qui grossit
+- [x] Mode local qui ouvre l'IA sans connexion en production
 
 ## Lot 3 — Synchronisation (ne jamais perdre de travail)
 - [ ] Une ligne refusée bloque toute la synchro de l'appareil

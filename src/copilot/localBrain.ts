@@ -9,7 +9,7 @@ import {
   addTodo, listTodos, completeTodo, deleteTodo, listTrash, findInTrash, restoreFromTrash, trashItems, deleteEvent, renameItem, moveItem,
   itemName, linkToItem, setStar, setFolderColor, searchNotes, findNote, startFocus, stopFocus, updateSettings,
 } from './actions';
-import type { CopilotLink } from '../store/copilot';
+import type { CopilotLink, CopilotOffer } from '../store/copilot';
 import {
   search,
   calendarReport,
@@ -32,6 +32,7 @@ import { findExam, planRevisions } from './actions';
 export interface BotReply {
   text: string;
   links?: CopilotLink[];
+  offers?: CopilotOffer[];
 }
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
