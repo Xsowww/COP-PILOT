@@ -3,7 +3,7 @@ import { Copy, LogOut, RefreshCw, Trash2, UserMinus } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useGroups } from '../../store/groups';
 import { confirmAction, toast } from '../../store/ui';
-import { copyCode, deleteGroup, groupError, regenerateCode, removeMember, type Group, type GroupMember } from '../../lib/groups';
+import { copyCode, deleteGroup, groupError, leaveGroup, regenerateCode, removeMember, type Group, type GroupMember } from '../../lib/groups';
 import { fmt } from '../../lib/dates';
 import { MemberDot } from './shared';
 
@@ -50,7 +50,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
         : 'Tes notes partagées restent dans le groupe. Tu pourras revenir avec le code.';
     if (!(await confirmAction(`Quitter « ${group.name} » ?`, message, 'Quitter'))) return;
     await run(async () => {
-      await removeMember(group.id, me!);
+      await leaveGroup(group.id);
       await useGroups.getState().loadGroups();
       toast('Tu as quitté le groupe', 'success');
       onLeft();

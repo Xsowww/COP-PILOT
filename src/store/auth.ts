@@ -176,7 +176,23 @@ export const useAuth = create<AuthState>((set, get) => ({
     const mfaStep = user ? await nextMfaStep() : null;
     setStorageUser(user && !mfaStep ? user.id : null);
     set({ user, mfaStep });
+    // All tabs of a browser share one Supabase session: signing in with another account in a
+    // second tab silently switches this tab too. Reload so the screen matches the real account
+    // (otherwise this tab would show, and send, one account's data while acting as another).
+    const switched = (id: string | undefined) => {
+      const shown = get().user?.id;
+      if (shown && id && id !== shown) {
+        sessionStorage.setItem('cop-account-switched', '1');
+        location.reload();
+        return true;
+      }
+      return false;
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void supabase!.auth.getSession().then(({ data: d }) => switched(d.session?.user.id));
+    });
     supabase.auth.onAuthStateChange((event, session) => {
+      if (session && switched(session.user.id)) return;
       // Session expired or signed out in another tab.
       if (event === 'SIGNED_OUT' && get().user) {
         setStorageUser(null);

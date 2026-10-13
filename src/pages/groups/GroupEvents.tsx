@@ -81,7 +81,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
   const toggle = async () => {
     setBusy(true);
     try {
-      await setAttendance(group.id, ev.id, me, !iCome);
+      await setAttendance(group.id, ev.id, !iCome);
       await useGroups.getState().refresh(group.id, ['events']);
     } catch (e) {
       toast(groupError(e), 'error');

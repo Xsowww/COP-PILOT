@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './store/auth';
 import { loadUserData } from './store/session';
+import { toast } from './store/ui';
 import AuthPage from './pages/AuthPage';
 import MfaPage from './pages/MfaPage';
 import AppShell from './layout/AppShell';
@@ -37,7 +38,14 @@ export default function App() {
       .getState()
       .init()
       .then(loadUserData)
-      .finally(() => setReady(true));
+      .finally(() => {
+        setReady(true);
+        if (sessionStorage.getItem('cop-account-switched')) {
+          sessionStorage.removeItem('cop-account-switched');
+          const name = useAuth.getState().user?.name;
+          toast(`Un autre compte s’est connecté dans un autre onglet${name ? ` : tu es maintenant sur le compte de ${name}` : ''}. Pour utiliser deux comptes en même temps, ouvre le second dans une fenêtre de navigation privée.`);
+        }
+      });
   }, []);
 
   if (!ready) return null;

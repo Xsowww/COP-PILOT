@@ -113,6 +113,20 @@ function check<T>(res: { data: T; error: unknown }): T {
   return res.data;
 }
 
+/** The database silently skips rows it doesn't allow: say so instead of pretending it worked. */
+function changed(res: { data: unknown; error: unknown }, refused: string) {
+  const rows = check(res) as unknown[] | null;
+  if (!rows || rows.length === 0) throw new Error(refused);
+}
+
+/** The account actually signed in (the one the database sees), not the one a stale tab displays. */
+export async function sessionUserId(): Promise<string> {
+  const { data } = await db().auth.getSession();
+  const id = data.session?.user.id;
+  if (!id) throw new Error('Ta session a expiré. Reconnecte-toi.');
+  return id;
+}
+
 // ── Groupes et membres ────────────────────────────────────────────────────
 export async function fetchGroups(): Promise<Group[]> {
   const rows = check(await db().from('groups').select('*').order('created_at'));
@@ -131,11 +145,11 @@ export async function joinGroup(code: string): Promise<string | null> {
 }
 
 export async function updateGroup(id: string, patch: { name?: string; color?: string | null }) {
-  check(await db().from('groups').update(patch).eq('id', id));
+  changed(await db().from('groups').update(patch).eq('id', id).select('id'), 'Seul le propriétaire peut modifier ce groupe.');
 }
 
 export async function deleteGroup(id: string) {
-  check(await db().from('groups').delete().eq('id', id));
+  changed(await db().from('groups').delete().eq('id', id).select('id'), 'Seul le propriétaire peut supprimer ce groupe.');
 }
 
 export async function regenerateCode(id: string): Promise<string> {
@@ -152,9 +166,18 @@ export async function fetchMembers(groupId: string): Promise<GroupMember[]> {
   }));
 }
 
-/** Quitter le groupe (soi-même) ou retirer un membre (propriétaire). */
+/** Retirer un membre (propriétaire seulement). */
 export async function removeMember(groupId: string, userId: string) {
-  check(await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', userId));
+  changed(
+    await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', userId).select('user_id'),
+    'Seul le propriétaire peut retirer un membre.',
+  );
+}
+
+/** Quitter le groupe avec le compte réellement connecté. */
+export async function leaveGroup(groupId: string) {
+  const me = await sessionUserId();
+  changed(await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', me).select('user_id'), 'Tu ne fais plus partie de ce groupe.');
 }
 
 // ── Notes partagées ───────────────────────────────────────────────────────
@@ -193,7 +216,7 @@ export async function saveNote(id: string, patch: { title?: string; content?: st
 }
 
 export async function deleteNote(id: string) {
-  check(await db().from('group_notes').delete().eq('id', id));
+  changed(await db().from('group_notes').delete().eq('id', id).select('id'), 'Cette note n’existe plus ou tu n’y as plus accès.');
 }
 
 // ── Révisions en commun ───────────────────────────────────────────────────
@@ -220,12 +243,13 @@ export async function createEvent(groupId: string, e: NewGroupEvent): Promise<Gr
 }
 
 export async function deleteEvent(id: string) {
-  check(await db().from('group_events').delete().eq('id', id));
+  changed(await db().from('group_events').delete().eq('id', id).select('id'), 'Seul l’auteur de la séance ou le propriétaire peut l’annuler.');
 }
 
-export async function setAttendance(groupId: string, eventId: string, userId: string, coming: boolean) {
-  if (coming) check(await db().from('group_event_attendees').insert({ group_id: groupId, event_id: eventId, user_id: userId }));
-  else check(await db().from('group_event_attendees').delete().eq('event_id', eventId).eq('user_id', userId));
+export async function setAttendance(groupId: string, eventId: string, coming: boolean) {
+  const me = await sessionUserId();
+  if (coming) check(await db().from('group_event_attendees').upsert({ group_id: groupId, event_id: eventId, user_id: me }, { ignoreDuplicates: true }));
+  else check(await db().from('group_event_attendees').delete().eq('event_id', eventId).eq('user_id', me));
 }
 
 export async function copyCode(code: string) {

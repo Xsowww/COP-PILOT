@@ -199,6 +199,13 @@ async function flush() {
   if (!supabase || !currentUser || flushing) return;
   flushing = true;
   try {
+    // Never send this account's changes with another account's session (switched in another tab).
+    const { data: s } = await supabase.auth.getSession();
+    if (s.session?.user.id !== currentUser) {
+      flushing = false;
+      if (s.session) location.reload();
+      return;
+    }
     for (const table of ORDER) {
       const p = pending[table];
       if (p.upserts.size) {
