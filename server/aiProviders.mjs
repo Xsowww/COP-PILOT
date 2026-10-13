@@ -202,8 +202,12 @@ async function callOnce(p, body, timeoutMs) {
     const code = status === 400 && /api[ _]?key/i.test(detail) ? 'bad_key' : mapStatus(status);
     const error = new ProviderError(code, status, detail);
     if (code === 'rate_limited') {
-      const waits = ['retry-after', 'x-ratelimit-reset-requests', 'x-ratelimit-reset-tokens'].map(h => parseWait(res.headers.get(h))).filter(Boolean);
-      error.retryAfter = waits.length ? Math.max(...waits) : undefined;
+      // Retry-After is the real wait. The reset-* headers say when a counter is FULL again
+      // (reset-requests is often 15 min while 8 s are enough): only fall back to them.
+      const h = (n) => res.headers.get(n);
+      error.retryAfter =
+        parseWait(h('retry-after')) ??
+        (h('x-ratelimit-remaining-requests') === '0' ? parseWait(h('x-ratelimit-reset-requests')) : parseWait(h('x-ratelimit-reset-tokens')));
     }
     throw error;
   }
@@ -221,6 +225,8 @@ export async function openAiChat(p, { system, messages, tools, maxTokens = 8000,
     ...(tools?.length ? { tools: toOpenAiTools(tools), tool_choice: 'auto' } : {}),
     // Gemini 2.5 thinks by default and counts it in max_tokens: keep it short.
     ...(p.id === 'gemini' ? { reasoning_effort: 'low' } : {}),
+    // gpt-oss reasons before answering and those tokens count in Groq's per-minute quota.
+    ...(/gpt-oss/.test(p.model ?? '') ? { reasoning_effort: 'low' } : {}),
   };
   let data;
   try {
@@ -228,7 +234,11 @@ export async function openAiChat(p, { system, messages, tools, maxTokens = 8000,
   } catch (e) {
     // Groq answers 400 "tool_use_failed" when the model wrote a malformed call: one retry usually works.
     if (e instanceof ProviderError && e.status === 400 && /tool_use_failed|failed to call a function/i.test(e.detail ?? '')) data = await callOnce(p, body, timeoutMs);
-    else throw e;
+    // Per-minute quota (Groq TPM): the provider asks for a few seconds, wait once instead of giving up.
+    else if (e instanceof ProviderError && e.code === 'rate_limited' && e.retryAfter && e.retryAfter <= 20) {
+      await new Promise(r => setTimeout(r, e.retryAfter * 1000 + 250));
+      data = await callOnce(p, body, timeoutMs);
+    } else throw e;
   }
   return fromOpenAiResponse(data, tools ? new Set(tools.map(t => t.name)) : null);
 }

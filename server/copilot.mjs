@@ -150,6 +150,12 @@ export async function handleCopilot(req, res, env = process.env) {
     const body = await readJson(req);
 
     if (url === '/api/copilot/nudge') {
+      // Free providers have a tight quota (Groq: 8 000 tokens/min): keep it for the student's own
+      // requests, spontaneous remarks are then phrased by the app itself. AI_NUDGES=1 turns them back on.
+      if (provider.id !== 'anthropic' && env.AI_NUDGES !== '1') {
+        send(res, 200, { text: '' });
+        return true;
+      }
       const kind = Object.hasOwn(NUDGE_MAX_CHARS, body.kind) ? body.kind : 'remark';
       const situation = JSON.stringify(body.situation ?? {}).slice(0, 4000);
       const response = await chat(provider, {
