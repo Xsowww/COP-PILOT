@@ -20,12 +20,16 @@ const PORT = Number(process.env.PORT) || 3000;
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript',
+  '.mjs': 'text/javascript', // pdf.js worker: refused by browsers under any other type
   '.css': 'text/css',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
   '.json': 'application/json',
   '.woff2': 'font/woff2',
+  '.webp': 'image/webp',
+  '.txt': 'text/plain; charset=utf-8',
+  '.webmanifest': 'application/manifest+json',
 };
 
 async function serveStatic(req, res) {

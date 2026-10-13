@@ -97,7 +97,11 @@ function readJson(req) {
       size += c.length;
       if (size > MAX_BODY) {
         reject(Object.assign(new Error('payload too large'), { status: 413 }));
-        req.destroy();
+        // Drain the rest instead of cutting the socket, so the browser gets the 413 answer.
+        chunks.length = 0;
+        req.removeAllListeners('data');
+        req.removeAllListeners('end');
+        req.resume();
       } else chunks.push(c);
     });
     req.on('end', () => {

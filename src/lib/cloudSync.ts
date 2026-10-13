@@ -390,9 +390,11 @@ export function stopSync() {
 }
 
 /** Sends what's still waiting (before signing out, for instance). */
+/** Sends what is waiting; true when nothing is left to send. */
 export async function flushNow() {
   clearTimeout(flushTimer);
   if (hasPending()) await flush();
+  return !hasPending();
 }
 
 export async function updateCloudProfile(userId: string, patch: { name?: string; onboarded?: boolean }) {

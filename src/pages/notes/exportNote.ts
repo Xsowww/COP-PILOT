@@ -58,6 +58,8 @@ export function printNote(note: Note, subtitle?: string): Promise<void> {
     const frame = document.createElement('iframe');
     frame.setAttribute('aria-hidden', 'true');
     frame.dataset.notePrint = '';
+    // Pas de « allow-scripts » : un code caché dans la note (sauvegarde importée) ne s'exécute pas.
+    frame.sandbox.add('allow-same-origin', 'allow-modals');
     Object.assign(frame.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0', visibility: 'hidden' });
     document.body.appendChild(frame);
     const win = frame.contentWindow;

@@ -3,6 +3,7 @@ import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Highlight from '@tiptap/extension-highlight';
+import TiptapImage from '@tiptap/extension-image';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import {
   AlertTriangle, ArrowLeft, Bold, Italic, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Trash2, Undo2, Redo2,
@@ -169,6 +170,7 @@ function LoadedEditor({ initial, onClose, readOnly }: { initial: GroupNote; onCl
       StarterKit.configure({ link: { openOnClick: false, autolink: true } }),
       Placeholder.configure({ placeholder: 'Écris ici, les autres membres verront tes ajouts…' }),
       Highlight,
+      TiptapImage.configure({ allowBase64: true }), // notes partagées depuis ses notes perso
       TaskList,
       TaskItem.configure({ nested: true }),
     ],

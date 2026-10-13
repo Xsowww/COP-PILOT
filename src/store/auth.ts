@@ -264,15 +264,23 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   async logout() {
+    const userId = get().user?.id;
+    let sent = false;
     if (supabase) {
       const { flushNow, stopSync } = await import('../lib/cloudSync');
-      await flushNow().catch(() => undefined);
+      sent = await flushNow().catch(() => false);
       stopSync();
       await supabase.auth.signOut().catch(() => undefined);
     } else {
       localStorage.removeItem(SESSION_KEY);
     }
     setStorageUser(null);
+    // Ordinateur partagé : tout est sur le serveur, on ne laisse rien de lisible ici.
+    // Si l'envoi a échoué, on garde la copie locale pour la prochaine connexion.
+    if (sent && userId) {
+      clearLocalCache(userId);
+      void import('../lib/textIndex').then(m => m.forgetTextIndex());
+    }
     set({ user: null, mfaStep: null });
   },
 

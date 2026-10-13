@@ -29,6 +29,14 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
+/** Logout on a shared computer: the extracted texts must not stay readable. Rebuilt on next use. */
+export async function forgetTextIndex() {
+  const db = await dbPromise?.catch(() => null);
+  db?.close();
+  dbPromise = null;
+  indexedDB.deleteDatabase(DB_NAME);
+}
+
 function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return openDb().then(
     db =>

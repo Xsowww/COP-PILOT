@@ -36,6 +36,14 @@ export default function PreviewModal({ item, onClose, getUrl = getFileUrl }: { i
     void getUrl(item.id).then(async u => {
       if (revoked) return u && URL.revokeObjectURL(u);
       if (!u) return setMissing(true);
+      if (cat === 'pdf') {
+        // Le type vient de celui qui a envoyé le fichier : un « .pdf » qui serait en fait du HTML
+        // s'exécuterait dans le cadre. On impose le type PDF avant de l'afficher.
+        const pdf = new Blob([await (await fetch(u)).blob()], { type: 'application/pdf' });
+        URL.revokeObjectURL(u);
+        if (revoked) return;
+        u = URL.createObjectURL(pdf);
+      }
       current = u;
       setUrl(u);
       if (cat === 'text') setText((await (await fetch(u)).text()).slice(0, 200_000));

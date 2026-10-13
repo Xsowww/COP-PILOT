@@ -110,6 +110,9 @@ begin
   if auth.uid() is null then
     raise exception 'not authenticated';
   end if;
+  if not public.mfa_ok() then
+    raise exception 'mfa required';
+  end if;
   delete from auth.users where id = auth.uid();
 end;
 $$;
