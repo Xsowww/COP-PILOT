@@ -53,11 +53,15 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [x] README à jour, `graphify-out/` dans `.gitignore`, Node 22
 
 ## Lot 8 — Ce qui manque pour lancer
-- [ ] Application installable sur téléphone (manifeste, icônes)
-- [ ] Référencement : description, `robots.txt`, `sitemap.xml`
-- [ ] Codes de secours 2FA (téléphone perdu = compte bloqué)
-- [ ] Suivi des erreurs en production
-- [ ] Pages légales (mentions, confidentialité, CGU)
+- [x] Application installable sur téléphone (manifeste, icônes)
+- [x] Référencement : description, `robots.txt`, `sitemap.xml` (variable `SITE_URL`)
+- [x] Clé de secours 2FA (téléphone perdu = compte bloqué)
+- [x] Suivi des erreurs en production (journal du serveur, sans service tiers)
+- [x] Pages légales (mentions, confidentialité, conditions) + case à cocher à l'inscription
 
-## Avant d'ouvrir au public
+## À faire par toi avant d'ouvrir au public
+- [ ] Appliquer dans Supabase les SQL `2026-10-14_synchro_version_recente.sql` et `2026-10-14b_stockage_limites.sql`
+- [ ] Compléter les passages [À COMPLÉTER] de `src/pages/legal/LegalPage.tsx` (éditeur, contact, hébergeur, fournisseur d'IA)
+- [ ] Supprimer le compte de test `test-sync-…` resté dans Supabase (Authentication › Users)
 - [ ] Révoquer le jeton Supabase (sbp_…) et régénérer la clé Groq (passés dans le chat)
+- [ ] Choisir : Supabase gratuit (1 Go pour tout le site) ou Pro, et le quota par élève

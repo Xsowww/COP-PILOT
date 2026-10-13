@@ -7,6 +7,7 @@ import { cloudEnabled, linkError } from '../lib/supabase';
 import Character from '../copilot/Character';
 import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
+import { LEGAL_LINKS } from './legal/links';
 
 function Showcase() {
   const days = [
@@ -96,6 +97,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState(mode === 'login' ? (linkError ?? '') : '');
   const [info, setInfo] = useState('');
   const [canResend, setCanResend] = useState(mode === 'login' && !!linkError);
@@ -111,6 +113,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     if (isRegister && name.trim().length < 2) return setError('Ton prénom doit contenir au moins 2 caractères.');
     if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return setError('Adresse e-mail invalide.');
     if ((isRegister || mode === 'reset') && password.length < 8) return setError('Le mot de passe doit contenir au moins 8 caractères.');
+    if (isRegister && !agreed) return setError('Accepte les conditions d’utilisation pour créer ton compte.');
     if (mode === 'login' && !password) return setError('Entre ton mot de passe.');
     setBusy(true);
     try {
@@ -220,6 +223,23 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               )}
             </div>
 
+            {isRegister && (
+              <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
+                <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+                <span>
+                  J’accepte les{' '}
+                  <Link to="/conditions" target="_blank" className="font-medium text-ink underline decoration-stone-300 underline-offset-2">
+                    conditions d’utilisation
+                  </Link>{' '}
+                  et la{' '}
+                  <Link to="/confidentialite" target="_blank" className="font-medium text-ink underline decoration-stone-300 underline-offset-2">
+                    politique de confidentialité
+                  </Link>
+                  .
+                </span>
+              </label>
+            )}
+
             {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
             {info && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">{info}</p>}
             {canResend && cloudEnabled && (mode === 'login' || mode === 'register') && (
@@ -243,6 +263,14 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         </div>
         <p className="text-[11px] text-stone-500">
           {cloudEnabled ? 'Tes données sont chiffrées en transit et protégées : toi seul y as accès.' : 'Tes données restent enregistrées sur cet appareil.'}
+          {LEGAL_LINKS.map(l => (
+            <span key={l.to}>
+              {' · '}
+              <Link to={l.to} className="underline decoration-stone-300 underline-offset-2 hover:text-ink">
+                {l.label}
+              </Link>
+            </span>
+          ))}
         </p>
       </main>
       <aside className="hidden flex-1 border-l border-stone-200/80 bg-stone-100/60 lg:block">

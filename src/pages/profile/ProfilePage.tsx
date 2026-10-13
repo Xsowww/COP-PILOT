@@ -713,7 +713,7 @@ function AccountTab() {
               <ShieldCheck size={15} /> Protégé
             </span>
           </Row>
-          <Row label="Changer de téléphone" hint="Retire l'appareil actuel et affiche un nouveau QR code à scanner.">
+          <Row label="Changer de téléphone" hint="Retire l'appareil actuel et affiche un nouveau QR code à scanner, avec une nouvelle clé de secours à garder.">
             <button
               className="btn-secondary h-8"
               onClick={async () => {

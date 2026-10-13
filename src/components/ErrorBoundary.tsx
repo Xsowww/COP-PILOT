@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { reportError } from '../lib/reportError';
 
 /** Last safety net: an unexpected error shows this screen instead of a blank page. */
 export default class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -10,6 +11,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, { 
 
   componentDidCatch(error: unknown) {
     console.error('[app]', error);
+    reportError(error, 'affichage');
   }
 
   render() {

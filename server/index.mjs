@@ -103,9 +103,61 @@ async function serveStatic(req, res) {
   res.end(gzip ? entry.gzip : entry.raw);
 }
 
+// ── Search engines ──────────────────────────────────────────────────────────
+// The public pages; everything else needs an account. SITE_URL = the site's address (https://…).
+const PUBLIC_PAGES = ['/inscription', '/connexion', '/mentions-legales', '/confidentialite', '/conditions'];
+const siteUrl = req => (process.env.SITE_URL || `${req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http'}://${req.headers.host}`).replace(/\/+$/, '');
+
+function serveSeo(req, res) {
+  const path = (req.url ?? '').split('?')[0];
+  if (path === '/robots.txt') {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.end(`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${siteUrl(req)}/sitemap.xml\n`);
+    return true;
+  }
+  if (path === '/sitemap.xml') {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    const urls = PUBLIC_PAGES.map(p => `  <url><loc>${siteUrl(req)}${p}</loc></url>`).join('\n');
+    res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`);
+    return true;
+  }
+  return false;
+}
+
+// ── Errors reported by the browsers (src/lib/reportError.ts) → this server's log ──
+const reported = new Map();
+setInterval(() => reported.clear(), 3_600_000).unref();
+
+async function serveErrorReport(req, res) {
+  if (req.method !== 'POST' || req.url !== '/api/erreurs') return false;
+  const ip = req.socket.remoteAddress ?? '';
+  const count = (reported.get(ip) ?? 0) + 1;
+  if (reported.size > 5000) reported.clear();
+  reported.set(ip, count);
+  let body = '';
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 8192) break;
+  }
+  if (count <= 50) {
+    try {
+      const e = JSON.parse(body);
+      const s = (v, n) => String(v ?? '').slice(0, n);
+      console.error(`[navigateur] ${s(e.page, 200)} (${s(e.where, 30)}) ${s(e.message, 500)}\n${s(e.stack, 2000)}`);
+    } catch {
+      /* not a report */
+    }
+  }
+  res.statusCode = 204;
+  res.end();
+  return true;
+}
+
 const server = createServer(async (req, res) => {
   for (const [k, v] of Object.entries(SECURITY)) res.setHeader(k, v);
   try {
+    if (serveSeo(req, res)) return;
+    if (await serveErrorReport(req, res)) return;
     if (await handleCopilot(req, res)) return;
     await serveStatic(req, res);
   } catch (e) {

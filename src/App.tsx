@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import { DialogHost, Toasts } from './components/Overlays';
 
 const DrivePage = lazy(() => import('./pages/drive/DrivePage'));
+const LegalPage = lazy(() => import('./pages/legal/LegalPage'));
 const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
 const NotesPage = lazy(() => import('./pages/notes/NotesPage'));
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
@@ -64,6 +65,9 @@ export default function App() {
         <Route path="/mot-de-passe-oublie" element={<GuestOnly><AuthPage mode="forgot" /></GuestOnly>} />
         <Route path="/reinitialisation" element={<AuthPage mode="reset" />} />
         <Route path="/securite" element={<MfaPage />} />
+        <Route path="/mentions-legales" element={<Suspense fallback={null}><LegalPage doc="mentions" /></Suspense>} />
+        <Route path="/confidentialite" element={<Suspense fallback={null}><LegalPage doc="confidentialite" /></Suspense>} />
+        <Route path="/conditions" element={<Suspense fallback={null}><LegalPage doc="conditions" /></Suspense>} />
         <Route element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route index element={<Dashboard />} />
           <Route path="drive" element={<Suspense fallback={null}><DrivePage /></Suspense>} />

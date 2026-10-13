@@ -10,6 +10,16 @@ import Logo from '../components/Logo';
  * app), the phone then shows a 6-digit code that changes every 30 s, to type here.
  * Shown once when the account is created, then at each new login.
  */
+/** The key as a small text file, to keep with the student's documents or password manager. */
+function downloadKey(secret: string, email: string) {
+  const text = `Clé de secours COP-PILOT (double authentification)\nCompte : ${email}\nClé : ${secret}\n\nEn cas de perte du téléphone : dans une app d'authentification, « Ajouter un compte » puis « Saisir une clé », et colle cette clé.\nGarde ce fichier en lieu sûr : avec ton mot de passe, il ouvre ton compte.\n`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+  a.download = 'cop-pilot-cle-de-secours.txt';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
 export default function MfaPage() {
   const navigate = useNavigate();
   const { user, mfaStep, startMfaSetup, submitMfaCode, logout } = useAuth();
@@ -18,6 +28,7 @@ export default function MfaPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const [keptKey, setKeptKey] = useState(false);
   const started = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -35,6 +46,7 @@ export default function MfaPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!/^\d{6}$/.test(code.replace(/\s/g, ''))) return setError('Le code contient 6 chiffres.');
+    if (mfaStep === 'setup' && !keptKey) return setError('Garde d’abord ta clé de secours (étape 3).');
     setBusy(true);
     setError('');
     try {
@@ -95,6 +107,32 @@ export default function MfaPage() {
               </li>
               <li className="flex gap-3">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-paper">2</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">Garde ta clé de secours</p>
+                  <p className="mt-0.5 text-stone-500">
+                    Si tu perds ton téléphone, cette clé permet de réinstaller tes codes sur un nouveau (option « Saisir une clé » de l’app). Sans elle, le compte reste bloqué.
+                  </p>
+                  {enrollment && (
+                    <>
+                      <p className="mt-2 break-all rounded-md bg-stone-100 px-2 py-1.5 font-mono text-[12px] text-ink">{enrollment.secret}</p>
+                      <div className="mt-2 flex gap-2">
+                        <button type="button" className="btn-secondary h-8" onClick={() => void navigator.clipboard?.writeText(enrollment.secret).then(() => setKeptKey(true))}>
+                          Copier
+                        </button>
+                        <button type="button" className="btn-secondary h-8" onClick={() => (downloadKey(enrollment.secret, user?.email ?? ''), setKeptKey(true))}>
+                          Télécharger
+                        </button>
+                      </div>
+                      <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12.5px] text-stone-600">
+                        <input type="checkbox" checked={keptKey} onChange={e => setKeptKey(e.target.checked)} className="h-4 w-4 accent-[var(--color-ink)]" />
+                        Je l’ai gardée en lieu sûr (gestionnaire de mots de passe, papier…)
+                      </label>
+                    </>
+                  )}
+                </div>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-paper">3</span>
                 <p className="font-medium">Tape le code à 6 chiffres affiché par ton téléphone</p>
               </li>
             </ol>
@@ -129,7 +167,15 @@ export default function MfaPage() {
               Se déconnecter
             </button>
           </p>
-          {!isSetup && <p className="mt-2 text-center text-[12px] text-stone-500">Contacte le support de COP-PILOT pour réinitialiser ta double authentification.</p>}
+          {!isSetup && (
+            <p className="mt-2 text-center text-[12px] leading-relaxed text-stone-500">
+              Avec ta clé de secours, ajoute COP-PILOT dans l’app d’authentification de ton nouveau téléphone (« Saisir une clé »), puis tape le code. Sinon, écris au support depuis la page{' '}
+              <a href="/mentions-legales" className="underline decoration-stone-300 underline-offset-2">
+                Mentions légales
+              </a>
+              .
+            </p>
+          )}
         </form>
       </div>
     </div>
