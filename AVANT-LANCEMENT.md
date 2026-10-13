@@ -60,8 +60,8 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [x] Pages légales (mentions, confidentialité, conditions) + case à cocher à l'inscription
 
 ## À faire par toi avant d'ouvrir au public
-- [ ] Appliquer dans Supabase les SQL `2026-10-14_synchro_version_recente.sql` et `2026-10-14b_stockage_limites.sql`
-- [ ] Compléter les passages [À COMPLÉTER] de `src/pages/legal/LegalPage.tsx` (éditeur, contact, hébergeur, fournisseur d'IA)
-- [ ] Supprimer le compte de test `test-sync-…` resté dans Supabase (Authentication › Users)
-- [ ] Révoquer le jeton Supabase (sbp_…) et régénérer la clé Groq (passés dans le chat)
-- [ ] Choisir : Supabase gratuit (1 Go pour tout le site) ou Pro, et le quota par élève
+- [x] Appliquer dans Supabase les SQL `2026-10-14_synchro_version_recente.sql` et `2026-10-14b_stockage_limites.sql`
+- [ ] (au dernier moment) Compléter les passages [À COMPLÉTER] de `src/pages/legal/LegalPage.tsx` (éditeur, contact, hébergeur, fournisseur d'IA)
+- [x] Supprimer le compte de test `test-sync-…` resté dans Supabase (Authentication › Users)
+- [ ] (au dernier moment) Révoquer le jeton Supabase (sbp_…) et régénérer la clé Groq (passés dans le chat)
+- [x] Offre Supabase : gratuite pour l'instant (1 Go pour tout le site) — quota par élève à ajuster
