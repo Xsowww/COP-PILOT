@@ -4,7 +4,9 @@ import { useCalendar, CATEGORIES, type CalendarEvent } from '../store/calendar';
 import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
-import { blobKey } from './userStorage';
+import { blobKey, getStorageUser } from './userStorage';
+import { cloudEnabled } from './supabase';
+import { purgeSoleGroups } from './groups';
 import { useTodos } from '../store/todos';
 import { useFocusLog } from '../store/focusLog';
 
@@ -99,9 +101,16 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
 }
 
 /** Removes every file, note and event of the current account (the account itself stays). */
-export async function wipeUserData() {
-  const files = [...useDrive.getState().items, ...useDrive.getState().trash].filter(i => i.kind === 'file');
-  await Promise.all(files.map(f => blobStore.delete(blobKey(f.id)).catch(() => undefined)));
+export async function wipeUserData({ deletingAccount = false } = {}) {
+  const user = getStorageUser();
+  if (cloudEnabled && user) {
+    // Everything stored under the account's folder, even files this device doesn't know about.
+    await blobStore.removeFolder(user);
+    if (deletingAccount) await purgeSoleGroups().catch(() => undefined);
+  } else {
+    const files = [...useDrive.getState().items, ...useDrive.getState().trash].filter(i => i.kind === 'file');
+    await Promise.all(files.map(f => blobStore.delete(blobKey(f.id)).catch(() => undefined)));
+  }
   useDrive.setState({ items: [], trash: [], clipboard: null });
   useNotes.setState({ notes: [], folders: [], trashNotes: [], trashFolders: [] });
   useCalendar.setState({ events: [], trash: [] });

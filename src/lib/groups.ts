@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { toast } from '../store/ui';
+import { QUOTA, StorageError } from './blobStore';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
 // fonctions de supabase/migrations/2026-10-13_groupes.sql), indépendants de cloudSync.
@@ -114,6 +115,7 @@ function db(): SupabaseClient {
 
 /** Message lisible pour une erreur Supabase / réseau. */
 export function groupError(e: unknown): string {
+  if (e instanceof StorageError) return e.message;
   const msg = String((e as { message?: string })?.message ?? e ?? '');
   if (/too many attempts/i.test(msg)) return 'Trop de codes essayés. Réessaie dans un quart d’heure.';
   if (/group full/i.test(msg)) return 'Ce groupe est complet (50 membres).';
@@ -318,6 +320,10 @@ export async function fetchFiles(groupId: string): Promise<GroupFile[]> {
 /** Envoie le contenu puis enregistre le fichier ; rien ne reste à moitié si l'une des deux étapes est refusée. */
 export async function uploadFile(groupId: string, blob: Blob, name: string): Promise<GroupFile> {
   if (blob.size > MAX_GROUP_FILE) throw new Error('file too large');
+  // Group files count in the uploader's 200 Mo, like their Drive (the storage policy checks it too:
+  // asking first gives a clear message instead of a « not allowed »).
+  const used = await db().rpc('storage_used');
+  if (!used.error && Number(used.data) + blob.size > QUOTA) throw new StorageError('Plus de place : ton espace en ligne (200 Mo) est plein. Vide la corbeille de ton Drive ou supprime des fichiers.');
   const id = crypto.randomUUID();
   const path = filePath({ groupId, id });
   const mime = blob.type || 'application/octet-stream';
@@ -348,9 +354,22 @@ export async function deleteFile(f: GroupFile) {
 /** Avant la disparition d'un groupe : retire ses fichiers du stockage (la table suit en cascade). */
 async function purgeFiles(groupId: string) {
   try {
-    const { data } = await db().storage.from(FILES).list(groupId, { limit: 1000 });
-    if (data?.length) await db().storage.from(FILES).remove(data.map(o => `${groupId}/${o.name}`));
+    for (;;) {
+      const { data } = await db().storage.from(FILES).list(groupId, { limit: 1000 });
+      if (!data?.length) return;
+      const { error } = await db().storage.from(FILES).remove(data.map(o => `${groupId}/${o.name}`));
+      if (error) return;
+    }
   } catch {
     // Au pire, des fichiers orphelins que plus personne ne peut lire.
   }
+}
+
+/** Suppression du compte : les groupes dont on est le dernier membre disparaissent avec nous, fichiers d'abord. */
+export async function purgeSoleGroups() {
+  const me = await sessionUserId();
+  const rows = check(await db().from('group_members').select('group_id, user_id')) as Row[];
+  const count = new Map<string, number>();
+  for (const r of rows) count.set(String(r.group_id), (count.get(String(r.group_id)) ?? 0) + 1);
+  for (const r of rows) if (r.user_id === me && count.get(String(r.group_id)) === 1) await purgeFiles(String(r.group_id));
 }

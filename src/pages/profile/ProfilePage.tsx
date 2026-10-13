@@ -771,7 +771,7 @@ function AccountTab() {
               if (!(await confirmAction('Supprimer ton compte ?', 'Cette action est irréversible.', 'Supprimer'))) return;
               try {
                 await verifyPassword(deletePw); // check first: never wipe data on a wrong password
-                await wipeUserData();
+                await wipeUserData({ deletingAccount: true });
                 await deleteAccount(deletePw);
                 await leave();
               } catch (err) {

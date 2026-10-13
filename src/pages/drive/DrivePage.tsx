@@ -19,6 +19,7 @@ import ShareDialog from './ShareDialog';
 import TagDialog, { TagPill } from './TagDialog';
 import { filesFromDrop, filesFromInput, uploadPending } from './upload';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
+import { StorageError } from '../../lib/blobStore';
 
 type Tab = 'all' | 'starred' | 'recent';
 type SortKey = 'name' | 'date' | 'size';
@@ -192,8 +193,8 @@ export default function DrivePage() {
       try {
         const n = await uploadPending(pending, target);
         toast(n ? `${n} fichier${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''}` : 'Dossier importé', 'success');
-      } catch {
-        toast("L'import a échoué (espace de stockage du navigateur plein ?)", 'error');
+      } catch (e) {
+        toast(e instanceof StorageError ? e.message : "L'import a échoué. Réessaie.", 'error');
       } finally {
         setBusy(false);
       }

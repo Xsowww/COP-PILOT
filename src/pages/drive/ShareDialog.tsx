@@ -15,7 +15,7 @@ const DURATIONS = [
 
 /**
  * Temporary download link for one file (Supabase Storage signed URL). Anyone with the link
- * can open the file until it expires; it can't be revoked earlier.
+ * can open the file until it expires, or until the file goes to the trash (its content moves, see drive.ts).
  */
 export default function ShareDialog({ item, onClose }: { item: DriveItem; onClose: () => void }) {
   const [days, setDays] = useState(7);
@@ -85,7 +85,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
                 </button>
               </div>
               <p className="mt-1.5 text-[12px] text-stone-500">
-                Valable {link.days === 1 ? '24 heures' : `${link.days} jours`}.
+                Valable {link.days === 1 ? '24 heures' : `${link.days} jours`}. Mettre le fichier à la corbeille coupe le lien (en une minute au plus).
               </p>
             </div>
           )}

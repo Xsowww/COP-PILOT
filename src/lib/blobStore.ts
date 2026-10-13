@@ -32,8 +32,26 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
   );
 }
 
+/** Limits also enforced by Supabase (bucket size limit and storage policy, see supabase/schema.sql). */
+export const MAX_FILE = 50 * 1024 * 1024;
+export const QUOTA = 200 * 1024 * 1024;
+
+/** A failure the student can act on: its message is meant to be shown as is. */
+export class StorageError extends Error {}
+
+/** Turns Supabase Storage's technical errors into something the student understands. */
+export function storageError(e: { message?: string; statusCode?: string | number } | null): StorageError {
+  const m = `${e?.statusCode ?? ''} ${e?.message ?? ''}`;
+  if (/413|maximum allowed size|too large/i.test(m)) return new StorageError('Fichier trop lourd : 50 Mo maximum.');
+  if (/403|row-level security|unauthorized/i.test(m)) return new StorageError('Plus de place : ton espace en ligne (200 Mo) est plein. Vide la corbeille ou supprime des fichiers.');
+  return new StorageError("L'envoi a échoué. Vérifie ta connexion et réessaie.");
+}
+
 const local = {
-  put: (key: string, blob: Blob) => run('readwrite', s => s.put(blob, key)),
+  put: (key: string, blob: Blob) =>
+    run('readwrite', s => s.put(blob, key)).catch(() => {
+      throw new StorageError('Le stockage du navigateur est plein : supprime des fichiers ou vide la corbeille.');
+    }),
   get: (key: string) => run<Blob | undefined>('readonly', s => s.get(key)),
   delete: (key: string) => run('readwrite', s => s.delete(key)),
 };
@@ -44,8 +62,14 @@ const path = (key: string) => key.replace(':', '/');
 
 const cloud = {
   async put(key: string, blob: Blob) {
-    const { error } = await supabase!.storage.from(BUCKET).upload(path(key), blob, { upsert: true, contentType: blob.type || undefined });
-    if (error) throw error;
+    const { error } = await supabase!.storage.from(BUCKET).upload(path(key), blob, {
+      upsert: true,
+      contentType: blob.type || undefined,
+      // Share links are served through a cache: one minute instead of one hour, so a file put in
+      // the trash stops being reachable through its links within a minute.
+      cacheControl: '60',
+    });
+    if (error) throw storageError(error);
   },
   async get(key: string) {
     const { data, error } = await supabase!.storage.from(BUCKET).download(path(key));
@@ -64,10 +88,31 @@ export const blobStore = {
   delete: (key: string) => backend.delete(key),
   async copy(from: string, to: string) {
     if (supabase) {
-      await supabase.storage.from(BUCKET).copy(path(from), path(to));
+      const { error } = await supabase.storage.from(BUCKET).copy(path(from), path(to));
+      if (error) throw storageError(error);
       return;
     }
     const blob = await local.get(from);
     if (blob) await local.put(to, blob);
+  },
+  /**
+   * Cloud: a file put in the trash moves to another place, so the share links made for it stop
+   * working at once. Never fails (an old file may not be where expected).
+   */
+  async move(from: string, to: string) {
+    if (supabase) await supabase.storage.from(BUCKET).move(path(from), path(to)).catch(() => undefined);
+  },
+  /** Cloud: every object under a folder of the bucket (account deletion). */
+  async removeFolder(folder: string) {
+    if (!supabase) return;
+    for (const dir of [folder, `${folder}/trash`]) {
+      for (;;) {
+        const { data } = await supabase.storage.from(BUCKET).list(dir, { limit: 1000 });
+        const files = (data ?? []).filter(o => o.id); // entries without id are sub-folders
+        if (!files.length) break;
+        const { error } = await supabase.storage.from(BUCKET).remove(files.map(o => `${dir}/${o.name}`));
+        if (error) break;
+      }
+    }
   },
 };

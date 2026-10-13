@@ -31,10 +31,10 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [x] Images dans les notes qui remplissent la mémoire du navigateur (alerte claire ; stocker les images en ligne : plus tard)
 
 ## Lot 4 — Fichiers et stockage
-- [ ] Fichiers restants après suppression de compte / de groupe (RGPD)
-- [ ] Taille maximale par fichier et quota par élève
-- [ ] Envoi de plusieurs fichiers interrompu : fichiers invisibles qui restent
-- [ ] Lien de partage encore valable 30 jours après suppression
+- [x] Fichiers restants après suppression de compte / de groupe (RGPD)
+- [x] Taille maximale par fichier et quota par élève (SQL à appliquer : `2026-10-14b_stockage_limites.sql`)
+- [x] Envoi de plusieurs fichiers interrompu : fichiers invisibles qui restent
+- [x] Lien de partage encore valable 30 jours après suppression
 
 ## Lot 5 — Serveur de production
 - [ ] Écran blanc après une mise à jour du site (erreur 404 + écran « Recharger »)

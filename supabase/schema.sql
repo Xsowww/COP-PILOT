@@ -898,6 +898,26 @@ drop trigger if exists drive_items_keep_newest on public.drive_items;
 create trigger drive_items_keep_newest before update on public.drive_items
   for each row execute function public.keep_newest();
 
+-- ── Stockage : 50 Mo par fichier, 200 Mo par compte ──────────────────────────
+update storage.buckets set file_size_limit = 52428800 where id in ('drive', 'groups');
+
+create or replace function public.storage_quota() returns bigint
+language sql immutable as $$ select 200::bigint * 1024 * 1024 $$;
+
+-- Place utilisée par le compte connecté, d'après la taille enregistrée de chaque fichier.
+create or replace function public.storage_used() returns bigint
+language sql stable security definer set search_path = '' as $$
+  select coalesce(sum((metadata ->> 'size')::bigint), 0)
+  from storage.objects
+  where owner_id = (select auth.uid())::text and bucket_id in ('drive', 'groups');
+$$;
+revoke all on function public.storage_used() from public, anon;
+grant execute on function public.storage_used() to authenticated;
+
+drop policy if exists "stockage : quota par compte" on storage.objects;
+create policy "stockage : quota par compte" on storage.objects as restrictive for insert to authenticated
+  with check (bucket_id not in ('drive', 'groups') or public.storage_used() < public.storage_quota());
+
 -- ── 3. Te déclarer administrateur ───────────────────────────────────────────
 -- Remplace l'adresse par celle de ton compte COP-PILOT :
 -- insert into public.admins (user_id) select id from auth.users where email = 'ton.adresse@exemple.fr' on conflict do nothing;

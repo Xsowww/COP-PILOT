@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { uid, nowIso, uniqueName } from '../lib/utils';
-import { userStorage, blobKey } from '../lib/userStorage';
-import { blobStore } from '../lib/blobStore';
+import { userStorage, blobKey, trashBlobKey } from '../lib/userStorage';
+import { blobStore, MAX_FILE, QUOTA, StorageError } from '../lib/blobStore';
+import { cloudEnabled } from '../lib/supabase';
 
 export type DriveKind = 'folder' | 'file';
 
@@ -150,12 +151,20 @@ export const useDrive = create<DriveState>()(
       },
 
       async uploadFiles(files, parentId) {
+        const big = files.find(f => f.size > MAX_FILE);
+        if (big) throw new StorageError(`« ${big.name} » est trop lourd : 50 Mo maximum par fichier.`);
+        if (cloudEnabled) {
+          const used = [...get().items, ...get().trash].reduce((s, i) => s + (i.kind === 'file' ? (i.size ?? 0) : 0), 0);
+          const adding = files.reduce((s, f) => s + f.size, 0);
+          if (used + adding > QUOTA)
+            throw new StorageError(`Plus assez de place : ${Math.max(0, Math.floor((QUOTA - used) / 1048576))} Mo libres sur 200 Mo. Vide la corbeille ou supprime des fichiers.`);
+        }
         const created: DriveItem[] = [];
         for (const file of files) {
           const time = nowIso();
           const item: DriveItem = {
             id: uid(),
-            name: uniqueName(file.name, siblingNames([...get().items, ...created], parentId)),
+            name: uniqueName(file.name, siblingNames(get().items, parentId)),
             kind: 'file',
             parentId,
             mime: file.type || 'application/octet-stream',
@@ -165,8 +174,9 @@ export const useDrive = create<DriveState>()(
           };
           await blobStore.put(blobKey(item.id), file);
           created.push(item);
+          // Shown as soon as it is stored: if a later file fails, nothing stays invisible in storage.
+          set(s => ({ items: [...s.items, item] }));
         }
-        set(s => ({ items: [...s.items, ...created] }));
         return created;
       },
 
@@ -190,6 +200,7 @@ export const useDrive = create<DriveState>()(
           trash: [...s.trash, ...s.items.filter(i => doomed.has(i.id)).map(i => ({ ...i, deletedAt }))],
           clipboard: s.clipboard ? { ...s.clipboard, ids: s.clipboard.ids.filter(i => !doomed.has(i)) } : null,
         }));
+        for (const it of get().trash) if (doomed.has(it.id) && it.kind === 'file') void blobStore.move(blobKey(it.id), trashBlobKey(it.id));
       },
 
       restore(ids) {
@@ -211,6 +222,7 @@ export const useDrive = create<DriveState>()(
           restored.push({ ...clean, parentId, name });
         }
         set(s => ({ items: [...s.items, ...restored], trash: s.trash.filter(i => !back.has(i.id)) }));
+        for (const it of restored) if (it.kind === 'file') void blobStore.move(trashBlobKey(it.id), blobKey(it.id));
       },
 
       purge(ids) {
@@ -222,8 +234,17 @@ export const useDrive = create<DriveState>()(
           const root = trash.find(i => i.id === id);
           for (const d of withDescendants(trash, [id])) if (trash.find(i => i.id === d)?.deletedAt === root?.deletedAt) doomed.add(d);
         }
-        for (const it of get().trash) if (doomed.has(it.id) && it.kind === 'file') void blobStore.delete(blobKey(it.id)).catch(() => undefined);
-        set(s => ({ trash: s.trash.filter(i => !doomed.has(i.id)) }));
+        for (const it of get().trash) {
+          if (!doomed.has(it.id) || it.kind !== 'file') continue;
+          void blobStore.delete(blobKey(it.id)).catch(() => undefined);
+          void blobStore.delete(trashBlobKey(it.id)).catch(() => undefined);
+        }
+        // The server deletes a folder's content with it: what was trashed earlier from inside it
+        // (kept here as a separate entry) first moves to the root, or it would vanish without its file.
+        const time = nowIso();
+        set(s => ({
+          trash: s.trash.filter(i => !doomed.has(i.id)).map(i => (i.parentId && doomed.has(i.parentId) ? { ...i, parentId: null, updatedAt: time } : i)),
+        }));
       },
 
       emptyTrash: () => get().purge(get().trash.map(i => i.id)),
@@ -317,7 +338,8 @@ export const FOLDER_COLORS: Record<string, { label: string; color: string }> = {
 };
 
 export async function getFileUrl(id: string): Promise<string | null> {
-  const blob = await blobStore.get(blobKey(id));
+  // A trashed file's content waits in the trash folder (cloud mode).
+  const blob = (await blobStore.get(blobKey(id))) ?? (await blobStore.get(trashBlobKey(id)));
   return blob ? URL.createObjectURL(blob) : null;
 }
 

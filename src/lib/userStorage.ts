@@ -47,3 +47,8 @@ function warnFull() {
 export function blobKey(itemId: string) {
   return `${currentUserId}:${itemId}`;
 }
+
+/** Where a Drive file's content goes while the file is in the trash (cloud mode). */
+export function trashBlobKey(itemId: string) {
+  return `${currentUserId}:trash/${itemId}`;
+}
