@@ -162,7 +162,7 @@ export default function NoteEditor({ note, readOnly = false }: { note: Note; rea
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {!readOnly && (
-        <div className="sticky top-0 z-10 border-b border-stone-100 bg-white px-4 py-1.5 md:px-11">
+        <div className="sticky top-0 z-10 border-b border-stone-100 bg-surface px-4 py-1.5 md:px-11">
           <Toolbar editor={editor} />
         </div>
       )}

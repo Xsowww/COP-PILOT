@@ -58,7 +58,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
       <div
         onPointerDown={onDragStart}
         title="Glisse sur un autre jour pour déplacer"
-        className={cx('flex flex-1 touch-manipulation items-start gap-3 rounded-lg border border-stone-200/80 bg-white py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:border-stone-300', ev.done && 'bg-stone-50', dragging && 'opacity-40')}
+        className={cx('flex flex-1 touch-manipulation items-start gap-3 rounded-lg border border-stone-200/80 bg-surface py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:border-stone-300', ev.done && 'bg-stone-50', dragging && 'opacity-40')}
       >
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
         <button
@@ -66,7 +66,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           className={cx('mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', ev.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
           title={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
         >
-          {ev.done && <Check size={11} strokeWidth={3} className="text-white" />}
+          {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
         </button>
         <button className="min-w-0 flex-1 text-left" onClick={onEdit}>
           <p className={cx('text-[14px] font-medium leading-snug', ev.done && 'text-stone-400 line-through')}>{ev.title}</p>
@@ -270,7 +270,7 @@ export default function CalendarPage() {
           </button>
           <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px]">
             {MODES.map(m => (
-              <button key={m.id} onClick={() => setMode(m.id)} className={cx('h-7 rounded-md px-3 font-medium transition-colors', mode === m.id ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
+              <button key={m.id} onClick={() => setMode(m.id)} className={cx('h-7 rounded-md px-3 font-medium transition-colors', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
                 {m.label}
               </button>
             ))}
@@ -348,7 +348,7 @@ export default function CalendarPage() {
                       <span
                         className={cx(
                           'tabular mt-1 flex h-8 w-8 items-center justify-center rounded-full text-[15px] font-semibold',
-                          isSel ? 'bg-ink text-white' : isToday ? 'text-brand-600' : '',
+                          isSel ? 'bg-ink text-paper' : isToday ? 'text-brand-600' : '',
                         )}
                       >
                         {fmt(d, 'd')}
@@ -382,14 +382,14 @@ export default function CalendarPage() {
                         onDoubleClick={() => setForm({ date: key })}
                         className={cx(
                           'flex min-h-16 flex-col items-stretch p-1 text-left transition-colors md:min-h-[84px]',
-                          dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'bg-stone-50' : 'bg-white hover:bg-stone-50',
+                          dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'bg-stone-50' : 'bg-surface hover:bg-stone-50',
                           !isSameMonth(d, selDate) && 'text-stone-300',
                         )}
                       >
                         <span
                           className={cx(
                             'tabular mb-0.5 flex h-6 w-6 items-center justify-center self-center rounded-full text-[12px] font-medium md:self-start',
-                            isSel ? 'bg-ink text-white' : key === today && 'text-brand-600',
+                            isSel ? 'bg-ink text-paper' : key === today && 'text-brand-600',
                           )}
                         >
                           {fmt(d, 'd')}
@@ -555,7 +555,7 @@ export default function CalendarPage() {
         <div
           ref={ghostRef}
           className={cx(
-            'pointer-events-none fixed left-0 top-0 z-[80] flex max-w-56 items-center gap-1.5 rounded-md border border-stone-200 bg-white px-2 py-1 text-[12px] font-medium shadow-pop transition-opacity',
+            'pointer-events-none fixed left-0 top-0 z-[80] flex max-w-56 items-center gap-1.5 rounded-md border border-stone-200 bg-surface px-2 py-1 text-[12px] font-medium shadow-pop transition-opacity',
             // Over the hourly grid the dashed preview already shows where it lands.
             drag.target?.minutes !== undefined && 'opacity-0',
           )}
@@ -567,7 +567,7 @@ export default function CalendarPage() {
 
       {fileOver && (
         <div className="pointer-events-none fixed inset-0 z-[75] flex items-center justify-center bg-stone-900/10 p-6">
-          <div className="pop flex flex-col items-center rounded-2xl border-2 border-dashed border-brand-500 bg-white/95 px-10 py-8 text-center shadow-pop">
+          <div className="pop flex flex-col items-center rounded-2xl border-2 border-dashed border-brand-500 bg-surface/95 px-10 py-8 text-center shadow-pop">
             <CalendarArrowDown size={26} className="text-brand-600" />
             <p className="mt-2 text-[15px] font-semibold">Dépose ton emploi du temps</p>
             <p className="mt-0.5 text-[13px] text-stone-500">Fichier .ics exporté depuis ton ENT ou Google Agenda</p>

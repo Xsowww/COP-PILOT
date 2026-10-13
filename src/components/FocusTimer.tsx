@@ -27,7 +27,7 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
   }, [onCancel]);
 
   return (
-    <div ref={ref} className="enter mb-2 rounded-lg border border-stone-200 bg-white p-2.5 shadow-card">
+    <div ref={ref} className="enter mb-2 rounded-lg border border-stone-200 bg-surface p-2.5 shadow-card">
       <div className="flex items-center">
         <label htmlFor="focus-subject" className="text-[11px] font-medium text-stone-500">
           Sur quoi tu travailles ?
@@ -126,14 +126,14 @@ export default function FocusTimer() {
         <span className="tabular ml-auto font-mono text-[15px] font-medium">{mmss(left)}</span>
       </div>
       {focus.phase === 'focus' && focus.label && <p className="mt-0.5 truncate text-[12px] font-medium text-ink">{focus.label}</p>}
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-white">
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface">
         <div className={cx('h-full rounded-full', focus.phase === 'focus' ? 'bg-brand-500' : 'bg-emerald-500')} style={{ width: `${100 - (left / total) * 100}%` }} />
       </div>
       <div className="mt-2 flex gap-1">
-        <button onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-white text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
+        <button onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
           {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? 'Reprendre' : 'Pause'}
         </button>
-        <button onClick={focus.stop} className="flex h-7 w-8 items-center justify-center rounded-md bg-white text-stone-500 shadow-card hover:text-red-600" title="Arrêter">
+        <button onClick={focus.stop} className="flex h-7 w-8 items-center justify-center rounded-md bg-surface text-stone-500 shadow-card hover:text-red-600" title="Arrêter">
           <Square size={11} />
         </button>
       </div>

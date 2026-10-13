@@ -9,10 +9,10 @@ function BadgeCard({ b }: { b: Badge }) {
   const color = FAMILIES[b.family].color;
   const pct = Math.round((b.current / b.target) * 100);
   return (
-    <li className={cx('flex gap-3 rounded-xl border p-3.5', b.earned ? 'border-stone-200/80 bg-white shadow-card' : 'border-dashed border-stone-200 bg-stone-50/60')}>
+    <li className={cx('flex gap-3 rounded-xl border p-3.5', b.earned ? 'border-stone-200/80 bg-surface shadow-card' : 'border-dashed border-stone-200 bg-stone-50/60')}>
       <span
         className={cx('relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full', !b.earned && 'bg-stone-100 text-stone-400')}
-        style={b.earned ? { background: `color-mix(in srgb, ${color} 13%, white)`, color, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 22%, white)` } : undefined}
+        style={b.earned ? { background: `color-mix(in srgb, ${color} 13%, var(--color-surface))`, color, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 22%, var(--color-surface))` } : undefined}
       >
         <b.icon size={18} strokeWidth={1.9} />
         {!b.earned && (

@@ -21,7 +21,7 @@ function Widget({ icon: Icon, title, to, className, color, children }: { icon: t
   return (
     <section className={cx('card enter flex flex-col p-4', className)}>
       <header className="mb-3 flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, white)`, color }}>
+        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, var(--color-surface))`, color }}>
           <Icon size={14} strokeWidth={2} />
         </span>
         <h2 className="text-[13px] font-medium text-stone-600">{title}</h2>
@@ -48,7 +48,7 @@ function EventRow({ e, showDay }: { e: CalendarEvent; showDay?: boolean }) {
         className={cx('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', e.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
         title={e.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
       >
-        {e.done && <Check size={10} strokeWidth={3} className="text-white" />}
+        {e.done && <Check size={10} strokeWidth={3} className="text-paper" />}
       </button>
       <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: c.color }} />
       <Link to={linkToDay(e.date)} className="min-w-0 flex-1">
@@ -145,7 +145,7 @@ export default function Dashboard() {
             {nextExam ? (
               <div className="flex flex-1 flex-col">
                 <Link to={linkToDay(nextExam.date)} className="group">
-                  <p className={cx('tabular text-[40px] font-semibold leading-none tracking-[-0.03em]', daysUntil(nextExam.date) <= 3 ? 'text-[#d9483b]' : daysUntil(nextExam.date) <= 7 ? 'text-[#c47a10]' : 'text-ink')}>
+                  <p className={cx('tabular text-[40px] font-semibold leading-none tracking-[-0.03em]', daysUntil(nextExam.date) <= 3 ? 'text-[#d9483b] dark:text-[var(--cat-examen-text)]' : daysUntil(nextExam.date) <= 7 ? 'text-[#c47a10] dark:text-[var(--cat-devoir-text)]' : 'text-ink')}>
                     {daysUntil(nextExam.date) === 0 ? "Aujourd'hui" : `J-${daysUntil(nextExam.date)}`}
                   </p>
                   <p className="mt-2 truncate text-[13px] font-medium group-hover:underline">{nextExam.title}</p>
@@ -294,7 +294,7 @@ export default function Dashboard() {
               {focusDays.map(d => (
                 <span key={d.day} className="flex flex-col items-center gap-1.5" title={`${fmt(fromKey(d.day), 'EEEE d')} : ${d.minutes ? formatMinutes(d.minutes) : 'pas de session'}`}>
                   <span className="flex h-10 w-full items-end justify-center">
-                    <span className="w-full max-w-6 rounded-t-[4px]" style={{ height: d.minutes ? `${Math.max(8, (d.minutes / focusMax) * 100)}%` : 2, background: d.minutes ? FOCUS_COLOR : '#e7e5e4' }} />
+                    <span className="w-full max-w-6 rounded-t-[4px]" style={{ height: d.minutes ? `${Math.max(8, (d.minutes / focusMax) * 100)}%` : 2, background: d.minutes ? FOCUS_COLOR : 'var(--color-stone-200)' }} />
                   </span>
                   <span className={cx('text-[11px] capitalize', d.day === today ? 'font-semibold text-ink' : 'text-stone-400')}>{fmt(fromKey(d.day), 'EEEEE')}</span>
                 </span>
@@ -311,7 +311,7 @@ export default function Dashboard() {
               <div className="mt-3">
                 <div className="flex flex-wrap gap-1.5">
                   {earnedBadges.slice(0, 6).map(b => (
-                    <span key={b.id} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fcf4e6] text-[#9a620c]" title={b.title}>
+                    <span key={b.id} className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--cat-devoir-soft)] text-[var(--cat-devoir-text)]" title={b.title}>
                       <b.icon size={15} />
                     </span>
                   ))}

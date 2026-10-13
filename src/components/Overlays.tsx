@@ -9,12 +9,12 @@ export function Toasts() {
   return (
     <div className="pointer-events-none fixed bottom-20 left-1/2 z-[70] flex -translate-x-1/2 flex-col items-center gap-2 md:bottom-6">
       {toasts.slice(-3).map(t => (
-        <div key={t.id} className="pop flex items-center gap-2 rounded-lg bg-ink px-3.5 py-2 text-[13px] text-white shadow-pop">
+        <div key={t.id} className="pop flex items-center gap-2 rounded-lg bg-inverse px-3.5 py-2 text-[13px] text-on-inverse shadow-pop">
           {t.tone === 'success' ? <CheckCircle2 size={15} className="text-emerald-400" /> : t.tone === 'error' ? <XCircle size={15} className="text-red-400" /> : <Info size={15} className="text-stone-400" />}
           {t.text}
           {t.action && (
             <button
-              className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-white/10 hover:text-white"
+              className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
               onClick={() => {
                 dismiss(t.id);
                 t.action!.run();
@@ -38,8 +38,8 @@ export function Modal({ open, onClose, children, width = 420 }: { open: boolean;
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-900/25 p-4" onMouseDown={onClose}>
-      <div role="dialog" aria-modal="true" className="pop w-full rounded-2xl border border-stone-200 bg-white p-5 shadow-pop" style={{ maxWidth: width }} onMouseDown={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-900/25 p-4 dark:bg-black/60" onMouseDown={onClose}>
+      <div role="dialog" aria-modal="true" className="pop w-full rounded-2xl border border-stone-200 bg-surface p-5 shadow-pop" style={{ maxWidth: width }} onMouseDown={e => e.stopPropagation()}>
         {children}
       </div>
     </div>
@@ -130,7 +130,7 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
   return (
     <div
       ref={ref}
-      className="enter fixed z-[65] min-w-52 rounded-xl border border-stone-200 bg-white p-1 shadow-pop"
+      className="enter fixed z-[65] min-w-52 rounded-xl border border-stone-200 bg-surface p-1 shadow-pop"
       style={{ left: pos.x, top: pos.y }}
       onMouseDown={e => e.stopPropagation()}
       onContextMenu={e => e.preventDefault()}

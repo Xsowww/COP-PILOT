@@ -104,10 +104,52 @@ export const useSettings = create<SettingsState>()(
 
 export const getSettings = () => useSettings.getState();
 
-/** Push the accent colour and motion preference into CSS. */
-export function applyAppearance(s: Pick<Settings, 'accent' | 'reduceMotion'>) {
+/** Accent shades used in dark mode when the light ones would vanish on a dark background. */
+const DARK_ACCENT_OVERRIDES: Partial<Record<AccentKey, Record<'50' | '100' | '200' | '500' | '600' | '700', string>>> = {
+  encre: { 50: '#2a2926', 100: '#35332f', 200: '#4a4743', 500: '#d6d3d1', 600: '#e7e5e4', 700: '#f5f5f4' },
+};
+
+/** Plain localStorage key read by the inline script in index.html (avoids a white flash). */
+export const THEME_KEY = 'cop-theme';
+
+/** Theme last used on this device, or null (logged-out pages then follow the system). */
+export function storedTheme(): ThemeMode | null {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return t === 'clair' || t === 'sombre' || t === 'auto' ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+type Appearance = Pick<Settings, 'accent' | 'reduceMotion' | 'theme'>;
+const darkQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+let lastAppearance: Appearance | null = null;
+darkQuery?.addEventListener('change', () => {
+  if (lastAppearance?.theme === 'auto') applyAppearance(lastAppearance, false);
+});
+
+export const resolveDark = (theme: ThemeMode) => theme === 'sombre' || (theme === 'auto' && !!darkQuery?.matches);
+
+/** Push the theme, accent colour and motion preference into CSS. */
+export function applyAppearance(s: Appearance, remember = true) {
+  lastAppearance = { accent: s.accent, reduceMotion: s.reduceMotion, theme: s.theme };
   const root = document.documentElement;
-  const shades = ACCENTS[s.accent]?.shades ?? ACCENTS.orange.shades;
-  for (const [k, v] of Object.entries(shades)) root.style.setProperty(`--color-brand-${k}`, v);
+  const dark = resolveDark(s.theme);
+  if (dark) root.dataset.theme = 'dark';
+  else delete root.dataset.theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#141311' : '#fafaf8');
+  if (remember) {
+    try {
+      localStorage.setItem(THEME_KEY, s.theme);
+    } catch {
+      /* private browsing: the theme just won't be applied before the app starts */
+    }
+  }
+  const darkShades = dark ? DARK_ACCENT_OVERRIDES[s.accent] : undefined;
+  const shades = darkShades ?? ACCENTS[s.accent]?.shades ?? ACCENTS.orange.shades;
+  for (const [k, v] of Object.entries(shades)) root.style.setProperty(`--accent-${k}`, v);
+  if (darkShades) root.style.setProperty('--color-on-brand', '#1c1b19');
+  else root.style.removeProperty('--color-on-brand');
   root.classList.toggle('reduce-motion', s.reduceMotion);
 }

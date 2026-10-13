@@ -37,7 +37,7 @@ function Kpi({ icon: Icon, label, value, sub, color }: { icon: typeof Users; lab
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, white)`, color }}>
+        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, var(--color-surface))`, color }}>
           <Icon size={14} />
         </span>
         <span className="text-[12px] font-medium text-stone-500">{label}</span>
@@ -69,9 +69,9 @@ function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; v
       <svg viewBox={`0 0 ${W} ${H + 18}`} className="mt-3 w-full overflow-visible" role="img" aria-label={`${label} par jour sur 30 jours`} onMouseLeave={() => setHover(null)}>
         {[0, 0.5, 1].map(f => (
           <g key={f}>
-            <line x1="0" x2={W} y1={H - f * H} y2={H - f * H} stroke="#e7e5e4" strokeWidth="1" />
+            <line x1="0" x2={W} y1={H - f * H} y2={H - f * H} stroke="var(--color-stone-200)" strokeWidth="1" />
             {f > 0 && (
-              <text x={W} y={H - f * H - 4} textAnchor="end" fontSize="10" fill="#a8a29e">
+              <text x={W} y={H - f * H - 4} textAnchor="end" fontSize="10" fill="var(--color-stone-500)">
                 {Math.round(top * f)}
               </text>
             )}
@@ -95,17 +95,17 @@ function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; v
           );
         })}
         {[0, 14, 29].map(i => (
-          <text key={i} x={i * slot + slot / 2} y={H + 14} textAnchor={i === 0 ? 'start' : i === 29 ? 'end' : 'middle'} fontSize="10" fill="#a8a29e">
+          <text key={i} x={i * slot + slot / 2} y={H + 14} textAnchor={i === 0 ? 'start' : i === 29 ? 'end' : 'middle'} fontSize="10" fill="var(--color-stone-500)">
             {fmt(fromKey(data[i].day), 'd MMM')}
           </text>
         ))}
       </svg>
       {tip && hover !== null && (
         <div
-          className="pointer-events-none absolute top-8 z-10 rounded-md bg-ink px-2.5 py-1.5 text-[12px] text-white shadow-pop"
+          className="pointer-events-none absolute top-8 z-10 rounded-md bg-inverse px-2.5 py-1.5 text-[12px] text-on-inverse shadow-pop"
           style={{ left: `clamp(0px, calc(${((hover + 0.5) / data.length) * 100}% - 60px), calc(100% - 120px))` }}
         >
-          <p className="text-white/60">{fmt(fromKey(tip.day), 'EEEE d MMMM')}</p>
+          <p className="text-on-inverse/60">{fmt(fromKey(tip.day), 'EEEE d MMMM')}</p>
           <p className="tabular font-medium">
             {tip[valueKey]} {label}
           </p>

@@ -70,7 +70,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
               <button
                 key={d.days}
                 onClick={() => setDays(d.days)}
-                className={cx('h-8 rounded-md px-3 font-medium transition-colors', days === d.days ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                className={cx('h-8 rounded-md px-3 font-medium transition-colors', days === d.days ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
               >
                 {d.label}
               </button>

@@ -574,7 +574,7 @@ export default function DrivePage() {
             <button
               key={k}
               onClick={() => { setTab(k); setSelected(new Set()); if (k === 'trash') { setQuery(''); setTagFilter(null); } }}
-              className={cx('flex h-7 items-center gap-1.5 rounded-md px-2.5 font-medium transition-colors', tab === k ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+              className={cx('flex h-7 items-center gap-1.5 rounded-md px-2.5 font-medium transition-colors', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
               <Icon size={13} />
               <span className="hidden sm:inline">{label}</span>
@@ -625,12 +625,12 @@ export default function DrivePage() {
       {/* Breadcrumb / selection bar */}
       <div className="flex h-10 items-center gap-1 text-[13px]">
         {bar ? (
-          <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-ink px-1.5 text-white shadow-pop">
-            <button className="rounded-md p-1.5 hover:bg-white/10" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)">
+          <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-on-inverse shadow-pop">
+            <button className="rounded-md p-1.5 hover:bg-on-inverse/10" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)">
               <X size={15} />
             </button>
             <span className="mr-2 whitespace-nowrap px-1 font-medium">{selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
-            <span className="mr-1 h-4 w-px bg-white/15" />
+            <span className="mr-1 h-4 w-px bg-on-inverse/20" />
             {(inTrash
               ? [
                   { icon: RotateCcw, label: 'Restaurer', fn: () => restore(selectedIds) },
@@ -646,7 +646,7 @@ export default function DrivePage() {
               { icon: Tag, label: 'Étiquettes', fn: () => setTagIds(selectedIds) },
               { icon: Trash2, label: 'Corbeille', fn: () => remove(selectedIds) },
             ]).map(a => (
-              <button key={a.label} onClick={a.fn} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-white/85 hover:bg-white/10 hover:text-white" title={a.label}>
+              <button key={a.label} onClick={a.fn} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse" title={a.label}>
                 <a.icon size={14} /> <span className="hidden lg:inline">{a.label}</span>
               </button>
             ))}
@@ -872,7 +872,7 @@ export default function DrivePage() {
         )}
 
         {dropTarget === 'here' && (
-          <div className="pointer-events-none sticky bottom-4 mx-auto mt-4 w-fit rounded-lg bg-ink px-3.5 py-2 text-[13px] font-medium text-white shadow-pop">
+          <div className="pointer-events-none sticky bottom-4 mx-auto mt-4 w-fit rounded-lg bg-inverse px-3.5 py-2 text-[13px] font-medium text-on-inverse shadow-pop">
             Déposer dans « {current?.name ?? 'Mon Drive'} »
           </div>
         )}

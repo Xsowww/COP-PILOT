@@ -5,7 +5,7 @@ import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 
-const OVERDUE = '#b13428';
+const OVERDUE = 'var(--cat-examen-text)';
 
 const sortOpen = (a: Todo, b: Todo) =>
   (a.due ?? '9999').localeCompare(b.due ?? '9999') || a.createdAt.localeCompare(b.createdAt);
@@ -38,12 +38,12 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
         onClick={() => toggle(t.id)}
         className={cx(
           'flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
-          t.done ? 'border-ink bg-ink' : overdue ? 'border-[#d9a19a] hover:border-[#b13428]' : 'border-stone-300 hover:border-stone-500',
+          t.done ? 'border-ink bg-ink' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
         )}
         title={t.done ? 'Remettre à faire' : 'Marquer comme faite'}
         aria-label={t.done ? `Remettre « ${t.title} » à faire` : `Cocher « ${t.title} »`}
       >
-        {t.done && <Check size={10} strokeWidth={3} className="text-white" />}
+        {t.done && <Check size={10} strokeWidth={3} className="text-paper" />}
       </button>
       {editing ? (
         <input
@@ -76,7 +76,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
             type="date"
             value={t.due ?? ''}
             onChange={e => update(t.id, { due: e.target.value || undefined })}
-            className="h-7 w-[124px] rounded-md border border-stone-200 bg-white px-1.5 text-[12px] text-stone-600 outline-none focus:border-stone-400"
+            className="h-7 w-[124px] rounded-md border border-stone-200 bg-surface px-1.5 text-[12px] text-stone-600 outline-none focus:border-stone-400"
           />
         </label>
       )}
@@ -138,7 +138,7 @@ function QuickAdd() {
           </button>
         </span>
       ) : (
-        <button onClick={() => setShowDate(true)} className="icon-btn h-9 w-9 border border-stone-200 bg-white shadow-card" title="Ajouter une échéance">
+        <button onClick={() => setShowDate(true)} className="icon-btn h-9 w-9 border border-stone-200 bg-surface shadow-card" title="Ajouter une échéance">
           <CalendarPlus size={15} />
         </button>
       )}

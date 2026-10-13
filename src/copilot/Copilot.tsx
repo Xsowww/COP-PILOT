@@ -29,7 +29,7 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
           onClick={() => onOffer(o)}
           className={cx(
             'h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors disabled:opacity-40',
-            i === 0 ? 'bg-ink text-white hover:bg-stone-800' : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50',
+            i === 0 ? 'bg-ink text-paper hover:bg-stone-800' : 'border border-stone-200 bg-surface text-stone-700 hover:bg-stone-50',
           )}
         >
           {o.label}
@@ -39,7 +39,7 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
         <button
           key={l.to + l.label}
           onClick={() => onGo(l.to)}
-          className="h-7 max-w-full truncate rounded-md border border-stone-200 bg-white px-2.5 text-[12px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
+          className="h-7 max-w-full truncate rounded-md border border-stone-200 bg-surface px-2.5 text-[12px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
         >
           {l.label} →
         </button>
@@ -60,7 +60,7 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setDone(false), 1400);
         });
       }}
-      className="absolute -bottom-2.5 right-1 flex h-6 w-6 items-center justify-center rounded-md border border-stone-200 bg-white text-stone-400 opacity-0 shadow-card transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+      className="absolute -bottom-2.5 right-1 flex h-6 w-6 items-center justify-center rounded-md border border-stone-200 bg-surface text-stone-400 opacity-0 shadow-card transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
     >
       {done ? <Check size={12} /> : <Copy size={12} />}
     </button>
@@ -295,7 +295,7 @@ export default function Copilot() {
           aria-hidden={!isOpen}
           style={{ marginTop: shift }}
           className={cx(
-            'absolute right-[104px] top-1/2 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-pop transition-all duration-200',
+            'absolute right-[104px] top-1/2 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-surface shadow-pop transition-all duration-200',
             wide ? 'h-[min(720px,86vh)] w-[min(600px,calc(100vw-120px))]' : 'max-h-[min(600px,80vh)] w-[min(380px,calc(100vw-120px))]',
             isOpen ? 'pointer-events-auto scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0',
           )}
@@ -332,7 +332,7 @@ export default function Copilot() {
                 <div
                   className={cx(
                     'group relative max-w-[88%] rounded-2xl px-3 py-2 text-[13px] leading-[1.55]',
-                    m.role === 'user' ? 'whitespace-pre-line rounded-br-md bg-ink text-white' : 'rounded-bl-md bg-stone-100 text-stone-800',
+                    m.role === 'user' ? 'whitespace-pre-line rounded-br-md bg-inverse text-on-inverse' : 'rounded-bl-md bg-stone-100 text-stone-800',
                   )}
                 >
                   {m.role === 'user' ? m.text : <Markdown text={m.text} />}
@@ -379,7 +379,7 @@ export default function Copilot() {
                 disabled={thinking}
                 className={cx(
                   'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30',
-                  dictation.listening ? 'bg-brand-500 text-white' : 'text-stone-500 hover:bg-stone-100 hover:text-ink',
+                  dictation.listening ? 'bg-brand-solid text-on-brand' : 'text-stone-500 hover:bg-stone-100 hover:text-ink',
                 )}
                 title={dictation.listening ? 'Arrêter et envoyer' : 'Parler à Copilot'}
                 aria-label={dictation.listening ? 'Arrêter la dictée' : 'Dicter un message'}
@@ -388,7 +388,7 @@ export default function Copilot() {
                 {dictation.listening ? <Square size={13} fill="currentColor" /> : <Mic size={16} />}
               </button>
             )}
-            <button type="submit" disabled={!input.trim() || thinking} className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-white transition-colors hover:bg-stone-800 disabled:opacity-30" title="Envoyer" tabIndex={isOpen ? 0 : -1}>
+            <button type="submit" disabled={!input.trim() || thinking} className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-stone-800 disabled:opacity-30" title="Envoyer" tabIndex={isOpen ? 0 : -1}>
               <ArrowUp size={16} />
             </button>
           </form>
@@ -398,7 +398,7 @@ export default function Copilot() {
 
         {/* Spontaneous remark */}
         {bubble && !isOpen && (
-          <div className="pop pointer-events-auto absolute right-[92px] top-1/2 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-white px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop">
+          <div className="pop pointer-events-auto absolute right-[92px] top-1/2 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop">
             <button onClick={clearBubble} className="absolute right-1.5 top-1.5 rounded p-1 text-stone-300 hover:text-stone-600" title="Fermer">
               <X size={12} />
             </button>

@@ -5,12 +5,13 @@ import { userStorage } from '../lib/userStorage';
 
 export type EventCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
 
+/** Colours: `color` is a plain hex; `soft`/`text` are CSS variables (light and dark values in index.css). */
 export const CATEGORIES: Record<EventCategory, { label: string; color: string; soft: string; text: string }> = {
-  cours: { label: 'Cours', color: '#3b6fd8', soft: '#eef3fc', text: '#2a55b0' },
-  examen: { label: 'Examen', color: '#d9483b', soft: '#fcefed', text: '#b13428' },
-  devoir: { label: 'Devoir', color: '#d48a17', soft: '#fcf4e6', text: '#9a620c' },
-  perso: { label: 'Perso', color: '#2f9e6b', soft: '#ebf7f1', text: '#217a51' },
-  sport: { label: 'Sport', color: '#7a5ad6', soft: '#f3effc', text: '#5c3fb3' },
+  cours: { label: 'Cours', color: '#3b6fd8', soft: 'var(--cat-cours-soft)', text: 'var(--cat-cours-text)' },
+  examen: { label: 'Examen', color: '#d9483b', soft: 'var(--cat-examen-soft)', text: 'var(--cat-examen-text)' },
+  devoir: { label: 'Devoir', color: '#d48a17', soft: 'var(--cat-devoir-soft)', text: 'var(--cat-devoir-text)' },
+  perso: { label: 'Perso', color: '#2f9e6b', soft: 'var(--cat-perso-soft)', text: 'var(--cat-perso-text)' },
+  sport: { label: 'Sport', color: '#7a5ad6', soft: 'var(--cat-sport-soft)', text: 'var(--cat-sport-text)' },
 };
 
 export interface CalendarEvent {

@@ -26,7 +26,7 @@ function Section({ id, icon: Icon, title, color, aside, children }: { id: string
   return (
     <section id={id} className="scroll-mt-4">
       <header className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, white)`, color }}>
+        <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, var(--color-surface))`, color }}>
           <Icon size={14} strokeWidth={2} />
         </span>
         <h2 className="mr-auto text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
@@ -115,7 +115,7 @@ export default function ProgressPage() {
                       key={r.key}
                       onClick={() => setRange(r.key)}
                       aria-pressed={range === r.key}
-                      className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors', range === r.key ? 'bg-white text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                      className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors', range === r.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
                     >
                       {r.label}
                     </button>

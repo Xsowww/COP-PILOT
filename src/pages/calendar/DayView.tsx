@@ -223,7 +223,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
             {preview !== null && dragged && (
               <div
                 className="pointer-events-none absolute inset-x-1 z-10 rounded-md border-2 border-dashed px-2 py-1 text-[11px] font-semibold"
-                style={{ top: y(preview) + 1, height: Math.max((previewLength / 60) * HOUR_PX - 2, 22), borderColor: CATEGORIES[dragged.category].color, color: CATEGORIES[dragged.category].text, background: 'rgb(255 255 255 / 0.7)' }}
+                style={{ top: y(preview) + 1, height: Math.max((previewLength / 60) * HOUR_PX - 2, 22), borderColor: CATEGORIES[dragged.category].color, color: CATEGORIES[dragged.category].text, background: 'color-mix(in srgb, var(--color-surface) 75%, transparent)' }}
               >
                 <span className="tabular">
                   {fromMinutes(preview)}

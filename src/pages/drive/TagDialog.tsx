@@ -21,7 +21,7 @@ export function TagPill({ tag, active, onClick, onRemove, size = 'sm' }: { tag: 
       className={cx(
         'inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full border font-medium transition-colors',
         size === 'md' ? 'h-7 px-2.5 text-[12px]' : 'h-[18px] px-1.5 text-[10.5px]',
-        active ? 'border-ink bg-ink text-white' : 'border-stone-200 bg-white text-stone-600',
+        active ? 'border-ink bg-ink text-paper' : 'border-stone-200 bg-surface text-stone-600',
         onClick && !active && 'hover:border-stone-300 hover:text-ink',
       )}
     >

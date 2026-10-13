@@ -222,7 +222,7 @@ function Groups() {
               onClick={() => go(g.id)}
               className={cx(
                 'flex w-full items-center gap-2.5 rounded-lg border px-2 py-2 text-left transition-colors',
-                g.id === active?.id ? 'border-stone-200 bg-white shadow-card' : 'border-transparent hover:bg-stone-100',
+                g.id === active?.id ? 'border-stone-200 bg-surface shadow-card' : 'border-transparent hover:bg-stone-100',
               )}
             >
               <GroupBadge group={g} size={28} />

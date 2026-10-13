@@ -70,7 +70,7 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-stone-950/85" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[#0c0a09]/85" onMouseDown={onClose}>
       <header className="flex items-center gap-3 px-5 py-3 text-white" onMouseDown={e => e.stopPropagation()}>
         <FileIcon category={cat} size={30} ext={item.name.split('.').pop()} />
         <div className="min-w-0 flex-1">

@@ -82,7 +82,7 @@ function GlobalSearch() {
       />
       <span className="kbd pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
       {open && q.trim() && (
-        <div className="enter absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-xl border border-stone-200 bg-white p-1 shadow-pop">
+        <div className="enter absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-xl border border-stone-200 bg-surface p-1 shadow-pop">
           {hits.length === 0 && <p className="px-3 py-5 text-center text-[13px] text-stone-500">Aucun résultat pour « {q} »</p>}
           {hits.map((h, i) => {
             const Icon = HIT_ICON[h.type];
@@ -142,7 +142,7 @@ export default function AppShell() {
               className={({ isActive }) =>
                 cx(
                   'flex h-8 items-center gap-2.5 rounded-md border px-2 text-[13px] font-medium transition-colors',
-                  isActive ? 'border-stone-200 bg-white text-ink shadow-card' : 'border-transparent text-stone-600 hover:bg-stone-100 hover:text-ink',
+                  isActive ? 'border-stone-200 bg-surface text-ink shadow-card' : 'border-transparent text-stone-600 hover:bg-stone-100 hover:text-ink',
                 )
               }
             >
@@ -160,7 +160,7 @@ export default function AppShell() {
               className={({ isActive }) =>
                 cx(
                   'mt-4 flex h-8 items-center gap-2.5 rounded-md border px-2 text-[13px] font-medium transition-colors',
-                  isActive ? 'border-stone-200 bg-white text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
+                  isActive ? 'border-stone-200 bg-surface text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
                 )
               }
             >

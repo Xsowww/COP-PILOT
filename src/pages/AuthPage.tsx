@@ -32,8 +32,8 @@ function Showcase() {
           <p className="eyebrow">Cette semaine</p>
           <div className="mt-3 grid grid-cols-5 gap-1.5 text-center">
             {days.map(x => (
-              <div key={x.n} className={x.active ? 'rounded-lg bg-ink py-1.5 text-white' : 'py-1.5'}>
-                <p className={x.active ? 'text-[10px] text-white/60' : 'text-[10px] text-stone-400'}>{x.d}</p>
+              <div key={x.n} className={x.active ? 'rounded-lg bg-ink py-1.5 text-paper' : 'py-1.5'}>
+                <p className={x.active ? 'text-[10px] text-paper/60' : 'text-[10px] text-stone-400'}>{x.d}</p>
                 <p className="tabular text-[14px] font-semibold">{x.n}</p>
                 <span className="mx-auto mt-1 block h-1 w-1 rounded-full" style={{ background: x.dot ?? 'transparent' }} />
               </div>
@@ -71,7 +71,7 @@ function Showcase() {
 
       {/* Copilot peeking from the edge */}
       <div className="absolute right-0 top-[58%]">
-        <div className="pop absolute right-[96px] top-2 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-white px-3 py-2 text-[12.5px] leading-snug shadow-pop" style={{ animationDelay: '600ms' }}>
+        <div className="pop absolute right-[96px] top-2 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop" style={{ animationDelay: '600ms' }}>
           Psst. Ton partiel est dans 4 jours, on cale des révisions ?
         </div>
         <Character pose="peek" look={{ x: -0.9, y: -0.2 }} mood="happy" size={104} />

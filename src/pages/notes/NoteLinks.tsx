@@ -35,7 +35,7 @@ function useResolvedLinks(links: NoteLink[] | undefined) {
   }, [links, items, events]);
 }
 
-const chip = 'group inline-flex h-7 max-w-[260px] items-center gap-1.5 rounded-md border border-stone-200 bg-white pl-1.5 pr-1 text-[12px] text-stone-700 transition-colors hover:border-stone-300 hover:bg-stone-50';
+const chip = 'group inline-flex h-7 max-w-[260px] items-center gap-1.5 rounded-md border border-stone-200 bg-surface pl-1.5 pr-1 text-[12px] text-stone-700 transition-colors hover:border-stone-300 hover:bg-stone-50';
 
 export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }) {
   const navigate = useNavigate();
@@ -122,7 +122,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
         <span className="block truncate text-[13px] font-medium">{title}</span>
         <span className="block truncate text-[12px] text-stone-500">{meta}</span>
       </span>
-      <span className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-md border', linked ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-300 text-transparent')}>
+      <span className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-md border', linked ? 'border-brand-solid bg-brand-solid text-on-brand' : 'border-stone-300 text-transparent')}>
         <Check size={13} strokeWidth={2.5} />
       </span>
     </button>

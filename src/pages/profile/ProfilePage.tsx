@@ -6,7 +6,7 @@ import {
   FolderClosed, NotebookText, CalendarCheck, Target, Timer, HardDrive, Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
-import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type Chattiness, type PersonaKey } from '../../store/settings';
+import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness, type PersonaKey } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { useNotes } from '../../store/notes';
@@ -68,7 +68,7 @@ function useStats() {
 function Stat({ icon: Icon, color, value, label, sub }: { icon: typeof User; color: string; value: string | number; label: string; sub?: string }) {
   return (
     <div className="rounded-lg border border-stone-200/80 p-3.5">
-      <span className="flex h-7 w-7 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, white)`, color }}>
+      <span className="flex h-7 w-7 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, var(--color-surface))`, color }}>
         <Icon size={15} />
       </span>
       <p className="tabular mt-3 text-[22px] font-semibold leading-none tracking-tight">{value}</p>
@@ -104,7 +104,7 @@ function ProfileTab() {
         <div className="flex flex-wrap items-center gap-5 px-5 py-5">
           <div className="relative">
             <Avatar size={72} />
-            <button onClick={() => fileRef.current?.click()} className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-ink text-white hover:bg-stone-700" title="Changer la photo">
+            <button onClick={() => fileRef.current?.click()} className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-ink text-paper hover:bg-stone-700" title="Changer la photo">
               <Camera size={13} />
             </button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { void pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
@@ -120,7 +120,7 @@ function ProfileTab() {
                   key={c}
                   onClick={() => settings.set({ avatarColor: c, avatarImage: null })}
                   className="flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110"
-                  style={{ background: c, boxShadow: !settings.avatarImage && settings.avatarColor === c ? `0 0 0 2px white, 0 0 0 4px ${c}` : undefined }}
+                  style={{ background: c, boxShadow: !settings.avatarImage && settings.avatarColor === c ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${c}` : undefined }}
                   title="Couleur de l'avatar"
                 />
               ))}
@@ -189,17 +189,35 @@ function AppearanceTab() {
     settings.set({ accent });
     applyAppearance({ ...settings, accent });
   };
+  const setTheme = (theme: ThemeMode) => {
+    settings.set({ theme });
+    applyAppearance({ ...settings, theme });
+  };
   return (
     <Section title="Apparence" description="Personnalise l'interface.">
+      <Row label="Thème" hint="Automatique suit le réglage clair ou sombre de ton appareil.">
+        <Segmented
+          label="Thème"
+          value={settings.theme}
+          onChange={setTheme}
+          options={[
+            { value: 'clair', label: 'Clair' },
+            { value: 'sombre', label: 'Sombre' },
+            { value: 'auto', label: 'Automatique' },
+          ]}
+        />
+      </Row>
       <Row label="Couleur d'accent" hint="Boutons, jour actuel, minuteur, et même le casque de Copilot.">
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5" role="group" aria-label="Couleur d'accent">
           {(Object.keys(ACCENTS) as AccentKey[]).map(k => (
             <button
               key={k}
               onClick={() => setAccent(k)}
               title={ACCENTS[k].label}
+              aria-label={ACCENTS[k].label}
+              aria-pressed={settings.accent === k}
               className="flex h-7 w-7 items-center justify-center rounded-full transition-transform hover:scale-110"
-              style={{ background: ACCENTS[k].shades[500], boxShadow: settings.accent === k ? `0 0 0 2px white, 0 0 0 4px ${ACCENTS[k].shades[500]}` : undefined }}
+              style={{ background: ACCENTS[k].shades[500], boxShadow: settings.accent === k ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${ACCENTS[k].shades[500]}` : undefined }}
             >
               {settings.accent === k && <Check size={13} strokeWidth={3} className="text-white" />}
             </button>
@@ -208,7 +226,7 @@ function AppearanceTab() {
       </Row>
       <div className="flex items-center gap-4 overflow-hidden bg-stone-50/70 px-5 py-4">
         <button className="btn-primary pointer-events-none">Bouton</button>
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-[13px] font-semibold text-white">{new Date().getDate()}</span>
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-solid text-[13px] font-semibold text-on-brand">{new Date().getDate()}</span>
         <span className="rounded-md bg-brand-50 px-2 py-1 text-[12px] font-medium text-brand-700">Sélection</span>
         <div className="relative ml-auto h-16 w-24 overflow-hidden">
           <div className="absolute -right-1 top-[-14px]">
@@ -278,7 +296,7 @@ function CopilotTab() {
           <Toggle label="Rappels" checked={s.eventReminders} onChange={v => s.set({ eventReminders: v })} />
         </Row>
         <Row label="Bavardage" hint="À quelle fréquence il peut te parler de lui-même.">
-          <Segmented<Chattiness>
+          <Segmented<Chattiness> label="Bavardage"
             value={s.chattiness}
             onChange={v => s.set({ chattiness: v })}
             options={[
@@ -398,10 +416,10 @@ function StudiesTab() {
     <div className="space-y-5">
       <Section title="Sessions focus" description="Minuteur de concentration (méthode Pomodoro), accessible en bas de la barre latérale.">
         <Row label="Durée de travail">
-          <Segmented<number> value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: `${v} min` }))} />
+          <Segmented<number> label="Durée de travail" value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: `${v} min` }))} />
         </Row>
         <Row label="Durée de pause">
-          <Segmented<number> value={s.breakMinutes} onChange={v => s.set({ breakMinutes: v })} options={[5, 10, 15].map(v => ({ value: v, label: `${v} min` }))} />
+          <Segmented<number> label="Durée de pause" value={s.breakMinutes} onChange={v => s.set({ breakMinutes: v })} options={[5, 10, 15].map(v => ({ value: v, label: `${v} min` }))} />
         </Row>
         <Row label="Son de fin de session">
           <button className="btn-ghost h-8 text-[12px]" onClick={chime}>
@@ -682,7 +700,7 @@ export default function ProfilePage() {
                 onClick={() => setParams(t.key === 'profil' ? {} : { onglet: t.key })}
                 className={cx(
                   'flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors',
-                  tab === t.key ? 'bg-white text-ink shadow-card ring-1 ring-stone-200' : 'text-stone-600 hover:bg-stone-100 hover:text-ink',
+                  tab === t.key ? 'bg-surface text-ink shadow-card ring-1 ring-stone-200' : 'text-stone-600 hover:bg-stone-100 hover:text-ink',
                 )}
               >
                 <t.icon size={15} className={tab === t.key ? 'text-brand-600' : ''} />

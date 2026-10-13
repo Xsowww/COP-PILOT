@@ -25,7 +25,7 @@ export function MemberDot({ userId, name, size = 24, className }: { userId: stri
   return (
     <span
       title={name}
-      className={cx('flex shrink-0 items-center justify-center rounded-full font-semibold text-white ring-2 ring-white', className)}
+      className={cx('flex shrink-0 items-center justify-center rounded-full font-semibold text-white ring-2 ring-surface', className)}
       style={{ width: size, height: size, background: GROUP_COLORS[hash(userId) % GROUP_COLORS.length], fontSize: Math.round(size * 0.44) }}
     >
       {name.charAt(0).toUpperCase()}

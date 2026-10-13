@@ -289,7 +289,7 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
         </div>
       )}
 
-      <div className="mt-3 border-y border-stone-100 bg-white px-4 py-1.5 md:px-9">
+      <div className="mt-3 border-y border-stone-100 bg-surface px-4 py-1.5 md:px-9">
         <Toolbar editor={editor} />
       </div>
       <div className="min-h-0 flex-1 cursor-text overflow-y-auto px-4 py-5 md:px-11" onClick={() => !editor.isFocused && editor.commands.focus('end')}>
