@@ -12,10 +12,10 @@ import Logo from '../components/Logo';
  */
 /** The key as a small text file, to keep with the student's documents or password manager. */
 function downloadKey(secret: string, email: string) {
-  const text = `Clé de secours COP-PILOT (double authentification)\nCompte : ${email}\nClé : ${secret}\n\nEn cas de perte du téléphone : dans une app d'authentification, « Ajouter un compte » puis « Saisir une clé », et colle cette clé.\nGarde ce fichier en lieu sûr : avec ton mot de passe, il ouvre ton compte.\n`;
+  const text = `Clé de secours Kompa (double authentification)\nCompte : ${email}\nClé : ${secret}\n\nEn cas de perte du téléphone : dans une app d'authentification, « Ajouter un compte » puis « Saisir une clé », et colle cette clé.\nGarde ce fichier en lieu sûr : avec ton mot de passe, il ouvre ton compte.\n`;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-  a.download = 'cop-pilot-cle-de-secours.txt';
+  a.download = 'kompa-cle-de-secours.txt';
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
@@ -76,7 +76,7 @@ export default function MfaPage() {
           <p className="mt-1 text-[13px] leading-relaxed text-stone-500">
             {isSetup
               ? 'Dernière étape : associe ton téléphone. Même si quelqu’un découvre ton mot de passe, il ne pourra pas entrer sans lui.'
-              : 'Ouvre l’app où tu as ajouté COP-PILOT et tape le code à 6 chiffres affiché.'}
+              : 'Ouvre l’app où tu as ajouté Kompa et tape le code à 6 chiffres affiché.'}
           </p>
 
           {isSetup && (
@@ -169,7 +169,7 @@ export default function MfaPage() {
           </p>
           {!isSetup && (
             <p className="mt-2 text-center text-[12px] leading-relaxed text-stone-500">
-              Avec ta clé de secours, ajoute COP-PILOT dans l’app d’authentification de ton nouveau téléphone (« Saisir une clé »), puis tape le code. Sinon, écris au support depuis la page{' '}
+              Avec ta clé de secours, ajoute Kompa dans l’app d’authentification de ton nouveau téléphone (« Saisir une clé »), puis tape le code. Sinon, écris au support depuis la page{' '}
               <a href="/mentions-legales" className="underline decoration-stone-300 underline-offset-2">
                 Mentions légales
               </a>

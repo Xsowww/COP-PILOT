@@ -9,7 +9,7 @@ export interface CopilotLink {
   to: string;
 }
 
-/** A button Copilot offers (serialisable, executed by copilot/offers.ts). */
+/** A button Kompa offers (serialisable, executed by copilot/offers.ts). */
 export interface CopilotOffer {
   label: string;
   kind: 'plan_revisions' | 'revision_note' | 'mark_done' | 'open' | 'confirm_delete';
@@ -83,7 +83,7 @@ export const useCopilot = create<CopilotState>()(
 
       setPose: pose => set({ pose }),
 
-      /** Proactive remark: Copilot leans out and says something; it is also kept in the conversation. */
+      /** Proactive remark: Kompa leans out and says something; it is also kept in the conversation. */
       say(bubble) {
         // In the middle of a conversation, a suggestion with buttons would hijack the next « oui ».
         if (get().pose === 'open' && bubble.offers?.length) return;

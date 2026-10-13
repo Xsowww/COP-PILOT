@@ -229,7 +229,7 @@ export default function Copilot() {
 
   const open = () => {
     clearBubble();
-    if (messages.length === 0) push('bot', `Salut ${user?.name ?? ''} ! Moi c'est Copilot. Je peux retrouver tes fichiers, organiser tes révisions, créer des notes… ou juste discuter. Dis-moi.`);
+    if (messages.length === 0) push('bot', `Salut ${user?.name ?? ''} ! Moi c'est Kompa. Je peux retrouver tes fichiers, organiser tes révisions, créer des notes… ou juste discuter. Dis-moi.`);
     setPose('open');
   };
 
@@ -314,7 +314,7 @@ export default function Copilot() {
           ref={panelRef}
           id="copilot-panel"
           role="dialog"
-          aria-label="Copilot"
+          aria-label="Kompa"
           aria-hidden={!isOpen}
           inert={!isOpen}
           style={{ marginTop: shift }}
@@ -330,7 +330,7 @@ export default function Copilot() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="w-fit text-[13px] font-semibold leading-tight" title={providerInfo}>
-                Copilot
+                Kompa
               </p>
               <ModeLine ai={aiEnabled} label={providerLabel} until={pausedUntil} now={now} />
             </div>
@@ -350,7 +350,7 @@ export default function Copilot() {
             </button>
           </header>
 
-          <div ref={listRef} role="log" aria-live="polite" aria-label="Conversation avec Copilot" className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3.5">
+          <div ref={listRef} role="log" aria-live="polite" aria-label="Conversation avec Kompa" className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3.5">
             {messages.map(m => (
               <div key={m.id} className={cx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                 <div
@@ -366,7 +366,7 @@ export default function Copilot() {
               </div>
             ))}
             {thinking && (
-              <div className="flex w-fit gap-1 rounded-2xl rounded-bl-md bg-stone-100 px-3 py-2.5" role="img" aria-label="Copilot réfléchit…">
+              <div className="flex w-fit gap-1 rounded-2xl rounded-bl-md bg-stone-100 px-3 py-2.5" role="img" aria-label="Kompa réfléchit…">
                 {[0, 1, 2].map(i => (
                   <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-stone-400" style={{ animationDelay: `${i * 120}ms` }} />
                 ))}
@@ -389,8 +389,8 @@ export default function Copilot() {
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder={dictation.listening ? 'Je t’écoute…' : 'Écris à Copilot…'}
-              aria-label="Message pour Copilot"
+              placeholder={dictation.listening ? 'Je t’écoute…' : 'Écris à Kompa…'}
+              aria-label="Message pour Kompa"
               className={cx(
                 'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-400 focus:bg-stone-100',
                 dictation.listening && 'bg-brand-50 placeholder:text-brand-600',
@@ -406,7 +406,7 @@ export default function Copilot() {
                   'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30',
                   dictation.listening ? 'bg-brand-solid text-on-brand' : 'text-stone-500 hover:bg-stone-100 hover:text-ink',
                 )}
-                title={dictation.listening ? 'Arrêter et envoyer' : 'Parler à Copilot'}
+                title={dictation.listening ? 'Arrêter et envoyer' : 'Parler à Kompa'}
                 aria-label={dictation.listening ? 'Arrêter la dictée' : 'Dicter un message'}
                 tabIndex={isOpen ? 0 : -1}
               >
@@ -448,11 +448,11 @@ export default function Copilot() {
           onPointerUp={onPointerUp}
           onMouseEnter={() => pose === 'hidden' && setPose('peek')}
           onMouseLeave={() => pose === 'peek' && !bubble && setPose('hidden')}
-          title={isOpen ? 'Fermer' : 'Parler à Copilot'}
+          title={isOpen ? 'Fermer' : 'Parler à Kompa'}
           ref={charRef}
           role="button"
           tabIndex={0}
-          aria-label={isOpen ? 'Fermer Copilot' : 'Parler à Copilot'}
+          aria-label={isOpen ? 'Fermer Kompa' : 'Parler à Kompa'}
           aria-expanded={isOpen}
           aria-controls="copilot-panel"
           onKeyDown={e => {

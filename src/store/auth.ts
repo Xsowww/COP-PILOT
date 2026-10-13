@@ -365,7 +365,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     // Leftovers from an abandoned attempt would block a new enrolment.
     const { data: list } = await supabase.auth.mfa.listFactors();
     for (const f of list?.all ?? []) if (f.status !== 'verified') await supabase.auth.mfa.unenroll({ factorId: f.id });
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `COP-PILOT ${new Date().toISOString().slice(0, 10)}`, issuer: 'COP-PILOT' });
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Kompa ${new Date().toISOString().slice(0, 10)}`, issuer: 'Kompa' });
     if (error || !data) throw new Error("Impossible de générer le QR code, réessaie dans un instant.");
     return { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri };
   },
@@ -384,7 +384,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       .finally(() => setTimeout(() => (ownSignIn = false), 1500));
     if (error) {
       const msg = error.message.toLowerCase();
-      throw new Error(msg.includes('ip address') ? 'Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.' : msg.includes('expired') ? 'Ce code a expiré, tape le nouveau code affiché.' : msg.includes('rate') || msg.includes('too many') ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Vérifie que tu tapes le code COP-PILOT affiché en ce moment.');
+      throw new Error(msg.includes('ip address') ? 'Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.' : msg.includes('expired') ? 'Ce code a expiré, tape le nouveau code affiché.' : msg.includes('rate') || msg.includes('too many') ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Vérifie que tu tapes le code Kompa affiché en ce moment.');
     }
     const user = get().user;
     if (user) setStorageUser(user.id);

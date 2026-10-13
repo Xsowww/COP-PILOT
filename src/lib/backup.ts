@@ -35,7 +35,7 @@ export function exportBackup() {
     notes: { folders: useNotes.getState().folders, notes: useNotes.getState().notes },
     driveFolders: useDrive.getState().items.filter(i => i.kind === 'folder'),
   };
-  download(`cop-pilot-sauvegarde-${stamp()}.json`, JSON.stringify(data, null, 2), 'application/json');
+  download(`kompa-sauvegarde-${stamp()}.json`, JSON.stringify(data, null, 2), 'application/json');
 }
 
 /** What the backup has and this account doesn't (anywhere, trash included). Nothing current is replaced. */
@@ -51,7 +51,7 @@ function missing<T extends { id: string }>(incoming: unknown, ...current: T[][])
  */
 export async function importBackup(file: File): Promise<{ notes: number; events: number }> {
   const data = JSON.parse(await file.text());
-  if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error('Ce fichier n’est pas une sauvegarde COP-PILOT.');
+  if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error('Ce fichier n’est pas une sauvegarde Kompa.');
   const cal = useCalendar.getState();
   const events = missing(data.calendar, cal.events, cal.trash);
   useCalendar.setState(s => ({ events: [...s.events, ...events] }));
@@ -83,7 +83,7 @@ function nextDay(date: string) {
 /** .ics file that Google Agenda, Apple Calendrier or Outlook can import. */
 export function exportIcs(events: CalendarEvent[] = useCalendar.getState().events) {
   const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//COP-PILOT//FR', 'CALSCALE:GREGORIAN'];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kompa//FR', 'CALSCALE:GREGORIAN'];
   for (const e of events) {
     lines.push('BEGIN:VEVENT', `UID:${e.id}@cop-pilot`, `DTSTAMP:${now}`);
     if (e.start) {
@@ -97,7 +97,7 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');
-  download(`cop-pilot-calendrier-${stamp()}.ics`, lines.join('\r\n'), 'text/calendar');
+  download(`kompa-calendrier-${stamp()}.ics`, lines.join('\r\n'), 'text/calendar');
 }
 
 /** Removes every file, note and event of the current account (the account itself stays). */

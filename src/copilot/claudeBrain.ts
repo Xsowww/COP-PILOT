@@ -1,5 +1,5 @@
 // AI mode: the conversation goes through our server (/api/copilot, see server/copilot.mjs),
-// which holds the API key, Copilot's personality and picks the AI provider (Claude, Gemini,
+// which holds the API key, Kompa's personality and picks the AI provider (Claude, Gemini,
 // Groq…). The server always answers in the Anthropic message shape, so this file doesn't
 // care which provider is behind. Tools run here, on the student's data.
 
@@ -359,7 +359,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
 export type NudgeKind = 'remark' | 'brief' | 'review';
 const NUDGE_MAX: Record<NudgeKind, number> = { remark: 320, brief: 520, review: 640 };
 
-/** Lets the AI phrase a proactive remark in Copilot's voice. Returns null on any problem. */
+/** Lets the AI phrase a proactive remark in Kompa's voice. Returns null on any problem. */
 export async function aiNudge(situation: Record<string, unknown>, userName: string, kind: NudgeKind = 'remark'): Promise<string | null> {
   if (aiPausedUntil()) return null;
   try {

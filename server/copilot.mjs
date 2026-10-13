@@ -1,5 +1,5 @@
-// Copilot's brain, server side. The AI key never reaches the browser: the page sends
-// the conversation, this module adds Copilot's personality and tools (copilotPrompt.mjs),
+// Kompa's brain, server side. The AI key never reaches the browser: the page sends
+// the conversation, this module adds Kompa's personality and tools (copilotPrompt.mjs),
 // calls the configured AI (Claude, or a free provider via aiProviders.mjs) and returns the
 // answer in the Anthropic shape. Tools are executed in the browser (that's where the
 // student's data lives), then sent back here.
@@ -8,7 +8,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { resolveProvider, openAiChat, ProviderError } from './aiProviders.mjs';
 import { chatSystem, nudgeSystem, TOOLS, NUDGE_MAX_CHARS } from './copilotPrompt.mjs';
 
-const MAX_BODY = 1_500_000; // bytes (file contents read by Copilot travel in the history)
+const MAX_BODY = 1_500_000; // bytes (file contents read by Kompa travel in the history)
 const RATE_WINDOW_MS = 60_000;
 const PER_USER_PER_MIN = 40;
 const PER_IP_PER_MIN = 120; // a school network puts many students behind one address
@@ -54,7 +54,7 @@ function chat(p, req) {
 }
 
 // ── Who is calling? (cloud mode only) ───────────────────────────────────────
-// With Supabase configured, only signed-in students can talk to Copilot: the page sends
+// With Supabase configured, only signed-in students can talk to Kompa: the page sends
 // its session token and we ask Supabase who it belongs to (cached one minute).
 const tokenCache = new Map();
 async function authenticate(req, env) {

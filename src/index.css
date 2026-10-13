@@ -7,26 +7,26 @@
   --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-paper: #fafaf8;
-  --color-ink: #1c1b19;
+  --color-paper: #f7f7f5;
+  --color-ink: #16181d;
   /* Cards, menus, dialogs. `white` itself is never remapped so `text-white` stays white. */
   --color-surface: #ffffff;
   /* A touch darker than Tailwind's stone-500 so secondary text stays above 4.5:1 on stone-100. */
   --color-stone-500: #716a64;
 
   /* Accent: applyAppearance() sets the --accent-* variables. */
-  --color-brand-50: var(--accent-50, #fdf3ef);
-  --color-brand-100: var(--accent-100, #fbe4da);
-  --color-brand-200: var(--accent-200, #f6c6b2);
-  --color-brand-500: var(--accent-500, #e8613c);
-  --color-brand-600: var(--accent-600, #c94a26);
-  --color-brand-700: var(--accent-700, #ad3e20);
+  --color-brand-50: var(--accent-50, #eef2fd);
+  --color-brand-100: var(--accent-100, #dbe3fb);
+  --color-brand-200: var(--accent-200, #b8c8f6);
+  --color-brand-500: var(--accent-500, #3d63dd);
+  --color-brand-600: var(--accent-600, #2f4fc0);
+  --color-brand-700: var(--accent-700, #26409c);
   /* Filled accent (buttons, checkboxes) and the text drawn on it. */
-  --color-brand-solid: var(--accent-600, #c94a26);
-  --color-brand-solid-hover: var(--accent-700, #ad3e20);
+  --color-brand-solid: var(--accent-600, #2f4fc0);
+  --color-brand-solid-hover: var(--accent-700, #26409c);
   --color-on-brand: #ffffff;
   /* Small dark chips on a light page (toasts, tooltips, selection bar); raised grey in dark mode. */
-  --color-inverse: #1c1b19;
+  --color-inverse: #16181d;
   --color-on-inverse: #ffffff;
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;

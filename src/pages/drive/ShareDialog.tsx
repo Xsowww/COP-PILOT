@@ -59,7 +59,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
 
       {!cloudEnabled ? (
         <p className="mt-4 rounded-lg bg-stone-50 px-3.5 py-3 text-[13px] leading-relaxed text-stone-600">
-          Tes fichiers sont enregistrés uniquement dans ce navigateur. Le partage par lien a besoin de la version en ligne de COP-PILOT, où les fichiers sont stockés sur le serveur.
+          Tes fichiers sont enregistrés uniquement dans ce navigateur. Le partage par lien a besoin de la version en ligne de Kompa, où les fichiers sont stockés sur le serveur.
         </p>
       ) : (
         <>

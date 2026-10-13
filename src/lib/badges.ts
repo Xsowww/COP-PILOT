@@ -295,7 +295,7 @@ function evaluate() {
   if (!settings.badgeAnnouncements) return void settings.set({ badgesSeen: [...seen, ...fresh.map(b => b.id)] });
   // Never interrupt a focus session: celebrate once it is over.
   if (useFocus.getState().phase === 'focus') return void setTimeout(evaluate, 30_000);
-  // Let Copilot finish what he is saying (e.g. « session terminée ») before celebrating.
+  // Let Kompa finish what he is saying (e.g. « session terminée ») before celebrating.
   if (useCopilot.getState().bubble) return void setTimeout(evaluate, 5000);
   settings.set({ badgesSeen: [...seen, ...fresh.map(b => b.id)] });
   const text =

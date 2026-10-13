@@ -166,7 +166,7 @@ export default function DrivePage() {
     [setParams],
   );
 
-  // Select the file targeted by a link (e.g. from search or Copilot).
+  // Select the file targeted by a link (e.g. from search or Kompa).
   useEffect(() => {
     if (previewId) setSelected(new Set([previewId]));
   }, [previewId]);

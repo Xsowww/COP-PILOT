@@ -24,7 +24,7 @@ function Showcase() {
         <h2 className="mt-2 text-[28px] font-semibold leading-[1.15] tracking-[-0.02em]">
           Tes cours, ton planning et tes fichiers, enfin au même endroit.
         </h2>
-        <p className="mt-3 text-[14px] leading-relaxed text-stone-500">Un espace calme pour t'organiser, et Copilot pour te rappeler ce qui compte.</p>
+        <p className="mt-3 text-[14px] leading-relaxed text-stone-500">Un espace calme pour t'organiser, et Kompa pour te rappeler ce qui compte.</p>
       </div>
 
       {/* Product preview */}
@@ -70,7 +70,7 @@ function Showcase() {
         </div>
       </div>
 
-      {/* Copilot peeking from the edge */}
+      {/* Kompa peeking from the edge */}
       <div className="absolute right-0 top-[58%]">
         <div className="pop absolute right-[96px] top-2 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop" style={{ animationDelay: '600ms' }}>
           Psst. Ton partiel est dans 4 jours, on cale des révisions ?

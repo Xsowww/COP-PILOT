@@ -1,4 +1,4 @@
-// Talking with Copilot: dictation with the browser's speech recognition, and spoken
+// Talking with Kompa: dictation with the browser's speech recognition, and spoken
 // answers with speech synthesis. Both are optional and depend on the browser.
 
 import { useEffect, useRef, useState } from 'react';

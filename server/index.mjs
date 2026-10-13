@@ -1,4 +1,4 @@
-// Production server: serves the built app (dist/) and Copilot's API.
+// Production server: serves the built app (dist/) and Kompa's API.
 // Usage: npm run build && npm start   (reads the AI settings — AI_PROVIDER, AI_API_KEY… — from the environment or .env)
 
 import { createServer } from 'node:http';
@@ -60,7 +60,7 @@ const SECURITY = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'DENY',
-  'Permissions-Policy': 'camera=(), geolocation=(), microphone=(self)', // microphone: dictation to Copilot
+  'Permissions-Policy': 'camera=(), geolocation=(), microphone=(self)', // microphone: dictation to Kompa
   'Strict-Transport-Security': 'max-age=31536000',
 };
 
@@ -167,7 +167,7 @@ const server = createServer(async (req, res) => {
   }
 }).listen(PORT, () => {
   const ai = copilotProvider();
-  console.log(`COP-PILOT sur http://localhost:${PORT} — Copilot IA ${ai ? `activé (${ai.label}, ${ai.model})` : 'désactivé (voir AI_PROVIDER / AI_API_KEY dans .env.example)'}`);
+  console.log(`Kompa sur http://localhost:${PORT} — Kompa IA ${ai ? `activé (${ai.label}, ${ai.model})` : 'désactivé (voir AI_PROVIDER / AI_API_KEY dans .env.example)'}`);
 });
 
 process.on('unhandledRejection', e => console.error('[serveur] promesse non gérée', e));

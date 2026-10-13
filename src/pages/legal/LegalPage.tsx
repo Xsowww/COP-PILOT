@@ -19,7 +19,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Éditeur du site',
         body: [
-          'COP-PILOT est édité par [À COMPLÉTER : nom et prénom, ou nom de la structure, forme juridique et numéro SIREN le cas échéant].',
+          'Kompa est édité par [À COMPLÉTER : nom et prénom, ou nom de la structure, forme juridique et numéro SIREN le cas échéant].',
           'Adresse : [À COMPLÉTER : adresse postale]. Contact : ' + CONTACT + '.',
           'Directeur de la publication : [À COMPLÉTER : nom].',
         ],
@@ -34,7 +34,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Propriété intellectuelle',
         body: [
-          'Le nom, le logo, le personnage Copilot et l’interface de COP-PILOT sont protégés. Les contenus que tu ajoutes (fichiers, notes, événements) restent ta propriété.',
+          'Le nom Kompa, son logo, son personnage et son interface sont protégés. Les contenus que tu ajoutes (fichiers, notes, événements) restent ta propriété.',
         ],
       },
     ],
@@ -45,7 +45,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'En bref',
         body: [
-          'COP-PILOT collecte seulement ce qu’il faut pour faire fonctionner ton espace de travail. Pas de publicité, pas de revente de données, pas de traceurs publicitaires.',
+          'Kompa collecte seulement ce qu’il faut pour faire fonctionner ton espace de travail. Pas de publicité, pas de revente de données, pas de traceurs publicitaires.',
           'Responsable du traitement : l’éditeur indiqué dans les mentions légales. Contact : ' + CONTACT + '.',
         ],
       },
@@ -65,11 +65,11 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
-        title: 'Copilot et l’intelligence artificielle',
+        title: 'Kompa et l’intelligence artificielle',
         body: [
-          'Quand tu poses une question à Copilot en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : [À COMPLÉTER : Groq Inc., États-Unis, ou le fournisseur choisi].',
-          'Ce transfert hors de l’Union européenne est encadré par [À COMPLÉTER : garanties du fournisseur, par exemple clauses contractuelles types de la Commission européenne]. Le mode simple de Copilot fonctionne sans rien envoyer.',
-          'N’envoie pas à Copilot d’informations sensibles (santé, données d’autres personnes…).',
+          'Quand tu poses une question à Kompa en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : [À COMPLÉTER : Groq Inc., États-Unis, ou le fournisseur choisi].',
+          'Ce transfert hors de l’Union européenne est encadré par [À COMPLÉTER : garanties du fournisseur, par exemple clauses contractuelles types de la Commission européenne]. Le mode simple de Kompa fonctionne sans rien envoyer.',
+          'N’envoie pas à Kompa d’informations sensibles (santé, données d’autres personnes…).',
         ],
       },
       {
@@ -88,7 +88,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Stockage sur ton appareil',
         body: [
-          'COP-PILOT garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement. La déconnexion efface cette copie.',
+          'Kompa garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement. La déconnexion efface cette copie.',
         ],
       },
       {
@@ -107,7 +107,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Le service',
         body: [
-          'COP-PILOT est un espace de travail pour étudiants : Drive, calendrier, notes, tâches, groupes et l’assistant Copilot. Il est proposé gratuitement, en l’état, et peut évoluer.',
+          'Kompa est un espace de travail pour étudiants : Drive, calendrier, notes, tâches, groupes, et l’ami Kompa qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.',
           'En créant un compte, tu acceptes ces conditions et la politique de confidentialité.',
         ],
       },
@@ -115,7 +115,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Ton compte',
         body: [
           'Tu es responsable de ton mot de passe et de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.',
-          'Limites actuelles : 50 Mo par fichier, [À COMPLÉTER : espace de stockage par compte], un nombre limité de questions par jour à Copilot en mode intelligent.',
+          'Limites actuelles : 50 Mo par fichier, [À COMPLÉTER : espace de stockage par compte], un nombre limité de questions par jour à Kompa en mode intelligent.',
         ],
       },
       {
@@ -127,9 +127,9 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
-        title: 'Copilot',
+        title: 'L’ami Kompa',
         body: [
-          'Copilot peut se tromper. Vérifie ce qu’il te dit, surtout pour tes cours, tes dates d’examen et tes rendus. Il te demande toujours de confirmer avant de supprimer quelque chose.',
+          'Kompa peut se tromper. Vérifie ce qu’il te dit, surtout pour tes cours, tes dates d’examen et tes rendus. Il te demande toujours de confirmer avant de supprimer quelque chose.',
         ],
       },
       {

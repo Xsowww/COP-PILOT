@@ -1,4 +1,4 @@
-// Text inside PDF and Word files, read in the browser (Drive search and Copilot).
+// Text inside PDF and Word files, read in the browser (Drive search and Kompa).
 // pdf.js and mammoth are heavy: downloaded the first time a document is read.
 
 // Only the worker's URL (a string): the worker itself is downloaded when a PDF is read.

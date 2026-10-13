@@ -1,6 +1,6 @@
-# COP-PILOT
+# Kompa
 
-Hub de productivité pour étudiants : **Drive**, **Calendrier** et **Notes** réunis dans une seule appli, avec **Copilot**, un petit robot qui se cache sur le bord de l'écran et aide l'étudiant à s'organiser.
+L’espace de travail des étudiants : **Drive**, **Calendrier**, **Notes** et tâches réunis dans une seule appli, avec Kompa, un petit compagnon IA qui se cache sur le bord de l'écran et aide l'étudiant à s'organiser.
 
 ## Démarrer
 

@@ -53,7 +53,7 @@ export default function App() {
   if (!ready)
     return (
       <div className="flex min-h-dvh items-center justify-center bg-paper" role="status" aria-label="Chargement">
-        <span className="animate-pulse text-[15px] font-semibold tracking-tight text-stone-400">cop·pilot</span>
+        <span className="animate-pulse text-[15px] font-semibold tracking-tight text-stone-400">kompa</span>
       </div>
     );
 

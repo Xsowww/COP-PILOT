@@ -54,7 +54,7 @@ export default function NotesPage() {
 
   const openNote = (id: string | null) => setParams(id ? { note: id } : {});
 
-  // Links like /notes?dossier=… (from Copilot or search) reveal that folder.
+  // Links like /notes?dossier=… (from Kompa or search) reveal that folder.
   useEffect(() => {
     if (!folderParam) return;
     setFocusFolder(folderParam);

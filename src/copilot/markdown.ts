@@ -1,4 +1,4 @@
-// A tiny Markdown reader for Copilot's answers: bold, italics, inline code, code blocks,
+// A tiny Markdown reader for Kompa's answers: bold, italics, inline code, code blocks,
 // bullet / numbered lists, quotes, headings and line breaks. It produces plain data that
 // Markdown.tsx turns into React elements — no HTML string is ever injected in the page.
 

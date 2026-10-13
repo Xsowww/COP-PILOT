@@ -48,7 +48,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
     const all = [...events, ...useCalendar.getState().trash];
     const known = new Set(all.map(e => e.externalId).filter(Boolean));
     const ids = new Set(all.map(e => e.id));
-    // Also recognise events exported from COP-PILOT itself (UID "<id>@cop-pilot").
+    // Also recognise events exported from Kompa itself (UID "<id>@cop-pilot").
     const dup = (e: IcsEvent) => known.has(e.externalId) || ids.has(e.externalId.replace(/@cop-pilot(_\d{8})?$/, ''));
     const fresh = parsed.filter(e => !dup(e));
     const todo = fresh.filter(e => !skipPast || e.date >= today);

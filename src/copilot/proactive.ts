@@ -1,4 +1,4 @@
-// Copilot's initiative: he watches what happens in the app and, from time to time,
+// Kompa's initiative: he watches what happens in the app and, from time to time,
 // leans out of the screen edge to react or to suggest something useful.
 
 import { addDays } from 'date-fns';
@@ -64,7 +64,7 @@ async function nudge(n: Nudge) {
       if (ai) text = ai;
     }
     useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy') });
-    notify('Copilot', n.kind ? text.split('\n')[0] : text);
+    notify('Kompa', n.kind ? text.split('\n')[0] : text);
   } finally {
     busy = false;
   }
@@ -84,7 +84,7 @@ const examOffers = (e: CalendarEvent): CopilotOffer[] =>
 // ── Reactions to what the student does ──────────────────────────────────────
 
 function onEventAdded(e: CalendarEvent) {
-  if (e.title.startsWith('Révision · ')) return; // created by Copilot himself
+  if (e.title.startsWith('Révision · ')) return; // created by Kompa himself
   if (e.category === 'examen') {
     const d = daysUntil(e.date);
     void nudge({

@@ -1,4 +1,4 @@
-// Reads the text of a Drive file so Copilot can summarise it, make a revision sheet or a quiz.
+// Reads the text of a Drive file so Kompa can summarise it, make a revision sheet or a quiz.
 // Loaded on demand: pdf.js and mammoth are only downloaded the first time a file is read.
 
 import { useDrive, categoryOf } from '../store/drive';

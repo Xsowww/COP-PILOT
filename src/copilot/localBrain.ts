@@ -271,7 +271,7 @@ export function localReply(raw: string): BotReply {
   const more = moreCommands(input, q);
   if (more) return more;
 
-  // ── Answer to Copilot's last proposal ─────────────────────────────────────
+  // ── Answer to Kompa's last proposal ─────────────────────────────────────
   const offer = useCopilot.getState().pendingOffer;
   if (offer && /^(oui|ouais|ouep|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|let'?s go|avec plaisir|je veux bien|volontiers|bonne idee)\b/.test(q)) {
     return runOffer(offer);
@@ -350,7 +350,7 @@ export function localReply(raw: string): BotReply {
       folder = unquote(inFolder[1]);
       rest = rest.slice(0, inFolder.index);
     }
-    const title = unquote(rest) || 'Note de Copilot';
+    const title = unquote(rest) || 'Note de Kompa';
     const note = createNote(title, content, folder);
     return {
       text: `C'est fait. J'ai créé la note « ${note.title} »${folder ? ` dans le dossier « ${folder} »` : ''}.${content ? '' : ' Tu peux écrire dedans maintenant !'}`,
@@ -469,7 +469,7 @@ export function localReply(raw: string): BotReply {
   }
   if (/(merci|super|genial|top|parfait|nickel)/.test(q)) return { text: pick(['Avec plaisir 😎', 'Toujours là pour toi !', 'De rien, je retourne me cacher derrière l\'écran 👀']) };
   if (/(qui es[- ]tu|t'es qui|c'est quoi ton nom|presente)/.test(q)) {
-    return { text: "Moi c'est Copilot 🤖 Je vis sur le bord de ton écran. Je peux chercher tes fichiers, analyser ton calendrier, créer des notes, des dossiers et des événements. Demande-moi !" };
+    return { text: "Moi c'est Kompa 🤖 Je vis sur le bord de ton écran. Je peux chercher tes fichiers, analyser ton calendrier, créer des notes, des dossiers et des événements. Demande-moi !" };
   }
   if (/(fatigue|stress|motivation|demotive|j'en peux plus|flemme)/.test(q)) {
     return { text: pick(["Respire 🌬️ Une chose à la fois. Choisis LA tâche la plus petite et fais-la maintenant, le reste suivra.", 'Méthode Pomodoro : 25 min de focus, 5 min de pause. Tu veux que je te bloque un créneau de révision dans le calendrier ?']) };

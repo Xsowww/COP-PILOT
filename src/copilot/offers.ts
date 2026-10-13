@@ -1,4 +1,4 @@
-// Executes the buttons Copilot offers in its remarks ("Planifier mes révisions", …).
+// Executes the buttons Kompa offers in its remarks ("Planifier mes révisions", …).
 
 import { useCopilot, type CopilotOffer, type CopilotLink } from '../store/copilot';
 import { useCalendar } from '../store/calendar';
