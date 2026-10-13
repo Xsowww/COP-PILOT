@@ -165,6 +165,9 @@ async function nextMfaStep(): Promise<MfaStep> {
   return 'setup'; // every online account is protected by an authenticator app
 }
 
+/** True while this tab itself is signing in (its own SIGNED_IN event must not reload it). */
+let ownSignIn = false;
+
 export const useAuth = create<AuthState>((set, get) => ({
   user: supabase ? null : restoreLocalSession(),
   mfaStep: null,
@@ -189,10 +192,26 @@ export const useAuth = create<AuthState>((set, get) => ({
       return false;
     };
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') void supabase!.auth.getSession().then(({ data: d }) => switched(d.session?.user.id));
+      if (document.visibilityState !== 'visible') return;
+      void supabase!.auth.getSession().then(async ({ data: d }) => {
+        if (switched(d.session?.user.id)) return;
+        if (d.session && get().mfaStep && !(await nextMfaStep())) location.reload();
+        else if (d.session && !get().user) location.reload();
+      });
     });
     supabase.auth.onAuthStateChange((event, session) => {
       if (session && switched(session.user.id)) return;
+      // Code entered in another tab while this one waits on the security-code screen.
+      if (session && get().mfaStep && !ownSignIn) {
+        void nextMfaStep().then(step => {
+          if (!step && get().mfaStep) location.reload();
+        });
+      }
+      // Signed in from another tab while this one shows the login page: adopt that session.
+      if (event === 'SIGNED_IN' && session && !get().user && !ownSignIn) {
+        location.reload();
+        return;
+      }
       // Session expired or signed out in another tab.
       if (event === 'SIGNED_OUT' && get().user) {
         setStorageUser(null);
@@ -205,9 +224,10 @@ export const useAuth = create<AuthState>((set, get) => ({
   async register(name, email, password) {
     const mail = email.trim().toLowerCase();
     if (supabase) {
+      ownSignIn = true;
       const data = await cloud(
         supabase.auth.signUp({ email: mail, password, options: { data: { name: name.trim() }, emailRedirectTo: `${location.origin}/connexion` } }),
-      );
+      ).finally(() => setTimeout(() => (ownSignIn = false), 1500));
       if (!data.session || !data.user) return null; // confirmation e-mail sent
       const user = fromSupabase(data.user);
       set({ user, mfaStep: 'setup' }); // the account is finished once the phone is paired
@@ -227,7 +247,8 @@ export const useAuth = create<AuthState>((set, get) => ({
   async login(email, password) {
     const mail = email.trim().toLowerCase();
     if (supabase) {
-      const data = await cloud(supabase.auth.signInWithPassword({ email: mail, password }));
+      ownSignIn = true;
+      const data = await cloud(supabase.auth.signInWithPassword({ email: mail, password })).finally(() => setTimeout(() => (ownSignIn = false), 1500));
       const user = fromSupabase(data.user!);
       const mfaStep = await nextMfaStep();
       if (!mfaStep) setStorageUser(user.id);
@@ -351,7 +372,10 @@ export const useAuth = create<AuthState>((set, get) => ({
       id = data?.totp[0]?.id;
     }
     if (!id) throw new Error("Aucun appareil n'est associé à ce compte.");
-    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: id, code: code.replace(/\s/g, '') });
+    ownSignIn = true;
+    const { error } = await supabase.auth.mfa
+      .challengeAndVerify({ factorId: id, code: code.replace(/\s/g, '') })
+      .finally(() => setTimeout(() => (ownSignIn = false), 1500));
     if (error) {
       const msg = error.message.toLowerCase();
       throw new Error(msg.includes('ip address') ? 'Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.' : msg.includes('expired') ? 'Ce code a expiré, tape le nouveau code affiché.' : msg.includes('rate') || msg.includes('too many') ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Vérifie que tu tapes le code COP-PILOT affiché en ce moment.');
