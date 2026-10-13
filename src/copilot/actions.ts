@@ -2,8 +2,9 @@
 // command engine and the Claude-powered mode (as tools).
 
 import { addDays } from 'date-fns';
-import { useDrive, pathOf, childrenOf, categoryOf, trashRoots, FOLDER_COLORS, type DriveItem } from '../store/drive';
-import { useNotes, notesTrashRoots, type Note, type NoteFolder } from '../store/notes';
+import { useDrive, pathOf, childrenOf, categoryOf, FOLDER_COLORS, type DriveItem } from '../store/drive';
+import { collectTrash, restoreTrash } from '../lib/trash';
+import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, CATEGORIES, guessCategory, sortEvents, type EventCategory } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useFocus, focusLeft } from '../store/focus';
@@ -442,20 +443,17 @@ export function trashItems(refs: string[]) {
 
 const deletedLabel = (iso?: string) => (iso ? fmt(new Date(iso), "d MMM 'à' HH:mm") : '');
 
+const TRASH_LABEL = { note: 'note', noteFolder: 'dossier de notes', event: 'événement' } as const;
+
+/** Everything in the trash (Notes, Drive and Calendar), newest first. */
 export function listTrash() {
-  const drive = trashRoots(useDrive.getState().trash).map(i => ({
-    id: i.id,
-    name: i.name,
-    type: i.kind === 'folder' ? 'dossier du Drive' : 'fichier du Drive',
-    deleted: deletedLabel(i.deletedAt),
+  return collectTrash().map(e => ({
+    id: e.id,
+    name: e.name,
+    type: e.kind === 'drive' ? (e.item.kind === 'folder' ? 'dossier du Drive' : 'fichier du Drive') : TRASH_LABEL[e.kind],
+    from: e.place,
+    deleted: deletedLabel(e.deletedAt),
   }));
-  const { trashFolders, trashNotes } = useNotes.getState();
-  const roots = notesTrashRoots(trashFolders, trashNotes);
-  return [
-    ...drive,
-    ...roots.folders.map(f => ({ id: f.id, name: f.name, type: 'dossier de notes', deleted: deletedLabel(f.deletedAt) })),
-    ...roots.notes.map(n => ({ id: n.id, name: n.title, type: 'note', deleted: deletedLabel(n.deletedAt) })),
-  ];
 }
 
 /** Finds something in the trash by id or by name. */
@@ -468,17 +466,18 @@ export function findInTrash(ref: string) {
 export function restoreFromTrash(refs: string[]) {
   const restored: string[] = [];
   const missing: string[] = [];
+  const links: CopilotLink[] = [];
   for (const ref of refs) {
     const t = findInTrash(ref);
     if (!t) {
       missing.push(ref);
       continue;
     }
-    if (t.type.endsWith('du Drive')) useDrive.getState().restore([t.id]);
-    else useNotes.getState().restore([t.id]);
+    const r = restoreTrash([t.id]);
     restored.push(t.name);
+    if (r.href) links.push({ label: t.name, to: r.href });
   }
-  return { restored, missing };
+  return { restored, missing, links };
 }
 
 /** Notes whose text contains `query`, with a short excerpt around each match. */

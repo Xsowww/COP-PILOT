@@ -292,6 +292,6 @@ export const TOOLS = [
   {
     name: 'open_page',
     description: "Ouvre une page de l'application pour l'étudiant.",
-    input_schema: { type: 'object', properties: { path: { type: 'string', enum: ['/', '/drive', '/calendrier', '/notes', '/taches', '/groupes', '/profil'] } }, required: ['path'] },
+    input_schema: { type: 'object', properties: { path: { type: 'string', enum: ['/', '/drive', '/calendrier', '/notes', '/taches', '/groupes', '/corbeille', '/profil'] } }, required: ['path'] },
   },
 ];

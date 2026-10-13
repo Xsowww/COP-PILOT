@@ -89,7 +89,7 @@ export async function wipeUserData() {
   await Promise.all(files.map(f => blobStore.delete(blobKey(f.id)).catch(() => undefined)));
   useDrive.setState({ items: [], trash: [], clipboard: null });
   useNotes.setState({ notes: [], folders: [], trashNotes: [], trashFolders: [] });
-  useCalendar.setState({ events: [] });
+  useCalendar.setState({ events: [], trash: [] });
   useTodos.setState({ todos: [] });
   useFocusLog.setState({ sessions: [] });
 }

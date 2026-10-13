@@ -20,7 +20,7 @@ export async function loadUserData() {
   // Detach storage while clearing memory, otherwise the reset would overwrite the saved data.
   setStorageUser(null);
   useDrive.setState({ items: [], trash: [], clipboard: null });
-  useCalendar.setState({ events: [] });
+  useCalendar.setState({ events: [], trash: [] });
   useNotes.setState({ folders: [], notes: [], trashFolders: [], trashNotes: [] });
   useTodos.setState({ todos: [] });
   useFocusLog.setState({ sessions: [] });
@@ -61,6 +61,7 @@ export async function loadUserData() {
   // Trash: what has been there for more than 30 days goes for good.
   useDrive.getState().purgeExpired();
   useNotes.getState().purgeExpired();
+  useCalendar.getState().purgeExpired();
   applyAppearance(useSettings.getState());
 }
 

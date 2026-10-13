@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { trashEvent } from '../../lib/trash';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
 import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown } from 'lucide-react';
 import { useCalendar, CATEGORIES, guessCategory, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
@@ -41,7 +42,7 @@ interface EventItemProps {
 }
 
 function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
-  const { toggleDone, remove } = useCalendar.getState();
+  const { toggleDone } = useCalendar.getState();
   const c = CATEGORIES[ev.category];
   return (
     <div className="group enter flex items-stretch gap-4">
@@ -83,10 +84,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           <button
             className="icon-btn hover:text-red-600"
             title="Supprimer" aria-label="Supprimer"
-            onClick={() => {
-              remove(ev.id);
-              toast('Événement supprimé');
-            }}
+            onClick={() => trashEvent(ev.id)}
           >
             <Trash2 size={14} />
           </button>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users } from 'lucide-react';
+import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
 import { startProactive } from '../copilot/proactive';
@@ -10,6 +10,7 @@ import Avatar from '../components/Avatar';
 import FocusTimer from '../components/FocusTimer';
 import { cx } from '../lib/utils';
 import { checkIsAdmin, cloudEnabled } from '../lib/supabase';
+import { useTrashCount } from '../lib/trash';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
 
@@ -121,6 +122,8 @@ function GlobalSearch() {
 export default function AppShell() {
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
+  const trashCount = useTrashCount();
+  const trashLabel = trashCount ? `Corbeille, ${trashCount} élément${trashCount > 1 ? 's' : ''}` : 'Corbeille';
 
   useEffect(() => registerNavigate(navigate), [navigate]);
   useEffect(() => startProactive(), []);
@@ -182,6 +185,20 @@ export default function AppShell() {
             </NavLink>
           )}
         </nav>
+        <NavLink
+          to="/corbeille"
+          aria-label={trashLabel}
+          className={({ isActive }) =>
+            cx(
+              'mb-2 mt-2 flex h-8 items-center gap-2.5 rounded-md border px-2 text-[13px] transition-colors',
+              isActive ? 'border-stone-200 bg-surface font-medium text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
+            )
+          }
+        >
+          <Trash2 size={16} strokeWidth={1.9} />
+          <span className="flex-1">Corbeille</span>
+          {trashCount > 0 && <span className="tabular text-[11px] text-stone-500">{trashCount}</span>}
+        </NavLink>
         <FocusTimer />
         <NavLink
           to="/profil"
@@ -205,7 +222,11 @@ export default function AppShell() {
           <div className="hidden flex-1 md:block">
             <GlobalSearch />
           </div>
-          <NavLink to="/profil" className="ml-auto rounded-full md:hidden" title="Profil et réglages" aria-label="Profil et réglages">
+          <NavLink to="/corbeille" className="icon-btn relative ml-auto md:hidden" title="Corbeille" aria-label={trashLabel}>
+            <Trash2 size={18} strokeWidth={1.9} />
+            {trashCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-paper" aria-hidden />}
+          </NavLink>
+          <NavLink to="/profil" className="rounded-full md:hidden" title="Profil et réglages" aria-label="Profil et réglages">
             <Avatar size={30} />
           </NavLink>
         </header>
