@@ -8,6 +8,21 @@ export function focusables(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => el.offsetParent !== null || el === document.activeElement);
 }
 
+// Last element focused outside a modal or a menu: where the focus goes back when they close
+// (a dialog's own field may already have taken the focus by the time the dialog's effect runs).
+let lastFocus: HTMLElement | null = null;
+if (typeof document !== 'undefined') {
+  document.addEventListener(
+    'focusin',
+    e => {
+      const t = e.target as HTMLElement;
+      if (!t.closest?.('[aria-modal="true"], [role="menu"]')) lastFocus = t;
+    },
+    true,
+  );
+}
+export const focusBeforeOverlay = () => (lastFocus?.isConnected ? lastFocus : null);
+
 /** Keep Tab / Shift+Tab inside `root` (modal dialogs). */
 export function trapTab(e: KeyboardEvent, root: HTMLElement) {
   if (e.key !== 'Tab') return;

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useUi, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
-import { arrowNav, focusables, trapTab } from '../lib/a11y';
+import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
 
 function ToastRow({ t }: { t: Toast }) {
   const dismiss = useUi(s => s.dismissToast);
@@ -54,7 +54,7 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
   useEffect(() => {
     if (!open) return;
     const el = ref.current!;
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = focusBeforeOverlay();
     const heading = el.querySelector('h1, h2, h3');
     if (heading && !label) {
       heading.id ||= headingId;
@@ -157,29 +157,34 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
 
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+
   useEffect(() => {
     const el = ref.current;
     if (el) {
       const r = el.getBoundingClientRect();
       setPos({ x: Math.min(x, window.innerWidth - r.width - 8), y: Math.min(y, window.innerHeight - r.height - 8) });
     }
-    const close = () => onClose();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const close = () => closeRef.current();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      closeRef.current();
+    };
     window.addEventListener('mousedown', close);
     window.addEventListener('blur', close);
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
     return () => {
       window.removeEventListener('mousedown', close);
       window.removeEventListener('blur', close);
-      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keydown', onKey, true);
     };
-  }, [x, y, onClose]);
+  }, [x, y]);
 
   // Keyboard: focus the first entry, arrows to move, Tab closes, focus goes back to the trigger.
-  const closeRef = useRef(onClose);
-  useEffect(() => {
-    closeRef.current = onClose;
-  });
   useEffect(() => {
     const el = ref.current!;
     const previous = document.activeElement as HTMLElement | null;

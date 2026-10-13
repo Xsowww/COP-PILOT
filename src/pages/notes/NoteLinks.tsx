@@ -64,7 +64,7 @@ export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }
               {!isFile && <span className="tabular shrink-0 text-stone-500">{shortDate(r.event.date)}</span>}
             </button>
             {!readOnly && (
-              <button className="rounded p-0.5 text-stone-300 hover:bg-stone-200/70 hover:text-ink" title="Retirer le lien" aria-label="Retirer le lien" onClick={() => unlink(r.link)}>
+              <button className="rounded p-0.5 text-stone-400 hover:bg-stone-200/70 hover:text-ink" title="Retirer le lien" aria-label="Retirer le lien" onClick={() => unlink(r.link)}>
                 <X size={12} />
               </button>
             )}

@@ -384,7 +384,7 @@ export default function CalendarPage() {
                         className={cx(
                           'flex min-h-16 flex-col items-stretch p-1 text-left transition-colors md:min-h-[84px]',
                           dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'bg-stone-50' : 'bg-surface hover:bg-stone-50',
-                          !isSameMonth(d, selDate) && 'text-stone-300',
+                          !isSameMonth(d, selDate) && 'text-stone-500',
                         )}
                       >
                         <span

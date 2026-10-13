@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Download, X, Loader2 } from 'lucide-react';
 import { categoryOf, getFileUrl, type DriveItem } from '../../store/drive';
 import { downloadItem } from './download';
 import { formatBytes, relativeTime } from '../../lib/utils';
 import FileIcon from '../../components/FileIcon';
+import { trapTab } from '../../lib/a11y';
 import { docxToHtml, pptxSlides, revokeSlides, type Slide } from './officePreview';
 
 // Word documents rendered as a clean page (mammoth's HTML carries no styling of its own).
@@ -69,20 +70,34 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Modal for keyboard users too: focus inside, Tab kept inside, focus back to the file afterwards.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = rootRef.current!;
+    const previous = document.activeElement as HTMLElement | null;
+    el.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    const onTab = (e: KeyboardEvent) => trapTab(e, el);
+    document.addEventListener('keydown', onTab);
+    return () => {
+      document.removeEventListener('keydown', onTab);
+      if (previous?.isConnected) previous.focus();
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-[#0c0a09]/85" onMouseDown={onClose}>
+    <div ref={rootRef} role="dialog" aria-modal="true" aria-label={`Aperçu de ${item.name}`} className="fixed inset-0 z-[60] flex flex-col bg-[#0c0a09]/85" onMouseDown={onClose}>
       <header className="flex items-center gap-3 px-5 py-3 text-white" onMouseDown={e => e.stopPropagation()}>
         <FileIcon category={cat} size={30} ext={item.name.split('.').pop()} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium">{item.name}</p>
-          <p className="text-[12px] text-white/50">
+          <p className="text-[12px] text-white/65">
             {formatBytes(item.size)} · modifié {relativeTime(item.updatedAt)}
           </p>
         </div>
         <button onClick={() => downloadItem(item)} className="btn h-8 bg-white/10 text-white hover:bg-white/20">
           <Download size={15} /> Télécharger
         </button>
-        <button onClick={onClose} className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white" title="Fermer (Échap)" aria-label="Fermer (Échap)">
+        <button data-autofocus onClick={onClose} className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white" title="Fermer (Échap)" aria-label="Fermer (Échap)">
           <X size={18} />
         </button>
       </header>

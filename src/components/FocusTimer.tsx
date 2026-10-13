@@ -123,10 +123,10 @@ export default function FocusTimer() {
           {focus.phase === 'focus' ? 'Concentration' : 'Pause'}
           {paused && ' · en pause'}
         </span>
-        <span className="tabular ml-auto font-mono text-[15px] font-medium">{mmss(left)}</span>
+        <span role="timer" aria-label={`Temps restant : ${mmss(left)}`} className="tabular ml-auto font-mono text-[15px] font-medium">{mmss(left)}</span>
       </div>
       {focus.phase === 'focus' && focus.label && <p className="mt-0.5 truncate text-[12px] font-medium text-ink">{focus.label}</p>}
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface">
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface" role="progressbar" aria-label="Progression de la session" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(100 - (left / total) * 100)}>
         <div className={cx('h-full rounded-full', focus.phase === 'focus' ? 'bg-brand-500' : 'bg-emerald-500')} style={{ width: `${100 - (left / total) * 100}%` }} />
       </div>
       <div className="mt-2 flex gap-1">

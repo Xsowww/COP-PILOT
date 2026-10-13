@@ -190,12 +190,13 @@ export default function Copilot() {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPose('hidden');
     window.addEventListener('keydown', onKey);
     const panel = panelRef.current;
+    const character = charRef.current;
     return () => {
       clearTimeout(t);
       window.removeEventListener('keydown', onKey);
       // Closing: give the focus back to the character rather than losing it.
       const now = document.activeElement;
-      if (!now || now === document.body || panel?.contains(now)) charRef.current?.focus();
+      if (!now || now === document.body || panel?.contains(now)) character?.focus();
     };
   }, [pose, setPose]);
 
