@@ -4,6 +4,7 @@ import { FileText, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
 import { CATEGORIES, guessCategory, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { trashEvent } from '../../lib/trash';
 import { cx } from '../../lib/utils';
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
 }
 
 export default function EventForm({ event, date, start: initialStart, end: initialEnd, onClose }: Props) {
-  const { add, update, remove } = useCalendar.getState();
+  const { add, update } = useCalendar.getState();
   const [title, setTitle] = useState(event?.title ?? '');
   const [day, setDay] = useState(event?.date ?? date);
   const [start, setStart] = useState(event?.start ?? initialStart ?? '');
@@ -100,7 +101,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               type="button"
               className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={() => {
-                remove(event.id);
+                trashEvent(event.id);
                 onClose();
               }}
             >

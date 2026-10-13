@@ -253,6 +253,7 @@ grant execute on function public.admin_stats() to authenticated;
 alter table public.drive_items add column if not exists deleted_at timestamptz;
 alter table public.notes add column if not exists deleted_at timestamptz;
 alter table public.note_folders add column if not exists deleted_at timestamptz;
+alter table public.events add column if not exists deleted_at timestamptz;
 
 -- ── Drive : couleur de dossier et étiquettes ───────────────────────────────
 alter table public.drive_items add column if not exists color text;

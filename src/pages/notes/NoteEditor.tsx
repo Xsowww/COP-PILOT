@@ -102,7 +102,7 @@ function Toolbar({ editor }: { editor: Editor }) {
   );
 }
 
-export default function NoteEditor({ note, readOnly = false }: { note: Note; readOnly?: boolean }) {
+export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 md:px-12' }: { note: Note; readOnly?: boolean; inset?: string }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const editor = useEditor({
     editable: !readOnly,
@@ -166,7 +166,7 @@ export default function NoteEditor({ note, readOnly = false }: { note: Note; rea
           <Toolbar editor={editor} />
         </div>
       )}
-      <div className={cx('min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-12', !readOnly && 'cursor-text')} onClick={() => !readOnly && !editor.isFocused && editor.commands.focus('end')}>
+      <div className={cx('min-h-0 flex-1 overflow-y-auto', inset, !readOnly && 'cursor-text')} onClick={() => !readOnly && !editor.isFocused && editor.commands.focus('end')}>
         <EditorContent editor={editor} onClick={e => e.stopPropagation()} />
       </div>
     </div>

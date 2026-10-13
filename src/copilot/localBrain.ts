@@ -138,13 +138,14 @@ function moreCommands(input: string, q: string): BotReply | null {
   // ── Trash ──
   if (/corbeille/.test(q) && /(qu'y a|qu'est-ce qu|montre|liste|contenu|dans la|ouvre|voir)/.test(q) && !/(mets|deplace|envoie|jette)/.test(q)) {
     const list = listTrash();
-    if (!list.length) return { text: 'La corbeille est vide.' };
-    return { text: `Dans la corbeille (${list.length}) :\n${list.slice(0, 12).map(t => `- ${t.name} (${t.type}, supprimé le ${t.deleted})`).join('\n')}\nDis-moi « restaure … » pour récupérer quelque chose.` };
+    const links = [{ label: 'Ouvrir la corbeille', to: '/corbeille' }];
+    if (!list.length) return { text: 'La corbeille est vide.', links };
+    return { text: `Dans la corbeille (${list.length}) :\n${list.slice(0, 12).map(t => `- ${t.name} (${t.type}, supprimé le ${t.deleted})`).join('\n')}\nDis-moi « restaure … » pour récupérer quelque chose.`, links };
   }
   g = grab(/^(?:restaure|recupere|remets|ramene)\s+(.+?)(?:\s+(?:de|depuis) la corbeille)?$/d);
   if (g && findInTrash(g(1))) {
     const res = restoreFromTrash([g(1)]);
-    return { text: `« ${res.restored.join(', ')} » est de retour à sa place.` };
+    return { text: `« ${res.restored.join(', ')} » est de retour à sa place.`, links: res.links.map(l => ({ ...l, label: 'Ouvrir' })) };
   }
   g = grab(/^(?:supprime|efface|jette|mets|envoie|deplace)\s+(?:le fichier\s+|le dossier\s+|la note\s+|le document\s+)?(.+?)(?:\s+(?:a|dans) la corbeille)?$/d);
   if (g && /^(supprime|efface|jette)|corbeille/.test(q)) {
@@ -154,9 +155,9 @@ function moreCommands(input: string, q: string): BotReply | null {
     if (!hit) return { text: `Je ne trouve rien qui s'appelle « ${term} ».` };
     if (hit.type === 'événement') {
       const ev = useCalendar.getState().events.find(e => e.id === hit.id)!;
-      return ask(`Je supprime définitivement « ${describeEvent(ev)} » du calendrier ?`, () => {
+      return ask(`Je mets « ${describeEvent(ev)} » à la corbeille ? Tu pourras le récupérer pendant 30 jours.`, () => {
         deleteEvent(ev.id);
-        return { text: `« ${ev.title} » supprimé du calendrier.` };
+        return { text: `« ${ev.title} » est dans la corbeille. Dis « restaure ${ev.title} » si tu changes d'avis.` };
       });
     }
     return ask(`Je mets « ${hit.title} » (${hit.type}, ${hit.where}) à la corbeille ? Tu pourras le récupérer pendant 30 jours.`, () => {

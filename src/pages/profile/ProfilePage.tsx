@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { addDays } from 'date-fns';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowDown, LogOut, Trash2, ChevronRight,
-  Timer, HardDrive, Smartphone,
+  Timer, HardDrive, Smartphone, Keyboard,
 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness, type PersonaKey } from '../../store/settings';
@@ -32,6 +32,7 @@ const TABS = [
   { key: 'etudes', label: 'Études', icon: GraduationCap },
   { key: 'notifications', label: 'Notifications', icon: Bell },
   { key: 'donnees', label: 'Données', icon: Database },
+  { key: 'raccourcis', label: 'Raccourcis', icon: Keyboard },
   { key: 'compte', label: 'Compte', icon: ShieldCheck },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
@@ -394,15 +395,6 @@ function CopilotTab() {
         </Row>
       </Section>
 
-      <Section title="Planification des révisions" description="Quand Copilot prépare tes révisions avant un examen.">
-        <Row label="Nombre de séances">
-          <Stepper value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
-        </Row>
-        <Row label="Heure des séances" hint="Chaque séance dure 1 h 30.">
-          <input type="time" className="field w-32" aria-label="Heure des séances" value={s.revisionTime} onChange={e => e.target.value && s.set({ revisionTime: e.target.value })} />
-        </Row>
-      </Section>
-
       <Section title="Mémoire">
         <Row label="Conversation" hint={`${messages} message${messages > 1 ? 's' : ''} enregistré${messages > 1 ? 's' : ''}.`}>
           <button
@@ -432,38 +424,6 @@ function CopilotTab() {
 }
 
 // ── Studies ─────────────────────────────────────────────────────────────────
-
-const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
-  {
-    group: 'Partout',
-    keys: [
-      ['Ctrl K', 'Rechercher'],
-      ['Échap', 'Fermer, désélectionner'],
-      ['Maj F10', 'Menu contextuel'],
-    ],
-  },
-  {
-    group: 'Drive',
-    keys: [
-      ['Entrée', 'Ouvrir'],
-      ['Ctrl C · Ctrl X · Ctrl V', 'Copier, couper, coller'],
-      ['Ctrl D', 'Dupliquer'],
-      ['F2', 'Renommer'],
-      ['Suppr', 'Mettre à la corbeille'],
-      ['Ctrl A', 'Tout sélectionner'],
-      ['Retour arrière', 'Dossier parent'],
-    ],
-  },
-  {
-    group: 'Souris',
-    keys: [
-      ['Double-clic', 'Ouvrir un fichier ou un dossier'],
-      ['Clic droit', 'Plus d’options'],
-      ['Glisser', 'Ranger dans un dossier, déplacer un événement'],
-      ['Alt + glisser', 'Copier au lieu de déplacer (Drive)'],
-    ],
-  },
-];
 
 function StudiesTab() {
   const s = useSettings();
@@ -497,15 +457,97 @@ function StudiesTab() {
         </Row>
       </Section>
 
+      <Section title="Planification des révisions" description="Quand Copilot prépare tes révisions avant un examen.">
+        <Row label="Nombre de séances">
+          <Stepper value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
+        </Row>
+        <Row label="Heure des séances" hint="Chaque séance dure 1 h 30.">
+          <input type="time" className="field w-32" aria-label="Heure des séances" value={s.revisionTime} onChange={e => e.target.value && s.set({ revisionTime: e.target.value })} />
+        </Row>
+      </Section>
+    </div>
+  );
+}
+
+// ── Keyboard shortcuts ──────────────────────────────────────────────────────
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+
+const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
+  {
+    group: 'Partout',
+    keys: [
+      ['Ctrl K', 'Rechercher'],
+      ['↑ ↓ · Entrée', 'Choisir un résultat'],
+      ['Échap', 'Fermer, désélectionner'],
+      ['Maj F10', 'Menu contextuel'],
+    ],
+  },
+  {
+    group: 'Drive',
+    keys: [
+      ['Entrée', 'Ouvrir'],
+      ['Espace', 'Sélectionner'],
+      ['Ctrl A', 'Tout sélectionner'],
+      ['Ctrl C · Ctrl X · Ctrl V', 'Copier, couper, coller'],
+      ['Ctrl D', 'Dupliquer'],
+      ['F2', 'Renommer'],
+      ['Suppr', 'Mettre à la corbeille'],
+      ['Retour arrière', 'Dossier parent'],
+    ],
+  },
+  {
+    group: 'Calendrier',
+    keys: [
+      ['← →', 'Jour précédent, suivant'],
+      ['↑ ↓', 'Semaine précédente, suivante'],
+      ['Échap', 'Annuler un déplacement'],
+    ],
+  },
+  {
+    group: 'Notes',
+    keys: [
+      ['Ctrl B · Ctrl I · Ctrl U', 'Gras, italique, souligné'],
+      ['Ctrl Z', 'Annuler la frappe'],
+      ['Entrée', 'Du titre au texte'],
+      ['F2', 'Renommer un dossier'],
+    ],
+  },
+  {
+    group: 'Corbeille',
+    keys: [
+      ['Entrée', 'Aperçu'],
+      ['↑ ↓', 'Élément précédent, suivant'],
+      ['Ctrl A', 'Tout sélectionner'],
+      ['Suppr', 'Supprimer définitivement'],
+    ],
+  },
+  {
+    group: 'Souris',
+    keys: [
+      ['Double-clic', 'Ouvrir un fichier ou un dossier'],
+      ['Clic droit', 'Plus d’options'],
+      ['Ctrl + clic', 'Sélectionner plusieurs éléments'],
+      ['Glisser', 'Ranger dans un dossier, déplacer un événement'],
+      ['Alt + glisser', 'Copier au lieu de déplacer (Drive)'],
+    ],
+  },
+];
+
+const keyLabel = (k: string) => (IS_MAC ? k.replace(/Ctrl /g, '⌘ ').replace(/Alt /g, '⌥ ') : k);
+
+function ShortcutsTab() {
+  return (
+    <div className="space-y-5">
       <Section title="Raccourcis clavier">
         {SHORTCUTS.map(g => (
           <div key={g.group} className="px-5 py-3">
             <h3 className="eyebrow mb-1">{g.group}</h3>
-            <dl className="grid gap-x-6 sm:grid-cols-2">
+            <dl className="grid gap-x-8 sm:grid-cols-2">
               {g.keys.map(([k, d]) => (
-                <div key={k} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                <div key={k + d} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
                   <dt className="text-stone-600">{d}</dt>
-                  <dd className="kbd shrink-0">{k}</dd>
+                  <dd className="kbd shrink-0">{keyLabel(k)}</dd>
                 </div>
               ))}
             </dl>
@@ -776,6 +818,7 @@ export default function ProfilePage() {
             {tab === 'etudes' && <StudiesTab />}
             {tab === 'notifications' && <NotificationsTab />}
             {tab === 'donnees' && <DataTab />}
+            {tab === 'raccourcis' && <ShortcutsTab />}
             {tab === 'compte' && <AccountTab />}
           </div>
         </div>

@@ -146,7 +146,8 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     case 'delete_event': {
       const ev = deleteEvent(str(input.event_id));
       if (!ev) throw new Error('événement introuvable');
-      return { deleted: describeEvent(ev) };
+      links.push({ label: 'Corbeille', to: '/corbeille?type=calendrier' });
+      return { moved_to_trash: describeEvent(ev), note: 'récupérable 30 jours depuis la corbeille' };
     }
     case 'plan_revisions': {
       const exam = findExam(str(input.exam));
@@ -207,12 +208,14 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     }
     case 'list_trash': {
       const list = listTrash();
+      links.push({ label: 'Corbeille', to: '/corbeille' });
       return list.length ? list : { result: 'la corbeille est vide' };
     }
     case 'restore_from_trash': {
       const res = restoreFromTrash(ids(input.ids));
       if (!res.restored.length) throw new Error('rien trouvé dans la corbeille avec ces id');
-      return res;
+      links.push(...res.links);
+      return { restored: res.restored, missing: res.missing };
     }
     case 'list_todos': {
       const list = listTodos(input.include_done === true);
@@ -261,7 +264,7 @@ export const resetClaudeHistory = () => {
   history = [];
 };
 
-const PAGES: Record<string, string> = { '/': 'Accueil', '/drive': 'Drive', '/calendrier': 'Calendrier', '/taches': 'Tâches', '/notes': 'Notes', '/groupes': 'Groupes', '/profil': 'Profil et réglages' };
+const PAGES: Record<string, string> = { '/': 'Accueil', '/drive': 'Drive', '/calendrier': 'Calendrier', '/taches': 'Tâches', '/notes': 'Notes', '/groupes': 'Groupes', '/corbeille': 'Corbeille', '/profil': 'Profil et réglages' };
 
 /** Facts from the app that the AI can't see otherwise, prepended to each user turn. */
 function contextBlock(): string {

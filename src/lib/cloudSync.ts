@@ -27,6 +27,7 @@ const eventToRow = (e: CalendarEvent): Row => ({
   details: e.details ?? null,
   external_id: e.externalId ?? null,
   created_at: e.createdAt,
+  deleted_at: e.deletedAt ?? null,
 });
 const rowToEvent = (r: Row): CalendarEvent => ({
   id: r.id as string,
@@ -39,6 +40,7 @@ const rowToEvent = (r: Row): CalendarEvent => ({
   details: (r.details as string) ?? undefined,
   externalId: (r.external_id as string) ?? undefined,
   createdAt: r.created_at as string,
+  deletedAt: (r.deleted_at as string) ?? undefined,
 });
 
 const folderToRow = (f: NoteFolder): Row => ({ id: f.id, name: f.name, parent_id: f.parentId, created_at: f.createdAt, deleted_at: f.deletedAt ?? null });
@@ -310,7 +312,8 @@ export async function pullAll(userId: string): Promise<CloudProfile> {
     const f = folders.data ?? [];
     const n = notes.data ?? [];
     const i = items.data ?? [];
-    useCalendar.setState({ events: (events.data ?? []).map(rowToEvent) });
+    const ev = events.data ?? [];
+    useCalendar.setState({ events: ev.filter(r => !isTrashed(r)).map(rowToEvent), trash: ev.filter(isTrashed).map(rowToEvent) });
     useNotes.setState({
       folders: f.filter(r => !isTrashed(r)).map(rowToFolder),
       notes: n.filter(r => !isTrashed(r)).map(rowToNote),
@@ -338,7 +341,9 @@ export function startSync(userId: string) {
   stopSync();
   currentUser = userId;
   unsubscribers = [
-    useCalendar.subscribe((s, p) => diff('events', s.events, p.events, eventToRow)),
+    useCalendar.subscribe((s, p) => {
+      if (s.events !== p.events || s.trash !== p.trash) diff('events', [...s.events, ...s.trash], [...p.events, ...p.trash], eventToRow);
+    }),
     useNotes.subscribe((s, p) => {
       if (s.folders !== p.folders || s.trashFolders !== p.trashFolders)
         diff('note_folders', [...s.folders, ...s.trashFolders], [...p.folders, ...p.trashFolders], folderToRow);

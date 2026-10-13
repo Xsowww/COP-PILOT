@@ -16,6 +16,7 @@ const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
 const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
 const GroupsPage = lazy(() => import('./pages/groups/GroupsPage'));
+const TrashPage = lazy(() => import('./pages/trash/TrashPage'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="taches" element={<Suspense fallback={null}><TasksPage /></Suspense>} />
           <Route path="progression" element={<Navigate to="/taches" replace />} />
           <Route path="groupes" element={<Suspense fallback={null}><GroupsPage /></Suspense>} />
+          <Route path="corbeille" element={<Suspense fallback={null}><TrashPage /></Suspense>} />
           <Route path="profil" element={<Suspense fallback={null}><ProfilePage /></Suspense>} />
           <Route path="admin" element={<Suspense fallback={null}><AdminPage /></Suspense>} />
         </Route>

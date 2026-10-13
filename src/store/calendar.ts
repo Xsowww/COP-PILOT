@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { uid, nowIso } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
+import { TRASH_DAYS } from './drive';
 
 export type EventCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
 
@@ -26,6 +27,8 @@ export interface CalendarEvent {
   /** UID of the event in an imported .ics file, so a second import doesn't duplicate it. */
   externalId?: string;
   createdAt: string;
+  /** Set while the event is in the trash. */
+  deletedAt?: string;
 }
 
 export type NewEvent = Omit<CalendarEvent, 'id' | 'done' | 'createdAt'>;
@@ -36,7 +39,14 @@ interface CalendarState {
   /** Adds many events in one update (.ics import). */
   addMany: (list: NewEvent[]) => void;
   update: (id: string, patch: Partial<CalendarEvent>) => void;
+  /** Moves the event to the trash. */
   remove: (id: string) => void;
+  /** Deleted events, kept TRASH_DAYS days (separate list: nothing else has to filter them). */
+  trash: CalendarEvent[];
+  restore: (ids: string[]) => void;
+  purge: (ids: string[]) => void;
+  emptyTrash: () => void;
+  purgeExpired: () => void;
   toggleDone: (id: string) => void;
 }
 
@@ -55,8 +65,9 @@ export const sortEvents = (a: CalendarEvent, b: CalendarEvent) =>
 
 export const useCalendar = create<CalendarState>()(
   persist(
-    set => ({
+    (set, get) => ({
       events: [],
+      trash: [],
       add(e) {
         const ev: CalendarEvent = { ...e, id: uid(), done: false, createdAt: nowIso() };
         set(s => ({ events: [...s.events, ev] }));
@@ -64,7 +75,29 @@ export const useCalendar = create<CalendarState>()(
       },
       addMany: list => set(s => ({ events: [...s.events, ...list.map(e => ({ ...e, id: uid(), done: false, createdAt: nowIso() }))] })),
       update: (id, patch) => set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, ...patch } : e)) })),
-      remove: id => set(s => ({ events: s.events.filter(e => e.id !== id) })),
+      remove: id =>
+        set(s => {
+          const ev = s.events.find(e => e.id === id);
+          if (!ev) return s;
+          return { events: s.events.filter(e => e.id !== id), trash: [...s.trash, { ...ev, deletedAt: nowIso() }] };
+        }),
+      restore(ids) {
+        const back = new Set(ids);
+        set(s => ({
+          events: [...s.events, ...s.trash.filter(e => back.has(e.id)).map(({ deletedAt: _d, ...e }) => e)],
+          trash: s.trash.filter(e => !back.has(e.id)),
+        }));
+      },
+      purge(ids) {
+        const doomed = new Set(ids);
+        set(s => ({ trash: s.trash.filter(e => !doomed.has(e.id)) }));
+      },
+      emptyTrash: () => set({ trash: [] }),
+      purgeExpired() {
+        const limit = Date.now() - TRASH_DAYS * 864e5;
+        const old = get().trash.filter(e => e.deletedAt && new Date(e.deletedAt).getTime() < limit).map(e => e.id);
+        if (old.length) get().purge(old);
+      },
       toggleDone: id => set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, done: !e.done } : e)) })),
     }),
     { name: 'calendar', storage: userStorage, skipHydration: true },
