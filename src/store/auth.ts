@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { uid, nowIso } from '../lib/utils';
 import { setStorageUser } from '../lib/userStorage';
+import { flushNow, stopSync, updateCloudProfile } from '../lib/cloudSync';
 import { supabase, checkPassword } from '../lib/supabase';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -267,7 +268,6 @@ export const useAuth = create<AuthState>((set, get) => ({
     const userId = get().user?.id;
     let sent = false;
     if (supabase) {
-      const { flushNow, stopSync } = await import('../lib/cloudSync');
       sent = await flushNow().catch(() => false);
       stopSync();
       await supabase.auth.signOut().catch(() => undefined);
@@ -289,7 +289,6 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (!user) return;
     if (supabase) {
       await cloud(supabase.auth.updateUser({ data: { name } }));
-      const { updateCloudProfile } = await import('../lib/cloudSync');
       await updateCloudProfile(user.id, { name });
     } else {
       writeUsers(readUsers().map(u => (u.id === user.id ? { ...u, name } : u)));
@@ -335,7 +334,6 @@ export const useAuth = create<AuthState>((set, get) => ({
             : 'La suppression a échoué, réessaie plus tard.',
         );
       }
-      const { stopSync } = await import('../lib/cloudSync');
       stopSync();
       await supabase.auth.signOut().catch(() => undefined);
     } else {

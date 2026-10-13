@@ -28,3 +28,6 @@ dist-ssr
 .env.*
 !.env.example
 !.env.supabase.public
+
+# Graphe du code (outil graphify, local)
+graphify-out/

@@ -5,8 +5,7 @@
 import { blobStore } from './blobStore';
 import { blobKey, getStorageUser } from './userStorage';
 import { useDrive, categoryOf, type DriveItem } from '../store/drive';
-// Only the URL of pdf.js's worker (a string): the library itself is imported on demand.
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { docxText, pdfPages } from './docText';
 
 const DB_NAME = 'cop-pilot-text';
 const STORE = 'texts';
@@ -100,35 +99,10 @@ function kindOf(item: Pick<DriveItem, 'kind' | 'mime' | 'name' | 'size'>): Kind 
   return null;
 }
 
-async function pdfText(blob: Blob) {
-  // Loaded on demand: pdf.js is heavy and only needed here.
-  const pdfjs = await import('pdfjs-dist');
-  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-  const task = pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) });
-  const doc = await task.promise;
-  let text = '';
-  try {
-    for (let p = 1; p <= Math.min(doc.numPages, MAX_PDF_PAGES) && text.length < MAX_TEXT; p++) {
-      const page = await doc.getPage(p);
-      const content = await page.getTextContent();
-      for (const it of content.items) if ('str' in it) text += it.str + (it.hasEOL ? '\n' : '');
-      text += '\n';
-    }
-  } finally {
-    void task.destroy();
-  }
-  return text;
-}
-
-async function docxText(blob: Blob) {
-  const mammoth = await import('mammoth');
-  const res = await mammoth.extractRawText({ arrayBuffer: await blob.arrayBuffer() });
-  return res.value;
-}
-
 /** Plain text of a file, whitespace collapsed (snippets read better on one line). */
 async function extract(kind: Kind, blob: Blob) {
-  const raw = kind === 'pdf' ? await pdfText(blob) : kind === 'docx' ? await docxText(blob) : await blob.slice(0, MAX_TEXT * 2).text();
+  const raw =
+    kind === 'pdf' ? (await pdfPages(blob, MAX_TEXT, MAX_PDF_PAGES)).pages.join('\n') : kind === 'docx' ? await docxText(blob) : await blob.slice(0, MAX_TEXT * 2).text();
   return raw.replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT);
 }
 

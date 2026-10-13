@@ -4,8 +4,7 @@
 import { useDrive, categoryOf } from '../store/drive';
 import { blobStore } from '../lib/blobStore';
 import { blobKey } from '../lib/userStorage';
-// Only the worker's URL (a string): the worker itself is downloaded when a PDF is read.
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { docxText, pdfPages } from '../lib/docText';
 
 export const MAX_FILE_CHARS = 30_000;
 
@@ -17,35 +16,6 @@ export interface FileText {
 }
 
 const TEXT_EXT = ['txt', 'md', 'markdown', 'csv', 'tsv', 'json', 'html', 'htm', 'xml', 'tex', 'js', 'ts', 'py', 'java', 'c', 'cpp', 'css', 'sql', 'yaml', 'yml'];
-
-async function pdfText(blob: Blob): Promise<{ text: string; pages: number }> {
-  const pdfjs = await import('pdfjs-dist');
-  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-  const task = pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) });
-  const doc = await task.promise;
-  const parts: string[] = [];
-  let size = 0;
-  for (let i = 1; i <= doc.numPages && size < MAX_FILE_CHARS; i++) {
-    const page = await doc.getPage(i);
-    const content = await page.getTextContent();
-    const line = content.items
-      .map(it => ('str' in it ? it.str + (it.hasEOL ? '\n' : '') : ''))
-      .join('')
-      .replace(/[ \t]+/g, ' ')
-      .trim();
-    parts.push(`[Page ${i}]\n${line}`);
-    size += line.length;
-  }
-  const pages = doc.numPages;
-  void task.destroy();
-  return { text: parts.join('\n\n'), pages };
-}
-
-async function docxText(blob: Blob): Promise<string> {
-  const mammoth = await import('mammoth');
-  const res = await mammoth.extractRawText({ arrayBuffer: await blob.arrayBuffer() });
-  return res.value;
-}
 
 /** Text of a Drive file, or an error message the AI can relay. */
 export async function readFileText(id: string): Promise<FileText | { error: string }> {
@@ -60,7 +30,11 @@ export async function readFileText(id: string): Promise<FileText | { error: stri
   let text: string;
   let pages: number | undefined;
   try {
-    if (cat === 'pdf') ({ text, pages } = await pdfText(blob));
+    if (cat === 'pdf') {
+      const pdf = await pdfPages(blob, MAX_FILE_CHARS);
+      text = pdf.pages.map((p, i) => `[Page ${i + 1}]\n${p.replace(/[ \t]+/g, ' ').trim()}`).join('\n\n');
+      pages = pdf.total;
+    }
     else if (ext === 'docx') text = await docxText(blob);
     else text = await blob.text();
   } catch {

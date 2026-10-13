@@ -75,8 +75,6 @@ export interface AiStatus {
 }
 
 let lastStatus: AiStatus = { enabled: false };
-/** The provider found by the last status check (shown discreetly in the UI). */
-export const aiStatus = () => lastStatus;
 
 export async function checkAiStatus(): Promise<AiStatus> {
   try {

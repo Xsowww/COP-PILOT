@@ -47,10 +47,10 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [x] .ics : cours annulés encore affichés, réimport qui ne met rien à jour
 
 ## Lot 7 — Tests et ménage
-- [ ] Tests automatiques (dates, .ics, adaptateur IA, synchro) + vérification à chaque push
-- [ ] Code en double / jamais utilisé, dépendances inutiles, `npm audit fix`
-- [ ] Calcul lent après un gros import .ics
-- [ ] README à jour, `graphify-out/` dans `.gitignore`, Node 22
+- [x] Tests automatiques (dates, .ics, adaptateur IA, synchro) + vérification à chaque push
+- [x] Code en double / jamais utilisé, dépendances inutiles, `npm audit fix`
+- [x] Calcul lent après un gros import .ics
+- [x] README à jour, `graphify-out/` dans `.gitignore`, Node 22
 
 ## Lot 8 — Ce qui manque pour lancer
 - [ ] Application installable sur téléphone (manifeste, icônes)

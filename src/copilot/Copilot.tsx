@@ -6,6 +6,7 @@ import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilo
 import { useAuth } from '../store/auth';
 import { localReply, type BotReply } from './localBrain';
 import { acceptOffer, runOffer } from './offers';
+import * as claudeBrain from './claudeBrain';
 import { normalize, cx } from '../lib/utils';
 import { useSettings, getSettings } from '../store/settings';
 import Markdown from './Markdown';
@@ -14,7 +15,8 @@ import { aiPausedUntil } from './aiPause';
 import { useDictation, speakText, stopSpeaking, useSpeaking, canSpeak } from './voice';
 
 // The AI part (and the Anthropic types it uses) is loaded on first use.
-const brain = () => import('./claudeBrain');
+// Already loaded with the app (proactive.ts uses it): the promise keeps the call sites unchanged.
+const brain = async () => claudeBrain;
 
 const SUGGESTIONS = ['Analyse ma semaine', 'Planifie mes révisions'];
 const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|avec plaisir|je veux bien|volontiers)\b/;

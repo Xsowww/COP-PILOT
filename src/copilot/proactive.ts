@@ -388,11 +388,11 @@ function greet() {
 export function startProactive() {
   const unsubs = [
     useCalendar.subscribe((s, prev) => {
+      if (s.events === prev.events) return;
       if (s.events.length > prev.events.length) onEventAdded(s.events[s.events.length - 1]);
-      for (const e of s.events) {
-        const before = prev.events.find(p => p.id === e.id);
-        if (before && !before.done && e.done) onEventDone(e);
-      }
+      // One lookup table, not a search per event: a year of imported timetable is ~1 500 events.
+      const before = new Map(prev.events.map(p => [p.id, p]));
+      for (const e of s.events) if (e.done && before.get(e.id)?.done === false) onEventDone(e);
     }),
     useDrive.subscribe((s, prev) => {
       const added = s.items.filter(i => i.kind === 'file').length - prev.items.filter(i => i.kind === 'file').length;

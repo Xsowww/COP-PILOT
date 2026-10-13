@@ -69,14 +69,6 @@ export function notesTrashRoots(trashFolders: NoteFolder[], trashNotes: Note[]) 
   };
 }
 
-/**
- * Notes linked to a Drive file or a calendar event (not the trashed ones).
- * Pass `notes` from a subscribed `useNotes()` in components so they re-render.
- */
-export function notesLinkedTo(kind: NoteLink['kind'], id: string, notes: Note[] = useNotes.getState().notes): Note[] {
-  return notes.filter(n => n.links?.some(l => l.kind === kind && l.id === id));
-}
-
 export const useNotes = create<NotesState>()(
   persist(
     (set, get) => ({

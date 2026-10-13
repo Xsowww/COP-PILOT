@@ -1,6 +1,6 @@
 {
   "name": "COP-PILOT",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
   "forwardPorts": [5173],
   "portsAttributes": {
     "5173": {

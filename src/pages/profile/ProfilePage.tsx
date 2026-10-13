@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { addDays } from 'date-fns';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowDown, LogOut, Trash2, ChevronRight,
   Timer, HardDrive, Smartphone, Keyboard,
@@ -18,12 +17,13 @@ import { askText, confirmAction, toast } from '../../store/ui';
 import { exportBackup, importBackup, exportIcs, wipeUserData, imageToAvatar } from '../../lib/backup';
 import { requestNotificationPermission, notify, chime } from '../../lib/notify';
 import { formatBytes, stripHtml, cx } from '../../lib/utils';
-import { fmt, toKey, todayKey } from '../../lib/dates';
+import { fmt, todayKey } from '../../lib/dates';
 import Avatar from '../../components/Avatar';
 import Character from '../../copilot/Character';
 import { Section, Row, Toggle, Segmented, Stepper } from './controls';
 import { cloudEnabled } from '../../lib/supabase';
-import { useBadges } from '../../lib/badges';
+import { currentStreak, useBadges } from '../../lib/badges';
+import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
 import BadgeGrid from './BadgeGrid';
 
 const TABS = [
@@ -52,13 +52,7 @@ function useStats() {
   const log = useFocusLog(s => s.sessions);
   const files = items.filter(i => i.kind === 'file');
   const today = todayKey();
-  const doneDays = new Set(events.filter(e => e.done).map(e => e.date));
-  let streak = 0;
-  let d = doneDays.has(today) ? new Date() : addDays(new Date(), -1);
-  while (doneDays.has(toKey(d))) {
-    streak++;
-    d = addDays(d, -1);
-  }
+  const streak = currentStreak(events);
   return {
     files: files.length,
     size: files.reduce((s, f) => s + (f.size ?? 0), 0),
@@ -302,9 +296,7 @@ function CopilotTab() {
   const messages = useCopilot(c => c.messages.length);
   const [provider, setProvider] = useState('');
   useEffect(() => {
-    void import('../../copilot/claudeBrain')
-      .then(m => m.checkAiStatus())
-      .then(st => setProvider(st.enabled ? (st.label ?? st.provider ?? '') : ''));
+    void checkAiStatus().then(st => setProvider(st.enabled ? (st.label ?? st.provider ?? '') : ''));
   }, []);
   return (
     <div className="space-y-5">
@@ -405,7 +397,7 @@ function CopilotTab() {
             className="btn-secondary h-8"
             onClick={() => {
               useCopilot.getState().clearHistory();
-              void import('../../copilot/claudeBrain').then(m => m.resetClaudeHistory());
+              resetClaudeHistory();
               toast('Conversation effacée', 'success');
             }}
           >

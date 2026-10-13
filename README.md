@@ -17,7 +17,13 @@ npm run build
 npm start              # sert l'appli + l'API de Copilot sur http://localhost:3000
 ```
 
-Node 20.12+ (voir `.nvmrc`). Un devcontainer est fourni pour GitHub Codespaces.
+Vérifications (lancées aussi par GitHub à chaque envoi, voir `.github/workflows/ci.yml`) :
+
+```bash
+npm run lint && npm test && npm run build
+```
+
+Node 22+ (voir `.nvmrc`). Un devcontainer est fourni pour GitHub Codespaces.
 
 ## Ce que contient l'appli
 
@@ -122,7 +128,8 @@ Comment ça marche : l'appli garde une copie locale pour rester instantanée ; c
 src/
   App.tsx                 routes (connexion, inscription, espace protégé)
   layout/AppShell.tsx     barre latérale, recherche globale, navigation mobile, Copilot
-  pages/                  Dashboard, drive/, calendar/, notes/, profile/, admin/, AuthPage, MfaPage
+  pages/                  Dashboard, drive/, calendar/, notes/, tasks/, groups/, trash/,
+                          profile/, admin/, AuthPage, MfaPage
   copilot/                Character (personnage SVG), Copilot (conversation), actions,
                           offers (boutons d'action), proactive (initiatives),
                           localBrain (mode simple), claudeBrain (mode IA, via le serveur),
@@ -131,9 +138,14 @@ server/
   copilot.mjs             API /api/copilot : authentification, limite, appel à l'IA
   copilotPrompt.mjs       personnalité, styles, outils
   aiProviders.mjs         choix du fournisseur, adaptateur format OpenAI ↔ Anthropic
-  index.mjs               serveur de production (dist/ + API)
-  store/                  état Zustand : auth, drive, calendar, notes, copilot, ui, session
-  lib/                    dates (analyse du langage naturel), stockage, utilitaires
+  index.mjs               serveur de production (dist/ compressé, en-têtes de sécurité, API)
+src/store/                état Zustand : auth, session, drive, calendar, notes, todos, groups,
+                          groupActivity (pastilles), copilot, settings, ui
+src/lib/                  cloudSync (synchro Supabase), blobStore (fichiers), groups, ics,
+                          dates (langage naturel), textIndex et docText (texte des PDF/Word),
+                          trash, backup, badges, utilitaires
+supabase/                 schema.sql (base complète) et migrations/ (projets existants)
+tests/                    tests automatiques (npm test)
 ```
 
 ## Limites actuelles (version de démonstration)
