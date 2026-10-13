@@ -9,6 +9,7 @@ import { useCopilot, type Bubble, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
 import { useTodos } from '../store/todos';
 import { useFocusLog } from '../store/focusLog';
+import { useFocus } from '../store/focus';
 import { toKey, todayKey, daysUntil, fmt, fromKey, weekStart, countdownLabel } from '../lib/dates';
 import { hasRevisionPlan, linkToDay, linkToNote } from './actions';
 import { aiNudge, type NudgeKind } from './claudeBrain';
@@ -40,6 +41,8 @@ function canSpeak(n: Nudge) {
   const s = useCopilot.getState();
   const settings = getSettings();
   if (s.thinking || !settings.copilotVisible) return false;
+  // Never break a focus session (the end-of-session message comes from the timer itself).
+  if (useFocus.getState().phase === 'focus') return false;
   const isReminder = n.key.startsWith('starting:');
   const allowed = n.kind === 'brief' ? settings.morningBrief : n.kind === 'review' ? settings.weeklyReview : isReminder ? settings.eventReminders : settings.proactive;
   if (!allowed) return false;
@@ -136,7 +139,7 @@ function onFilesUploaded(count: number) {
       key: 'first-upload',
       every: 365 * DAY,
       situation: { evenement: "premier import de fichiers dans le Drive de l'étudiant", nombre: count },
-      fallback: 'Premiers fichiers dans ton Drive. Astuce : glisse-les sur un dossier pour les ranger, ou demande-moi de les retrouver plus tard.',
+      fallback: 'Premiers fichiers dans ton Drive. Demande-moi si tu as besoin de les retrouver plus tard.',
     });
   }
 }
@@ -313,6 +316,9 @@ function weeklyReview(): boolean {
   const nTo = toKey(addDays(ws, 13));
   const next = events.filter(e => e.date >= nFrom && e.date <= nTo);
   const nextExams = next.filter(e => e.category === 'examen');
+  // Discreet mode: only when there is something to act on (an exam next week, something late).
+  const late = events.some(e => e.category === 'devoir' && !e.done && e.date < toKey(now)) || useTodos.getState().todos.some(t => !t.done && t.due && t.due < toKey(now));
+  if (settings.chattiness === 'calme' && !nextExams.length && !late) return false;
   const hours = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`);
   const ticked = todosDone ? `${plural(todosDone, 'tâche')} cochée${todosDone > 1 ? 's' : ''}` : '';
 
@@ -352,6 +358,8 @@ function greet() {
   if (sessionStorage.getItem('cop:greeted')) return;
   sessionStorage.setItem('cop:greeted', '1');
   if (morningBrief() || weeklyReview()) return;
+  // Discreet mode: no plain hello, the dashboard already says it.
+  if (getSettings().chattiness === 'calme') return;
   const name = useAuth.getState().user?.name ?? '';
   const events = useCalendar.getState().events;
   const today = events.filter(e => e.date === todayKey()).sort(sortEvents);

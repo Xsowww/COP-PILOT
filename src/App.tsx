@@ -13,7 +13,7 @@ import { DialogHost, Toasts } from './components/Overlays';
 const NotesPage = lazy(() => import('./pages/notes/NotesPage'));
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
-const ProgressPage = lazy(() => import('./pages/progress/ProgressPage'));
+const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
 const GroupsPage = lazy(() => import('./pages/groups/GroupsPage'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -55,7 +55,8 @@ export default function App() {
           <Route path="drive" element={<DrivePage />} />
           <Route path="calendrier" element={<CalendarPage />} />
           <Route path="notes" element={<Suspense fallback={null}><NotesPage /></Suspense>} />
-          <Route path="progression" element={<Suspense fallback={null}><ProgressPage /></Suspense>} />
+          <Route path="taches" element={<Suspense fallback={null}><TasksPage /></Suspense>} />
+          <Route path="progression" element={<Navigate to="/taches" replace />} />
           <Route path="groupes" element={<Suspense fallback={null}><GroupsPage /></Suspense>} />
           <Route path="profil" element={<Suspense fallback={null}><ProfilePage /></Suspense>} />
           <Route path="admin" element={<Suspense fallback={null}><AdminPage /></Suspense>} />

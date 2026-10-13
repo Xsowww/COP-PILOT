@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { addDays } from 'date-fns';
 import {
-  User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowDown, LogOut, Trash2, Keyboard, Flame,
-  FolderClosed, NotebookText, CalendarCheck, Target, Timer, HardDrive, Smartphone,
+  User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowDown, LogOut, Trash2, ChevronRight,
+  Timer, HardDrive, Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness, type PersonaKey } from '../../store/settings';
@@ -22,6 +22,8 @@ import Avatar from '../../components/Avatar';
 import Character from '../../copilot/Character';
 import { Section, Row, Toggle, Segmented, Stepper } from './controls';
 import { cloudEnabled } from '../../lib/supabase';
+import { useBadges } from '../../lib/badges';
+import BadgeGrid from './BadgeGrid';
 
 const TABS = [
   { key: 'profil', label: 'Profil', icon: User },
@@ -65,18 +67,44 @@ function useStats() {
   };
 }
 
-function Stat({ icon: Icon, color, value, label, sub }: { icon: typeof User; color: string; value: string | number; label: string; sub?: string }) {
+function Stat({ value, label, sub }: { value: string | number; label: string; sub?: string }) {
   return (
-    <div className="rounded-lg border border-stone-200/80 p-3.5">
-      <span className="flex h-7 w-7 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, var(--color-surface))`, color }}>
-        <Icon size={15} />
-      </span>
-      <p className="tabular mt-3 text-[22px] font-semibold leading-none tracking-tight">{value}</p>
+    <div className="px-5 py-4">
+      <p className="tabular text-[20px] font-semibold leading-none tracking-tight">{value}</p>
       <p className="mt-1 text-[12px] text-stone-500">
         {label}
         {sub && <span className="text-stone-500"> · {sub}</span>}
       </p>
     </div>
+  );
+}
+
+/** Badges: a quiet, collapsed section (open when reached through a « Voir mes badges » link). */
+function BadgesSection() {
+  const badges = useBadges();
+  const location = useLocation();
+  const [open, setOpen] = useState(location.hash === '#badges');
+  const earned = badges.filter(b => b.earned).length;
+  useEffect(() => {
+    if (location.hash === '#badges') document.getElementById('badges')?.scrollIntoView({ behavior: 'smooth' });
+  }, [location.hash]);
+  return (
+    <section id="badges" className="card enter scroll-mt-4">
+      <h2>
+        <button onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls="badges-grille" className="flex w-full items-center gap-2 rounded-xl px-5 py-4 text-left">
+          <ChevronRight size={15} className={cx('text-stone-400 transition-transform', open && 'rotate-90')} />
+          <span className="text-[14px] font-semibold">Badges</span>
+          <span className="tabular text-[13px] font-normal text-stone-500">
+            · {earned} sur {badges.length}
+          </span>
+        </button>
+      </h2>
+      {open && (
+        <div id="badges-grille" className="border-t border-stone-100 p-5">
+          <BadgeGrid badges={badges} />
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -100,7 +128,7 @@ function ProfileTab() {
 
   return (
     <div className="space-y-5">
-      <Section title="Profil" description="Ce que Copilot sait de toi.">
+      <Section title="Profil">
         <div className="flex flex-wrap items-center gap-5 px-5 py-5">
           <div className="relative">
             <Avatar size={72} />
@@ -134,7 +162,7 @@ function ProfileTab() {
             </div>
           </div>
         </div>
-        <Row label="Prénom" hint="Utilisé par Copilot pour te parler.">
+        <Row label="Prénom">
           <input
             className="field w-56"
             aria-label="Prénom"
@@ -170,16 +198,18 @@ function ProfileTab() {
         </Row>
       </Section>
 
-      <Section title="Tes statistiques" description="Ton activité depuis ton inscription.">
-        <div className="grid grid-cols-2 gap-3 p-5 md:grid-cols-3">
-          <Stat icon={Flame} color="var(--color-brand-500)" value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d'affilée`} sub="avec une tâche faite" />
-          <Stat icon={CalendarCheck} color="#2f9e6b" value={stats.done} label="tâches terminées" />
-          <Stat icon={Target} color="#d9483b" value={stats.exams} label="examens passés" />
-          <Stat icon={Timer} color="#7a5ad6" value={stats.focusSessions} label="sessions focus" sub={`${stats.focusHours.toFixed(1)} h`} />
-          <Stat icon={NotebookText} color="#d48a17" value={stats.notes} label="notes" sub={`${stats.words} mots`} />
-          <Stat icon={FolderClosed} color="#3b6fd8" value={stats.files} label="fichiers" sub={formatBytes(stats.size)} />
+      <Section title="Statistiques" description="Depuis ton inscription.">
+        <div className="grid grid-cols-2 md:grid-cols-3">
+          <Stat value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d'affilée`} />
+          <Stat value={stats.done} label="éléments cochés" />
+          <Stat value={stats.exams} label="examens passés" />
+          <Stat value={stats.focusSessions} label="sessions focus" sub={`${stats.focusHours.toFixed(1)} h`} />
+          <Stat value={stats.notes} label="notes" sub={`${stats.words} mots`} />
+          <Stat value={stats.files} label="fichiers" sub={stats.files ? formatBytes(stats.size) : undefined} />
         </div>
       </Section>
+
+      <BadgesSection />
     </div>
   );
 }
@@ -197,8 +227,8 @@ function AppearanceTab() {
     applyAppearance({ ...settings, theme });
   };
   return (
-    <Section title="Apparence" description="Personnalise l'interface.">
-      <Row label="Thème" hint="Automatique suit le réglage clair ou sombre de ton appareil.">
+    <Section title="Apparence">
+      <Row label="Thème" hint="Automatique suit ton appareil.">
         <Segmented
           label="Thème"
           value={settings.theme}
@@ -210,7 +240,7 @@ function AppearanceTab() {
           ]}
         />
       </Row>
-      <Row label="Couleur d'accent" hint="Boutons, jour actuel, minuteur, et même le casque de Copilot.">
+      <Row label="Couleur d'accent">
         <div className="flex gap-1.5" role="group" aria-label="Couleur d'accent">
           {(Object.keys(ACCENTS) as AccentKey[]).map(k => (
             <button
@@ -237,7 +267,7 @@ function AppearanceTab() {
           </div>
         </div>
       </div>
-      <Row label="Réduire les animations" hint="Désactive les transitions et les mouvements de Copilot.">
+      <Row label="Réduire les animations">
         <Toggle
           label="Réduire les animations"
           checked={settings.reduceMotion}
@@ -273,7 +303,7 @@ function CopilotTab() {
   }, []);
   return (
     <div className="space-y-5">
-      <Section title="Copilot" description="Ton compagnon sur le bord de l'écran.">
+      <Section title="Copilot">
         <div className="flex items-center gap-3 px-5 py-4">
           <span className={cx('h-2 w-2 rounded-full', aiEnabled ? 'bg-emerald-500' : 'bg-stone-400')} />
           <p className="text-[13px]">
@@ -289,16 +319,16 @@ function CopilotTab() {
             )}
           </p>
         </div>
-        <Row label="Afficher Copilot" hint="Masqué, il ne se montre plus et ne fait plus de remarques.">
+        <Row label="Afficher Copilot" hint="Masqué, il ne fait plus aucune remarque.">
           <Toggle label="Afficher Copilot" checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
         </Row>
-        <Row label="Initiatives" hint="Il propose spontanément de planifier des révisions, te rappelle les rendus…">
+        <Row label="Initiatives" hint="Propose de planifier des révisions, rappelle les rendus.">
           <Toggle label="Initiatives" checked={s.proactive} onChange={v => s.set({ proactive: v })} />
         </Row>
-        <Row label="Rappels avant un événement" hint="Un petit mot 20 minutes avant un cours ou un examen.">
+        <Row label="Rappels avant un événement" hint="20 minutes avant un cours ou un examen.">
           <Toggle label="Rappels" checked={s.eventReminders} onChange={v => s.set({ eventReminders: v })} />
         </Row>
-        <Row label="Bavardage" hint="À quelle fréquence il peut te parler de lui-même.">
+        <Row label="Bavardage" hint="Il se tait toujours pendant une session focus.">
           <Segmented<Chattiness> label="Bavardage"
             value={s.chattiness}
             onChange={v => s.set({ chattiness: v })}
@@ -309,9 +339,12 @@ function CopilotTab() {
             ]}
           />
         </Row>
+        <Row label="Annoncer les nouveaux badges">
+          <Toggle label="Annoncer les nouveaux badges" checked={s.badgeAnnouncements} onChange={v => s.set({ badgeAnnouncements: v })} />
+        </Row>
       </Section>
 
-      <Section title="Personnalité" description="Sa façon de te parler. Ses règles de base (honnêteté, sécurité, confirmation avant de supprimer) ne changent pas.">
+      <Section title="Personnalité" description="Sa façon de te parler.">
         <div className="grid gap-2 px-5 py-4 sm:grid-cols-2">
           {PERSONAS.map(p => (
             <button
@@ -336,7 +369,7 @@ function CopilotTab() {
           <label htmlFor="persona-notes" className="text-[13px] font-medium">
             Tes instructions pour Copilot
           </label>
-          <p className="mt-0.5 text-[12px] text-stone-500">Un surnom, tes centres d'intérêt, le ton que tu préfères… Exemple : « Appelle-moi Capitaine, parle-moi de foot ».</p>
+          <p className="mt-0.5 text-[12px] text-stone-500">Un surnom, tes centres d'intérêt, le ton que tu préfères.</p>
           <textarea
             id="persona-notes"
             className="field mt-2.5 h-auto! min-h-[84px] w-full resize-y py-2 leading-relaxed"
@@ -350,18 +383,18 @@ function CopilotTab() {
       </Section>
 
       <Section title="Rendez-vous et voix">
-        <Row label="Point du matin" hint="À la première ouverture de la journée (avant midi) : ta journée en 3 lignes.">
+        <Row label="Point du matin" hint="Ta journée en 3 lignes, avant midi.">
           <Toggle label="Point du matin" checked={s.morningBrief} onChange={v => s.set({ morningBrief: v })} />
         </Row>
-        <Row label="Bilan du dimanche" hint="Le dimanche à partir de 17 h : ce qui a été fait, ton temps de concentration, la semaine qui arrive.">
+        <Row label="Bilan du dimanche" hint="Le dimanche à partir de 17 h.">
           <Toggle label="Bilan du dimanche" checked={s.weeklyReview} onChange={v => s.set({ weeklyReview: v })} />
         </Row>
-        <Row label="Lire ses réponses à voix haute" hint="Utilise la voix française de ton appareil. Pour lui parler, utilise le micro dans la conversation.">
+        <Row label="Lire ses réponses à voix haute">
           <Toggle label="Réponses à voix haute" checked={s.voiceReplies} onChange={v => s.set({ voiceReplies: v })} />
         </Row>
       </Section>
 
-      <Section title="Planification des révisions" description="Utilisé quand Copilot prépare tes révisions avant un examen.">
+      <Section title="Planification des révisions" description="Quand Copilot prépare tes révisions avant un examen.">
         <Row label="Nombre de séances">
           <Stepper value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
@@ -388,7 +421,7 @@ function CopilotTab() {
             Réinitialiser
           </button>
         </Row>
-        <Row label="Position sur l'écran" hint="Tu peux aussi le faire glisser le long du bord.">
+        <Row label="Position sur l'écran">
           <button className="btn-secondary h-8" onClick={() => { useCopilot.getState().setOffsetY(0.62); toast('Copilot est revenu à sa place'); }}>
             Replacer
           </button>
@@ -400,16 +433,36 @@ function CopilotTab() {
 
 // ── Studies ─────────────────────────────────────────────────────────────────
 
-const SHORTCUTS: [string, string][] = [
-  ['Ctrl K', 'Rechercher partout'],
-  ['Ctrl C · Ctrl X · Ctrl V', 'Copier, couper, coller dans le Drive'],
-  ['Ctrl D', 'Dupliquer'],
-  ['F2', 'Renommer'],
-  ['Suppr', 'Supprimer la sélection'],
-  ['Ctrl A', 'Tout sélectionner'],
-  ['Entrée', 'Ouvrir'],
-  ['Alt + glisser', 'Copier au lieu de déplacer'],
-  ['Échap', 'Fermer, désélectionner'],
+const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
+  {
+    group: 'Partout',
+    keys: [
+      ['Ctrl K', 'Rechercher'],
+      ['Échap', 'Fermer, désélectionner'],
+      ['Maj F10', 'Menu contextuel'],
+    ],
+  },
+  {
+    group: 'Drive',
+    keys: [
+      ['Entrée', 'Ouvrir'],
+      ['Ctrl C · Ctrl X · Ctrl V', 'Copier, couper, coller'],
+      ['Ctrl D', 'Dupliquer'],
+      ['F2', 'Renommer'],
+      ['Suppr', 'Mettre à la corbeille'],
+      ['Ctrl A', 'Tout sélectionner'],
+      ['Retour arrière', 'Dossier parent'],
+    ],
+  },
+  {
+    group: 'Souris',
+    keys: [
+      ['Double-clic', 'Ouvrir un fichier ou un dossier'],
+      ['Clic droit', 'Plus d’options'],
+      ['Glisser', 'Ranger dans un dossier, déplacer un événement'],
+      ['Alt + glisser', 'Copier au lieu de déplacer (Drive)'],
+    ],
+  },
 ];
 
 function StudiesTab() {
@@ -417,7 +470,7 @@ function StudiesTab() {
   const focus = useFocus();
   return (
     <div className="space-y-5">
-      <Section title="Sessions focus" description="Minuteur de concentration (méthode Pomodoro), accessible en bas de la barre latérale.">
+      <Section title="Sessions focus" description="Minuteur Pomodoro, en bas de la barre latérale.">
         <Row label="Durée de travail">
           <Segmented<number> label="Durée de travail" value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: `${v} min` }))} />
         </Row>
@@ -445,14 +498,19 @@ function StudiesTab() {
       </Section>
 
       <Section title="Raccourcis clavier">
-        <div className="grid gap-x-6 px-5 py-3 sm:grid-cols-2">
-          {SHORTCUTS.map(([k, d]) => (
-            <div key={k} className="flex items-center justify-between gap-3 border-b border-stone-100 py-2 text-[13px] last:border-0 sm:[&:nth-last-child(2)]:border-0">
-              <span className="text-stone-600">{d}</span>
-              <span className="kbd shrink-0">{k}</span>
-            </div>
-          ))}
-        </div>
+        {SHORTCUTS.map(g => (
+          <div key={g.group} className="px-5 py-3">
+            <h3 className="eyebrow mb-1">{g.group}</h3>
+            <dl className="grid gap-x-6 sm:grid-cols-2">
+              {g.keys.map(([k, d]) => (
+                <div key={k} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                  <dt className="text-stone-600">{d}</dt>
+                  <dd className="kbd shrink-0">{k}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))}
       </Section>
     </div>
   );
@@ -475,7 +533,7 @@ function NotificationsTab() {
   };
 
   return (
-    <Section title="Notifications" description="Pour ne rien rater quand COP-PILOT est dans un autre onglet.">
+    <Section title="Notifications">
       <Row
         label="Notifications du navigateur"
         hint={
@@ -483,12 +541,12 @@ function NotificationsTab() {
             ? "Ton navigateur ne les prend pas en charge."
             : perm === 'denied'
               ? 'Bloquées : autorise-les dans les réglages du site de ton navigateur.'
-              : 'Rappels de Copilot, fin des sessions focus.'
+              : 'Rappels de Copilot et fin des sessions, même dans un autre onglet.'
         }
       >
         <Toggle label="Notifications" checked={s.browserNotifications && perm === 'granted'} onChange={v => void toggle(v)} />
       </Row>
-      <Row label="Tester" hint="Envoie une notification d'essai.">
+      <Row label="Tester">
         <button className="btn-secondary h-8" disabled={!s.browserNotifications || perm !== 'granted'} onClick={() => notify('COP-PILOT', 'Les notifications fonctionnent.', true)}>
           <Bell size={14} /> Essayer
         </button>
@@ -521,8 +579,8 @@ function DataTab() {
 
   return (
     <div className="space-y-5">
-      <Section title="Sauvegarde" description={cloudEnabled ? 'Tes données sont enregistrées dans ton compte en ligne. Tu peux aussi en garder une copie.' : 'Tes données sont enregistrées sur cet appareil. Garde une copie de temps en temps.'}>
-        <Row label="Exporter mes données" hint="Notes, calendrier, dossiers et réglages dans un fichier .json (sans le contenu des fichiers du Drive).">
+      <Section title="Sauvegarde" description={cloudEnabled ? 'Tes données sont enregistrées dans ton compte en ligne.' : 'Tes données sont enregistrées sur cet appareil.'}>
+        <Row label="Exporter mes données" hint="Fichier .json, sans le contenu des fichiers du Drive.">
           <button className="btn-secondary h-8" onClick={exportBackup}>
             <Download size={14} /> Exporter
           </button>
@@ -533,7 +591,7 @@ function DataTab() {
           </button>
           <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { void onImport(e.target.files?.[0]); e.target.value = ''; }} />
         </Row>
-        <Row label="Exporter le calendrier" hint={`${events} événement${events > 1 ? 's' : ''} au format .ics, à importer dans Google Agenda, Apple Calendrier ou Outlook.`}>
+        <Row label="Exporter le calendrier" hint="Format .ics (Google Agenda, Apple Calendrier, Outlook).">
           <button className="btn-secondary h-8" disabled={!events} onClick={() => exportIcs()}>
             <CalendarArrowDown size={14} /> Exporter
           </button>
@@ -611,8 +669,8 @@ function AccountTab() {
   return (
     <div className="space-y-5">
       {cloudEnabled && (
-        <Section title="Double authentification" description="Un code de ton téléphone est demandé à chaque nouvelle connexion.">
-          <Row label="Activée" hint="Ton compte est protégé par ton application d'authentification.">
+        <Section title="Double authentification">
+          <Row label="Activée" hint="Un code de ton téléphone à chaque nouvelle connexion.">
             <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
               <ShieldCheck size={15} /> Protégé
             </span>
@@ -658,7 +716,7 @@ function AccountTab() {
       </Section>
 
       <Section title="Supprimer le compte" danger>
-        <Row label="Supprimer définitivement mon compte" hint="Le compte, tes fichiers, notes et événements seront définitivement effacés. Pense à exporter une sauvegarde avant.">
+        <Row label="Supprimer définitivement mon compte" hint="Tout sera effacé. Pense à exporter une sauvegarde avant.">
           <input type="password" className="field w-44" placeholder="Mot de passe" aria-label="Mot de passe, pour confirmer la suppression" value={deletePw} onChange={e => setDeletePw(e.target.value)} />
           <button
             className="btn-danger h-8"
@@ -710,10 +768,6 @@ export default function ProfilePage() {
                 {t.label}
               </button>
             ))}
-            <div className="mt-4 hidden rounded-lg border border-dashed border-stone-200 p-3 text-[12px] text-stone-500 md:block">
-              <Keyboard size={14} className="mb-1.5 text-stone-400" />
-              Astuce : <span className="kbd">Ctrl K</span> pour tout retrouver.
-            </div>
           </nav>
           <div className="min-w-0 flex-1">
             {tab === 'profil' && <ProfileTab />}
