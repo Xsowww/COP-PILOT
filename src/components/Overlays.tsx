@@ -1,45 +1,93 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { CheckCircle2, Info, XCircle } from 'lucide-react';
-import { useUi } from '../store/ui';
+import { useUi, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
+import { arrowNav, focusables, trapTab } from '../lib/a11y';
 
-export function Toasts() {
-  const toasts = useUi(s => s.toasts);
+function ToastRow({ t }: { t: Toast }) {
   const dismiss = useUi(s => s.dismissToast);
   return (
-    <div className="pointer-events-none fixed bottom-20 left-1/2 z-[70] flex -translate-x-1/2 flex-col items-center gap-2 md:bottom-6">
-      {toasts.slice(-3).map(t => (
-        <div key={t.id} className="pop flex items-center gap-2 rounded-lg bg-inverse px-3.5 py-2 text-[13px] text-on-inverse shadow-pop">
-          {t.tone === 'success' ? <CheckCircle2 size={15} className="text-emerald-400" /> : t.tone === 'error' ? <XCircle size={15} className="text-red-400" /> : <Info size={15} className="text-stone-400" />}
-          {t.text}
-          {t.action && (
-            <button
-              className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
-              onClick={() => {
-                dismiss(t.id);
-                t.action!.run();
-              }}
-            >
-              {t.action.label}
-            </button>
-          )}
-        </div>
-      ))}
+    <div className="pop flex items-center gap-2 rounded-lg bg-inverse px-3.5 py-2 text-[13px] text-on-inverse shadow-pop">
+      {t.tone === 'success' ? <CheckCircle2 size={15} className="text-emerald-400" aria-hidden /> : t.tone === 'error' ? <XCircle size={15} className="text-red-400" aria-hidden /> : <Info size={15} className="text-stone-400" aria-hidden />}
+      {t.text}
+      {t.action && (
+        <button
+          className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
+          onClick={() => {
+            dismiss(t.id);
+            t.action!.run();
+          }}
+        >
+          {t.action.label}
+        </button>
+      )}
     </div>
   );
 }
 
-export function Modal({ open, onClose, children, width = 420 }: { open: boolean; onClose: () => void; children: React.ReactNode; width?: number }) {
+/** Toasts are read out by screen readers: errors right away, everything else politely. */
+export function Toasts() {
+  const toasts = useUi(s => s.toasts).slice(-3);
+  return (
+    <div className="pointer-events-none fixed bottom-20 left-1/2 z-[70] flex -translate-x-1/2 flex-col items-center gap-2 md:bottom-6">
+      <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
+        {toasts.filter(t => t.tone !== 'error').map(t => <ToastRow key={t.id} t={t} />)}
+      </div>
+      <div role="alert" aria-live="assertive" className="flex flex-col items-center gap-2">
+        {toasts.filter(t => t.tone === 'error').map(t => <ToastRow key={t.id} t={t} />)}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Modal dialog: keeps Tab inside, closes on Escape, gives the focus back to whatever had it
+ * before, and takes its accessible name from its first heading.
+ */
+export function Modal({ open, onClose, children, width = 420, label }: { open: boolean; onClose: () => void; children: React.ReactNode; width?: number; label?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  const headingId = useId();
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    const el = ref.current!;
+    const previous = document.activeElement as HTMLElement | null;
+    const heading = el.querySelector('h1, h2, h3');
+    if (heading && !label) {
+      heading.id ||= headingId;
+      el.setAttribute('aria-labelledby', heading.id);
+    }
+    // Children focus their own field first (autoFocus, effects); otherwise the first control.
+    if (!el.contains(document.activeElement)) (focusables(el)[0] ?? el).focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeRef.current();
+      } else trapTab(e, el);
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      const now = document.activeElement;
+      if (previous?.isConnected && (!now || now === document.body || el.contains(now))) previous.focus();
+    };
+  }, [open, label, headingId]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-900/25 p-4 dark:bg-black/60" onMouseDown={onClose}>
-      <div role="dialog" aria-modal="true" className="pop w-full rounded-2xl border border-stone-200 bg-surface p-5 shadow-pop" style={{ maxWidth: width }} onMouseDown={e => e.stopPropagation()}>
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        className="pop w-full rounded-2xl border border-stone-200 bg-surface p-5 shadow-pop outline-none"
+        style={{ maxWidth: width }}
+        onMouseDown={e => e.stopPropagation()}
+      >
         {children}
       </div>
     </div>
@@ -127,35 +175,59 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
     };
   }, [x, y, onClose]);
 
+  // Keyboard: focus the first entry, arrows to move, Tab closes, focus goes back to the trigger.
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+  useEffect(() => {
+    const el = ref.current!;
+    const previous = document.activeElement as HTMLElement | null;
+    el.querySelector<HTMLElement>('button:not(:disabled)')?.focus();
+    return () => {
+      const now = document.activeElement;
+      if (previous?.isConnected && previous !== document.body && (!now || now === document.body || el.contains(now))) previous.focus();
+    };
+  }, []);
+
   return (
     <div
       ref={ref}
+      role="menu"
       className="enter fixed z-[65] min-w-52 rounded-xl border border-stone-200 bg-surface p-1 shadow-pop"
       style={{ left: pos.x, top: pos.y }}
       onMouseDown={e => e.stopPropagation()}
       onContextMenu={e => e.preventDefault()}
+      onKeyDown={e => {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          closeRef.current();
+        } else arrowNav(e, e.currentTarget, 'button');
+      }}
     >
       {items.map((it, i) =>
         it.divider ? (
-          <div key={i} className="my-1 h-px bg-stone-100" />
+          <div key={i} role="separator" className="my-1 h-px bg-stone-100" />
         ) : it.content ? (
-          <div key={i}>{it.content}</div>
+          <div key={i} role="group" aria-label={it.label || undefined}>{it.content}</div>
         ) : (
           <button
             key={i}
+            role="menuitem"
+            tabIndex={-1}
             disabled={it.disabled}
             onClick={() => {
               onClose();
               it.onClick();
             }}
             className={cx(
-              'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] transition-colors disabled:opacity-40',
-              it.danger ? 'text-red-600 hover:bg-red-50' : 'text-stone-700 hover:bg-stone-100',
+              'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] transition-colors outline-none disabled:opacity-40',
+              it.danger ? 'text-red-600 hover:bg-red-50 focus-visible:bg-red-50' : 'text-stone-700 hover:bg-stone-100 focus-visible:bg-stone-100',
             )}
           >
-            <span className="flex w-4 justify-center text-stone-400 [&>svg]:h-[15px] [&>svg]:w-[15px]">{it.icon}</span>
+            <span className="flex w-4 justify-center text-stone-400 [&>svg]:h-[15px] [&>svg]:w-[15px]" aria-hidden>{it.icon}</span>
             <span className="flex-1">{it.label}</span>
-            {it.shortcut && <span className="font-mono text-[10px] text-stone-400">{it.shortcut}</span>}
+            {it.shortcut && <span className="font-mono text-[10px] text-stone-500" aria-hidden>{it.shortcut}</span>}
           </button>
         ),
       )}

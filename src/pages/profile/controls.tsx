@@ -64,7 +64,7 @@ export function Stepper({ value, min, max, onChange, suffix }: { value: number; 
       </button>
       <span className="tabular min-w-12 text-center text-[13px] font-medium">
         {value}
-        {suffix && <span className="font-normal text-stone-400"> {suffix}</span>}
+        {suffix && <span className="font-normal text-stone-500"> {suffix}</span>}
       </span>
       <button className="flex h-full w-8 items-center justify-center text-stone-500 hover:text-ink disabled:opacity-30" disabled={value >= max} onClick={() => onChange(value + 1)} aria-label="Plus">
         <Plus size={13} />

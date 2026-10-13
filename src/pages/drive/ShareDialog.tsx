@@ -84,7 +84,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
                   {copied ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />} {copied ? 'Copié' : 'Copier'}
                 </button>
               </div>
-              <p className="mt-1.5 text-[12px] text-stone-400">
+              <p className="mt-1.5 text-[12px] text-stone-500">
                 Valable {link.days === 1 ? '24 heures' : `${link.days} jours`}.
               </p>
             </div>

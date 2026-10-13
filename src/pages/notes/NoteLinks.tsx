@@ -61,10 +61,10 @@ export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }
                 <span className="mx-1 h-2 w-2 shrink-0 rounded-full" style={{ background: CATEGORIES[r.event.category].color }} />
               )}
               <span className="truncate">{title}</span>
-              {!isFile && <span className="tabular shrink-0 text-stone-400">{shortDate(r.event.date)}</span>}
+              {!isFile && <span className="tabular shrink-0 text-stone-500">{shortDate(r.event.date)}</span>}
             </button>
             {!readOnly && (
-              <button className="rounded p-0.5 text-stone-300 hover:bg-stone-200/70 hover:text-ink" title="Retirer le lien" onClick={() => unlink(r.link)}>
+              <button className="rounded p-0.5 text-stone-300 hover:bg-stone-200/70 hover:text-ink" title="Retirer le lien" aria-label="Retirer le lien" onClick={() => unlink(r.link)}>
                 <X size={12} />
               </button>
             )}
@@ -135,7 +135,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
     <div>
       <div className="flex items-baseline justify-between">
         <h3 className="text-[15px] font-semibold">Lier la note</h3>
-        <span className="text-[12px] text-stone-400">{links.length ? `${links.length} lien${links.length > 1 ? 's' : ''}` : ''}</span>
+        <span className="text-[12px] text-stone-500">{links.length ? `${links.length} lien${links.length > 1 ? 's' : ''}` : ''}</span>
       </div>
       <p className="mt-0.5 text-[13px] text-stone-500">Rattache des fichiers du Drive et des événements du calendrier à « {note.title} ».</p>
       <div className="relative mt-4">
@@ -168,13 +168,13 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
                   <span className="h-2.5 w-2.5 rounded-full" style={{ background: CATEGORIES[e.category].color }} />,
                   e.title,
                   <>
-                    <span className={cx('inline-block first-letter:uppercase', e.date < t && 'text-stone-400')}>{longDate(e.date)}</span>
+                    <span className={cx('inline-block first-letter:uppercase', e.date < t && 'text-stone-500')}>{longDate(e.date)}</span>
                     {e.start && ` · ${e.start}`} · {CATEGORIES[e.category].label}
                   </>,
                 ),
               )
             ) : (
-              <p className="px-2.5 py-2 text-[13px] text-stone-400">{q ? 'Aucun événement trouvé' : 'Aucun événement dans le calendrier'}</p>
+              <p className="px-2.5 py-2 text-[13px] text-stone-500">{q ? 'Aucun événement trouvé' : 'Aucun événement dans le calendrier'}</p>
             )}
           </section>
         )}
@@ -184,7 +184,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
             {files.length ? (
               files.map(f => row('f' + f.id, has('file', f.id), () => toggle('file', f.id), <FileIcon category={categoryOf(f)} size={24} />, f.name, folderName(f.parentId)))
             ) : (
-              <p className="px-2.5 py-2 text-[13px] text-stone-400">{q ? 'Aucun fichier trouvé' : 'Aucun fichier dans le Drive'}</p>
+              <p className="px-2.5 py-2 text-[13px] text-stone-500">{q ? 'Aucun fichier trouvé' : 'Aucun fichier dans le Drive'}</p>
             )}
           </section>
         )}

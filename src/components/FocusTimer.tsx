@@ -32,7 +32,7 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
         <label htmlFor="focus-subject" className="text-[11px] font-medium text-stone-500">
           Sur quoi tu travailles ?
         </label>
-        <button onClick={onCancel} className="ml-auto -mr-1 flex h-5 w-5 items-center justify-center rounded text-stone-400 hover:bg-stone-100 hover:text-ink" title="Annuler">
+        <button onClick={onCancel} className="ml-auto -mr-1 flex h-5 w-5 items-center justify-center rounded text-stone-500 hover:bg-stone-100 hover:text-ink" title="Annuler" aria-label="Annuler">
           <X size={12} />
         </button>
       </div>
@@ -108,7 +108,7 @@ export default function FocusTimer() {
       >
         <Timer size={15} />
         Session focus
-        <span className="tabular ml-auto text-[11px] text-stone-400">{focusMinutes} min</span>
+        <span className="tabular ml-auto text-[11px] text-stone-500">{focusMinutes} min</span>
       </button>
     );
   }
@@ -133,7 +133,7 @@ export default function FocusTimer() {
         <button onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
           {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? 'Reprendre' : 'Pause'}
         </button>
-        <button onClick={focus.stop} className="flex h-7 w-8 items-center justify-center rounded-md bg-surface text-stone-500 shadow-card hover:text-red-600" title="Arrêter">
+        <button onClick={focus.stop} className="flex h-7 w-8 items-center justify-center rounded-md bg-surface text-stone-500 shadow-card hover:text-red-600" title="Arrêter" aria-label="Arrêter">
           <Square size={11} />
         </button>
       </div>

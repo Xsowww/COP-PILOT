@@ -19,10 +19,10 @@
   --color-brand-100: var(--accent-100, #fbe4da);
   --color-brand-200: var(--accent-200, #f6c6b2);
   --color-brand-500: var(--accent-500, #e8613c);
-  --color-brand-600: var(--accent-600, #d24e2a);
+  --color-brand-600: var(--accent-600, #c94a26);
   --color-brand-700: var(--accent-700, #ad3e20);
   /* Filled accent (buttons, checkboxes) and the text drawn on it. */
-  --color-brand-solid: var(--accent-600, #d24e2a);
+  --color-brand-solid: var(--accent-600, #c94a26);
   --color-brand-solid-hover: var(--accent-700, #ad3e20);
   --color-on-brand: #ffffff;
   /* Small dark chips on a light page (toasts, tooltips, selection bar); raised grey in dark mode. */
@@ -70,7 +70,7 @@
   --color-stone-100: #2a2926;
   --color-stone-200: #363431;
   --color-stone-300: #4a4743;
-  --color-stone-400: #8f8982;
+  --color-stone-400: #99938c;
   --color-stone-500: #a8a29b;
   --color-stone-600: #bfb9b2;
   --color-stone-700: #d4cfc9;

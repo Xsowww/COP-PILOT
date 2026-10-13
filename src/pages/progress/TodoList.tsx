@@ -14,7 +14,7 @@ function DueLabel({ due }: { due: string }) {
   const n = daysUntil(due);
   const label = n < 0 ? (n === -1 ? 'Hier' : `En retard · ${fmt(fromKey(due), 'd MMM')}`) : n > 6 ? fmt(fromKey(due), 'd MMM') : n > 1 ? fmt(fromKey(due), 'EEE d') : countdownLabel(due);
   return (
-    <span className={cx('tabular shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-400')} style={n < 0 ? { color: OVERDUE } : undefined}>
+    <span className={cx('tabular shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-500')} style={n < 0 ? { color: OVERDUE } : undefined}>
       {label}
     </span>
   );
@@ -63,7 +63,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
       ) : (
         <span
           onDoubleClick={() => editable && !t.done && setEditing(true)}
-          className={cx('min-w-0 flex-1 truncate text-[13px]', t.done ? 'text-stone-400 line-through' : 'text-ink')}
+          className={cx('min-w-0 flex-1 truncate text-[13px]', t.done ? 'text-stone-500 line-through' : 'text-ink')}
           title={editable && !t.done ? 'Double-clic pour modifier' : t.title}
         >
           {t.title}
@@ -85,7 +85,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           <DueLabel due={t.due} />
         </span>
       )}
-      {t.done && t.doneAt && <span className="tabular shrink-0 text-[11px] text-stone-400">{fmt(new Date(t.doneAt), 'd MMM')}</span>}
+      {t.done && t.doneAt && <span className="tabular shrink-0 text-[11px] text-stone-500">{fmt(new Date(t.doneAt), 'd MMM')}</span>}
       <button onClick={() => remove(t.id)} className="icon-btn h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
         <Trash2 size={13} />
       </button>
@@ -133,12 +133,12 @@ function QuickAdd() {
             aria-label="Échéance (facultative)"
             className="field w-[132px] px-2"
           />
-          <button onClick={() => (setDue(''), setShowDate(false))} className="icon-btn" title="Sans échéance">
+          <button onClick={() => (setDue(''), setShowDate(false))} className="icon-btn" title="Sans échéance" aria-label="Sans échéance">
             <X size={14} />
           </button>
         </span>
       ) : (
-        <button onClick={() => setShowDate(true)} className="icon-btn h-9 w-9 border border-stone-200 bg-surface shadow-card" title="Ajouter une échéance">
+        <button onClick={() => setShowDate(true)} className="icon-btn h-9 w-9 border border-stone-200 bg-surface shadow-card" title="Ajouter une échéance" aria-label="Ajouter une échéance">
           <CalendarPlus size={15} />
         </button>
       )}
@@ -169,14 +169,14 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
     <div className="flex flex-1 flex-col">
       <QuickAdd />
       {open.length === 0 ? (
-        <p className="py-5 text-[13px] text-stone-400">{done.length ? 'Tout est coché. Profites-en.' : 'Rien à faire pour l’instant. Note ici ce qui ne rentre pas dans le calendrier.'}</p>
+        <p className="py-5 text-[13px] text-stone-500">{done.length ? 'Tout est coché. Profites-en.' : 'Rien à faire pour l’instant. Note ici ce qui ne rentre pas dans le calendrier.'}</p>
       ) : (
         <div className="mt-2">
           {groups.map(g => (
             <div key={g.label} className={cx(g.label && 'mt-3 first:mt-1')}>
               {g.label && (
                 <p className="eyebrow mb-0.5 flex items-center gap-1.5 px-1.5" style={g.label === 'En retard' ? { color: OVERDUE } : undefined}>
-                  {g.label} <span className="tabular text-stone-400">{g.items.length}</span>
+                  {g.label} <span className="tabular text-stone-500">{g.items.length}</span>
                 </p>
               )}
               <ul className="-mx-1.5">
@@ -198,9 +198,9 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
           <div className="flex items-center">
             <button onClick={() => setShowDone(v => !v)} className="flex items-center gap-1 rounded px-0.5 text-[12px] text-stone-500 hover:text-ink" aria-expanded={showDone}>
               <ChevronRight size={13} className={cx('transition-transform', showDone && 'rotate-90')} />
-              Terminées <span className="tabular text-stone-400">{done.length}</span>
+              Terminées <span className="tabular text-stone-500">{done.length}</span>
             </button>
-            <button onClick={clearDone} className="ml-auto rounded px-1 text-[12px] text-stone-400 hover:text-ink">
+            <button onClick={clearDone} className="ml-auto rounded px-1 text-[12px] text-stone-500 hover:text-ink">
               Effacer les terminées
             </button>
           </div>

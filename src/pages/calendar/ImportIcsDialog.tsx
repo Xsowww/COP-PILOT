@@ -169,14 +169,14 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                         <span className="min-w-0 flex-1 truncate font-medium">{e.title}</span>
                       </li>
                     ))}
-                    {plan.todo.length > sample.length && <li className="px-3 py-2 text-[12px] text-stone-400">et {plan.todo.length - sample.length} autres…</li>}
+                    {plan.todo.length > sample.length && <li className="px-3 py-2 text-[12px] text-stone-500">et {plan.todo.length - sample.length} autres…</li>}
                   </ul>
                 )}
 
                 <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-[13px]">
                   <input type="checkbox" checked={skipPast} onChange={e => setSkipPast(e.target.checked)} className="h-4 w-4 accent-[var(--color-ink)]" />
                   Ignorer les événements passés
-                  {plan.past > 0 && <span className="tabular text-stone-400">({plan.past})</span>}
+                  {plan.past > 0 && <span className="tabular text-stone-500">({plan.past})</span>}
                 </label>
                 {plan.duplicates > 0 && (
                   <p className="mt-2 text-[12px] text-stone-500">

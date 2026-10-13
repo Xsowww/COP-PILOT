@@ -33,7 +33,7 @@ function Showcase() {
           <div className="mt-3 grid grid-cols-5 gap-1.5 text-center">
             {days.map(x => (
               <div key={x.n} className={x.active ? 'rounded-lg bg-ink py-1.5 text-paper' : 'py-1.5'}>
-                <p className={x.active ? 'text-[10px] text-paper/60' : 'text-[10px] text-stone-400'}>{x.d}</p>
+                <p className={x.active ? 'text-[10px] text-paper/60' : 'text-[10px] text-stone-500'}>{x.d}</p>
                 <p className="tabular text-[14px] font-semibold">{x.n}</p>
                 <span className="mx-auto mt-1 block h-1 w-1 rounded-full" style={{ background: x.dot ?? 'transparent' }} />
               </div>
@@ -41,10 +41,10 @@ function Showcase() {
           </div>
           <div className="mt-3 space-y-1.5">
             <div className="flex items-center gap-2 rounded-md bg-stone-50 px-2 py-1.5 text-[12px]">
-              <span className="h-3 w-0.5 rounded-full bg-[#3b6fd8]" /> Cours de maths <span className="ml-auto tabular text-stone-400">09:00</span>
+              <span className="h-3 w-0.5 rounded-full bg-[#3b6fd8]" /> Cours de maths <span className="ml-auto tabular text-stone-500">09:00</span>
             </div>
             <div className="flex items-center gap-2 rounded-md bg-stone-50 px-2 py-1.5 text-[12px]">
-              <span className="h-3 w-0.5 rounded-full bg-[#d48a17]" /> Rendre le TP <span className="ml-auto tabular text-stone-400">18:00</span>
+              <span className="h-3 w-0.5 rounded-full bg-[#d48a17]" /> Rendre le TP <span className="ml-auto tabular text-stone-500">18:00</span>
             </div>
           </div>
         </div>
@@ -57,14 +57,14 @@ function Showcase() {
           <FileIcon category="folder" size={30} />
           <div className="min-w-0">
             <p className="truncate text-[12px] font-medium">Semestre 1</p>
-            <p className="text-[11px] text-stone-400">24 fichiers</p>
+            <p className="text-[11px] text-stone-500">24 fichiers</p>
           </div>
         </div>
         <div className="card col-span-3 flex items-center gap-2.5 p-3">
           <FileIcon category="pdf" size={30} />
           <div className="min-w-0">
             <p className="truncate text-[12px] font-medium">Chapitre 4 — Thermodynamique.pdf</p>
-            <p className="text-[11px] text-stone-400">Modifié hier</p>
+            <p className="text-[11px] text-stone-500">Modifié hier</p>
           </div>
         </div>
       </div>
@@ -212,7 +212,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                       placeholder={mode === 'login' ? undefined : '8 caractères minimum'}
                       autoFocus={mode === 'reset'}
                     />
-                    <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1.5 text-stone-400 hover:text-stone-700" title={show ? 'Masquer' : 'Afficher'}>
+                    <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1.5 text-stone-500 hover:text-stone-700" title={show ? 'Masquer' : 'Afficher'} aria-label={show ? 'Masquer' : 'Afficher'}>
                       {show ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </span>
@@ -241,7 +241,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             </p>
           </form>
         </div>
-        <p className="text-[11px] text-stone-400">
+        <p className="text-[11px] text-stone-500">
           {cloudEnabled ? 'Tes données sont chiffrées en transit et protégées : toi seul y as accès.' : 'Tes données restent enregistrées sur cet appareil.'}
         </p>
       </main>

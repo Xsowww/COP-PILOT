@@ -110,9 +110,9 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
     <div className="overflow-hidden rounded-lg border border-stone-200">
       {/* All-day band */}
       <div data-drop-day={date} className={cx('flex min-h-10 items-start gap-2 border-b border-stone-200 bg-stone-50/70 px-2 py-1.5', drag?.target?.day === date && drag.target.minutes === undefined && 'bg-brand-50')}>
-        <span className="w-10 shrink-0 pt-1 text-right text-[10px] font-medium uppercase tracking-wide text-stone-400">Jour</span>
+        <span className="w-10 shrink-0 pt-1 text-right text-[10px] font-medium uppercase tracking-wide text-stone-500">Jour</span>
         <div className="flex min-w-0 flex-1 flex-wrap gap-1">
-          {allDay.length === 0 && <span className="pt-1 text-[12px] text-stone-400">—</span>}
+          {allDay.length === 0 && <span className="pt-1 text-[12px] text-stone-500">—</span>}
           {allDay.map(ev => {
             const c = CATEGORIES[ev.category];
             return (
@@ -136,7 +136,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
         <div className="relative flex" style={{ height: hours.length * HOUR_PX }}>
           <div className="relative w-12 shrink-0 select-none">
             {hours.map(h => (
-              <span key={h} className="tabular absolute right-2 -translate-y-1/2 text-[11px] text-stone-400" style={{ top: y(h * 60) }}>
+              <span key={h} className="tabular absolute right-2 -translate-y-1/2 text-[11px] text-stone-500" style={{ top: y(h * 60) }}>
                 {h === firstHour ? '' : `${h}h`}
               </span>
             ))}

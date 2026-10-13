@@ -1,0 +1,61 @@
+// Small keyboard / screen-reader helpers shared by dialogs, menus and lists.
+
+const FOCUSABLE =
+  'a[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+/** Visible, keyboard-reachable elements inside `root`, in tab order. */
+export function focusables(root: HTMLElement): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => el.offsetParent !== null || el === document.activeElement);
+}
+
+/** Keep Tab / Shift+Tab inside `root` (modal dialogs). */
+export function trapTab(e: KeyboardEvent, root: HTMLElement) {
+  if (e.key !== 'Tab') return;
+  const els = focusables(root);
+  if (els.length === 0) {
+    e.preventDefault();
+    root.focus();
+    return;
+  }
+  const first = els[0];
+  const last = els[els.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey && (active === first || !root.contains(active))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (active === last || !root.contains(active))) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+/** Shift+F10 or the dedicated « menu » key: open the context menu from the keyboard. */
+export const isMenuKey = (e: React.KeyboardEvent | KeyboardEvent) => e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10');
+
+/**
+ * Where to open a context menu. A real right-click gives the pointer position; a menu opened
+ * from the keyboard (contextmenu event or key press) is placed under the focused element.
+ */
+export function menuPoint(e: React.MouseEvent | React.KeyboardEvent): { x: number; y: number } {
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  if ('clientX' in e) {
+    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (inside && (e.clientX !== 0 || e.clientY !== 0)) return { x: e.clientX, y: e.clientY };
+  }
+  return { x: Math.round(r.left + Math.min(24, r.width / 2)), y: Math.round(r.bottom - 4) };
+}
+
+/** Move focus with the arrow keys between the items matched by `selector` inside `root`. */
+export function arrowNav(e: React.KeyboardEvent | KeyboardEvent, root: HTMLElement, selector: string, orientation: 'vertical' | 'horizontal' = 'vertical') {
+  const next = orientation === 'vertical' ? 'ArrowDown' : 'ArrowRight';
+  const prev = orientation === 'vertical' ? 'ArrowUp' : 'ArrowLeft';
+  if (![next, prev, 'Home', 'End'].includes(e.key)) return false;
+  const items = [...root.querySelectorAll<HTMLElement>(selector)].filter(el => !(el as HTMLButtonElement).disabled);
+  if (!items.length) return false;
+  e.preventDefault();
+  const i = items.indexOf(document.activeElement as HTMLElement);
+  const to =
+    e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : e.key === next ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+  items[to].focus();
+  return true;
+}

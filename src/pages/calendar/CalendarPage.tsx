@@ -49,10 +49,10 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
         {ev.start ? (
           <>
             <p className="font-medium">{ev.start}</p>
-            {ev.end && <p className="text-stone-400">{ev.end}</p>}
+            {ev.end && <p className="text-stone-500">{ev.end}</p>}
           </>
         ) : (
-          <p className="text-stone-400">Journée</p>
+          <p className="text-stone-500">Journée</p>
         )}
       </div>
       <div
@@ -64,12 +64,12 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
         <button
           onClick={() => toggleDone(ev.id)}
           className={cx('mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', ev.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
-          title={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
+          title={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'} aria-label={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
         >
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
         </button>
         <button className="min-w-0 flex-1 text-left" onClick={onEdit}>
-          <p className={cx('text-[14px] font-medium leading-snug', ev.done && 'text-stone-400 line-through')}>{ev.title}</p>
+          <p className={cx('text-[14px] font-medium leading-snug', ev.done && 'text-stone-500 line-through')}>{ev.title}</p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
             {ev.category === 'examen' && !ev.done && ` · ${countdownLabel(ev.date)}`}
@@ -77,12 +77,12 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600">{ev.details}</p>}
         </button>
         <div className="flex opacity-0 transition-opacity group-hover:opacity-100">
-          <button className="icon-btn" title="Modifier" onClick={onEdit}>
+          <button className="icon-btn" title="Modifier" aria-label="Modifier" onClick={onEdit}>
             <Pencil size={14} />
           </button>
           <button
             className="icon-btn hover:text-red-600"
-            title="Supprimer"
+            title="Supprimer" aria-label="Supprimer"
             onClick={() => {
               remove(ev.id);
               toast('Événement supprimé');
@@ -257,11 +257,11 @@ export default function CalendarPage() {
         <div className="flex flex-wrap items-center gap-2 pb-4 pt-2">
           <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">Calendrier</h1>
           <div className="ml-auto flex items-center gap-1">
-            <button className="icon-btn" onClick={() => shift(-1)} title={mode === 'day' ? 'Jour précédent' : 'Précédent'}>
+            <button className="icon-btn" onClick={() => shift(-1)} title={mode === 'day' ? 'Jour précédent' : 'Précédent'} aria-label={mode === 'day' ? 'Jour précédent' : 'Précédent'}>
               <ChevronLeft size={17} />
             </button>
             <span className="min-w-32 text-center text-[14px] font-medium first-letter:uppercase">{fmt(selDate, mode === 'day' ? 'EEE d MMMM' : 'MMMM yyyy')}</span>
-            <button className="icon-btn" onClick={() => shift(1)} title={mode === 'day' ? 'Jour suivant' : 'Suivant'}>
+            <button className="icon-btn" onClick={() => shift(1)} title={mode === 'day' ? 'Jour suivant' : 'Suivant'} aria-label={mode === 'day' ? 'Jour suivant' : 'Suivant'}>
               <ChevronRight size={17} />
             </button>
           </div>
@@ -290,6 +290,7 @@ export default function CalendarPage() {
               value={quick}
               onChange={e => setQuick(e.target.value)}
               placeholder="Ajouter un événement, par exemple « Partiel de maths vendredi 14h »"
+              aria-label="Ajouter un événement en une phrase"
               className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-stone-400"
             />
             {parsed?.title ? (
@@ -344,7 +345,7 @@ export default function CalendarPage() {
                         drag && dropDay !== key && 'ring-1 ring-stone-200 ring-inset',
                       )}
                     >
-                      <span className="text-[11px] font-medium capitalize text-stone-400">{fmt(d, 'EEE')}</span>
+                      <span className="text-[11px] font-medium capitalize text-stone-500">{fmt(d, 'EEE')}</span>
                       <span
                         className={cx(
                           'tabular mt-1 flex h-8 w-8 items-center justify-center rounded-full text-[15px] font-semibold',
@@ -364,7 +365,7 @@ export default function CalendarPage() {
               </div>
             ) : (
               <div>
-                <div className="grid grid-cols-7 pb-1.5 text-center text-[11px] font-medium text-stone-400">
+                <div className="grid grid-cols-7 pb-1.5 text-center text-[11px] font-medium text-stone-500">
                   {['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'].map(d => (
                     <span key={d}>{d}</span>
                   ))}
@@ -412,7 +413,7 @@ export default function CalendarPage() {
                             ))}
                           </span>
                         )}
-                        {evs.length > 2 && <span className="hidden px-1 text-[10px] text-stone-400 md:block">+{evs.length - 2} autres</span>}
+                        {evs.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 md:block">+{evs.length - 2} autres</span>}
                       </button>
                     );
                   })}
@@ -425,7 +426,7 @@ export default function CalendarPage() {
               <div className="mb-4 flex items-baseline gap-2">
                 <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? "Aujourd'hui" : fmt(selDate, 'EEEE d MMMM')}</h2>
                 {dayEvents.length > 0 && (
-                  <span className="tabular text-[12px] text-stone-400">
+                  <span className="tabular text-[12px] text-stone-500">
                     {dayEvents.filter(e => e.done).length}/{dayEvents.length} terminé
                   </span>
                 )}
@@ -453,7 +454,7 @@ export default function CalendarPage() {
                   {dayEvents.map(ev => (
                     <EventItem key={ev.id} ev={ev} dragging={drag?.ev.id === ev.id} onDragStart={e => startDrag(ev, e)} onEdit={() => setForm({ event: ev, date: ev.date })} />
                   ))}
-                  <p className="pt-1 text-center text-[11px] text-stone-400">Astuce : glisse un événement sur un autre jour pour le déplacer.</p>
+                  <p className="pt-1 text-center text-[11px] text-stone-500">Astuce : glisse un événement sur un autre jour pour le déplacer.</p>
                 </div>
               )}
             </div>
@@ -462,7 +463,7 @@ export default function CalendarPage() {
           <aside className="space-y-4">
             <Panel title="Examens à venir">
               {upcomingExams.length === 0 ? (
-                <p className="text-[13px] text-stone-400">Aucun examen prévu.</p>
+                <p className="text-[13px] text-stone-500">Aucun examen prévu.</p>
               ) : (
                 <ul className="-mx-1.5">
                   {upcomingExams.map(e => {
@@ -495,7 +496,7 @@ export default function CalendarPage() {
 
             <Panel title="À rendre">
               {homework.length === 0 ? (
-                <p className="text-[13px] text-stone-400">Rien à rendre pour l'instant.</p>
+                <p className="text-[13px] text-stone-500">Rien à rendre pour l'instant.</p>
               ) : (
                 <ul className="space-y-0.5">
                   {homework.map(e => (
@@ -503,12 +504,12 @@ export default function CalendarPage() {
                       <button
                         onClick={() => useCalendar.getState().toggleDone(e.id)}
                         className="h-4 w-4 shrink-0 rounded border-[1.5px] border-stone-300 transition-colors hover:border-stone-500"
-                        title="Marquer comme fait"
+                        title="Marquer comme fait" aria-label="Marquer comme fait"
                       />
                       <button onClick={() => selectDay(e.date)} className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline">
                         {e.title}
                       </button>
-                      <span className={cx('tabular text-[12px]', e.date < today ? 'font-medium text-red-600' : 'text-stone-400')}>{countdownLabel(e.date)}</span>
+                      <span className={cx('tabular text-[12px]', e.date < today ? 'font-medium text-red-600' : 'text-stone-500')}>{countdownLabel(e.date)}</span>
                     </li>
                   ))}
                 </ul>
@@ -536,8 +537,8 @@ export default function CalendarPage() {
                       <span className="flex h-4 w-4 items-center justify-center rounded border-[1.5px]" style={{ borderColor: c.color, background: off ? 'transparent' : c.color }}>
                         {!off && <Check size={10} strokeWidth={3} className="text-white" />}
                       </span>
-                      <span className={off ? 'text-stone-400' : ''}>{c.label}</span>
-                      <span className="tabular ml-auto text-[12px] text-stone-400">{events.filter(e => e.category === k && e.date >= today).length}</span>
+                      <span className={off ? 'text-stone-500' : ''}>{c.label}</span>
+                      <span className="tabular ml-auto text-[12px] text-stone-500">{events.filter(e => e.category === k && e.date >= today).length}</span>
                     </button>
                   );
                 })}

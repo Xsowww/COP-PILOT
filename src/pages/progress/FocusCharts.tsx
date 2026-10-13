@@ -12,7 +12,7 @@ export function SubjectBars({ rows }: { rows: { subject: string; minutes: number
   const max = Math.max(1, ...rows.map(r => r.minutes));
   const total = rows.reduce((a, r) => a + r.minutes, 0);
 
-  if (rows.length === 0) return <p className="py-8 text-center text-[13px] text-stone-400">Aucune session sur cette période.</p>;
+  if (rows.length === 0) return <p className="py-8 text-center text-[13px] text-stone-500">Aucune session sur cette période.</p>;
 
   return (
     <ul className="space-y-[2px]" onMouseLeave={() => setHover(null)}>
@@ -75,7 +75,7 @@ export function DailyFocus({ data }: { data: { day: string; minutes: number }[] 
 
   return (
     <div ref={box} className="relative pt-1">
-      <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full overflow-visible" role="img" aria-label="Minutes de travail par jour sur les 30 derniers jours" onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full overflow-visible" role="img" aria-label={`Minutes de travail par jour sur les 30 derniers jours : ${data.reduce((a, d) => a + d.minutes, 0)} min au total, ${data.filter(d => d.minutes > 0).length} jours actifs, maximum ${max} min`} onMouseLeave={() => setHover(null)}>
         {[0, 0.5, 1].map(f => (
           <g key={f}>
             <line x1="0" x2={W} y1={H - f * H} y2={H - f * H} stroke="var(--color-stone-200)" strokeWidth="1" />
@@ -129,7 +129,7 @@ export function DataTable({ head, rows, className }: { head: string[]; rows: (st
     <div className={cx('max-h-[260px] overflow-auto rounded-lg border border-stone-100', className)}>
       <table className="w-full text-[13px]">
         <thead className="sticky top-0 bg-surface">
-          <tr className="border-b border-stone-100 text-left text-[12px] text-stone-400">
+          <tr className="border-b border-stone-100 text-left text-[12px] text-stone-500">
             {head.map((h, i) => (
               <th key={h} className={cx('px-3 py-2 font-medium', i > 0 && 'text-right')}>
                 {h}

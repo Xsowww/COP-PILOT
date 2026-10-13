@@ -45,7 +45,7 @@ function SharePicker({ group, onPicked, onClose }: { group: Group; onPicked: (id
         <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher une note" className="field w-full pl-8" />
       </div>
       <div className="mt-2 max-h-[320px] overflow-y-auto">
-        {list.length === 0 && <p className="p-6 text-center text-[13px] text-stone-400">{notes.length ? 'Aucune note trouvée' : 'Tu n’as pas encore de note personnelle.'}</p>}
+        {list.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{notes.length ? 'Aucune note trouvée' : 'Tu n’as pas encore de note personnelle.'}</p>}
         {list.map(n => (
           <button
             key={n.id}
@@ -58,7 +58,7 @@ function SharePicker({ group, onPicked, onClose }: { group: Group; onPicked: (id
               <span className="block truncate text-[13px] font-medium">{n.title}</span>
               <span className="block truncate text-[12px] text-stone-500">{stripHtml(n.content).slice(0, 120) || 'Note vide'}</span>
             </span>
-            {busy === n.id && <span className="text-[12px] text-stone-400">Copie…</span>}
+            {busy === n.id && <span className="text-[12px] text-stone-500">Copie…</span>}
           </button>
         ))}
       </div>

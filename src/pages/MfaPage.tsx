@@ -129,7 +129,7 @@ export default function MfaPage() {
               Se déconnecter
             </button>
           </p>
-          {!isSetup && <p className="mt-2 text-center text-[12px] text-stone-400">Contacte le support de COP-PILOT pour réinitialiser ta double authentification.</p>}
+          {!isSetup && <p className="mt-2 text-center text-[12px] text-stone-500">Contacte le support de COP-PILOT pour réinitialiser ta double authentification.</p>}
         </form>
       </div>
     </div>

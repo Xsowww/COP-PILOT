@@ -14,7 +14,7 @@ export default function Logo() {
     <span className="flex items-center gap-2.5">
       <LogoMark />
       <span className="text-[15px] font-semibold tracking-[-0.01em]">
-        cop<span className="text-stone-400">·</span>pilot
+        cop<span className="text-stone-500">·</span>pilot
       </span>
     </span>
   );

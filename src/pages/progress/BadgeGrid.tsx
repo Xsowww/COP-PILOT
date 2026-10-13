@@ -11,7 +11,7 @@ function BadgeCard({ b }: { b: Badge }) {
   return (
     <li className={cx('flex gap-3 rounded-xl border p-3.5', b.earned ? 'border-stone-200/80 bg-surface shadow-card' : 'border-dashed border-stone-200 bg-stone-50/60')}>
       <span
-        className={cx('relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full', !b.earned && 'bg-stone-100 text-stone-400')}
+        className={cx('relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full', !b.earned && 'bg-stone-100 text-stone-500')}
         style={b.earned ? { background: `color-mix(in srgb, ${color} 13%, var(--color-surface))`, color, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 22%, var(--color-surface))` } : undefined}
       >
         <b.icon size={18} strokeWidth={1.9} />
@@ -25,7 +25,7 @@ function BadgeCard({ b }: { b: Badge }) {
         <p className={cx('text-[13px] font-semibold', b.earned ? 'text-ink' : 'text-stone-600')}>{b.title}</p>
         <p className="mt-0.5 text-[12px] leading-snug text-stone-500">{b.description}</p>
         {b.earned ? (
-          <p className="mt-2 text-[11px] text-stone-400">{earnedLabel(b.earnedAt)}</p>
+          <p className="mt-2 text-[11px] text-stone-500">{earnedLabel(b.earnedAt)}</p>
         ) : (
           <div className="mt-2 flex items-center gap-2" title={`${b.current} sur ${b.target}`}>
             <span className="h-1 flex-1 overflow-hidden rounded-full bg-stone-200/70" role="progressbar" aria-valuemin={0} aria-valuemax={b.target} aria-valuenow={b.current} aria-label={`Progression vers « ${b.title} »`}>

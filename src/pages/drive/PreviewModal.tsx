@@ -82,7 +82,7 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
         <button onClick={() => downloadItem(item)} className="btn h-8 bg-white/10 text-white hover:bg-white/20">
           <Download size={15} /> Télécharger
         </button>
-        <button onClick={onClose} className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white" title="Fermer (Échap)">
+        <button onClick={onClose} className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white" title="Fermer (Échap)" aria-label="Fermer (Échap)">
           <X size={18} />
         </button>
       </header>
@@ -114,7 +114,7 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
                 {slides.length === 0 && <p className="text-center text-white/70">Cette présentation ne contient aucune diapositive.</p>}
                 {slides.map((s, i) => (
                   <section key={i} className="rounded-lg bg-white p-6 shadow-2xl md:p-8">
-                    <p className="tabular text-[11px] font-medium uppercase tracking-wide text-stone-400">
+                    <p className="tabular text-[11px] font-medium uppercase tracking-wide text-stone-500">
                       Diapositive {i + 1}/{slides.length}
                     </p>
                     {s.title && <h2 className="mt-2 text-[20px] font-semibold leading-snug tracking-[-0.01em] text-ink">{s.title}</h2>}
@@ -135,7 +135,7 @@ export default function PreviewModal({ item, onClose }: { item: DriveItem; onClo
                         ))}
                       </div>
                     )}
-                    {!s.title && !s.paragraphs.length && !s.images.length && <p className="mt-3 text-[13px] text-stone-400">Diapositive sans texte.</p>}
+                    {!s.title && !s.paragraphs.length && !s.images.length && <p className="mt-3 text-[13px] text-stone-500">Diapositive sans texte.</p>}
                   </section>
                 ))}
               </div>

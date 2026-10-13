@@ -10,7 +10,7 @@ export type Language = 'fr' | 'en';
 export type PersonaKey = 'pote' | 'coach' | 'prof' | 'zen' | 'taquin';
 
 export const ACCENTS: Record<AccentKey, { label: string; shades: Record<'50' | '100' | '200' | '500' | '600' | '700', string> }> = {
-  orange: { label: 'Orange', shades: { 50: '#fdf3ef', 100: '#fbe4da', 200: '#f6c6b2', 500: '#e8613c', 600: '#d24e2a', 700: '#ad3e20' } },
+  orange: { label: 'Orange', shades: { 50: '#fdf3ef', 100: '#fbe4da', 200: '#f6c6b2', 500: '#e8613c', 600: '#c94a26', 700: '#ad3e20' } },
   bleu: { label: 'Bleu', shades: { 50: '#eff4fe', 100: '#dce7fc', 200: '#b9cef8', 500: '#3b6fd8', 600: '#2c5bc0', 700: '#23489a' } },
   vert: { label: 'Vert', shades: { 50: '#ecf8f2', 100: '#d3efe1', 200: '#a6dec3', 500: '#2f9e6b', 600: '#238556', 700: '#1c6a45' } },
   violet: { label: 'Violet', shades: { 50: '#f4f1fd', 100: '#e7e0fb', 200: '#cfc1f6', 500: '#7a5ad6', 600: '#6545bf', 700: '#51379b' } },

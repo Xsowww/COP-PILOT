@@ -74,7 +74,7 @@ function Stat({ icon: Icon, color, value, label, sub }: { icon: typeof User; col
       <p className="tabular mt-3 text-[22px] font-semibold leading-none tracking-tight">{value}</p>
       <p className="mt-1 text-[12px] text-stone-500">
         {label}
-        {sub && <span className="text-stone-400"> · {sub}</span>}
+        {sub && <span className="text-stone-500"> · {sub}</span>}
       </p>
     </div>
   );
@@ -104,7 +104,7 @@ function ProfileTab() {
         <div className="flex flex-wrap items-center gap-5 px-5 py-5">
           <div className="relative">
             <Avatar size={72} />
-            <button onClick={() => fileRef.current?.click()} className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-ink text-paper hover:bg-stone-700" title="Changer la photo">
+            <button onClick={() => fileRef.current?.click()} className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-ink text-paper hover:bg-stone-700" title="Changer la photo" aria-label="Changer la photo">
               <Camera size={13} />
             </button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { void pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
@@ -115,9 +115,11 @@ function ProfileTab() {
               {user.email} · inscrit le {fmt(new Date(user.createdAt), 'd MMMM yyyy')}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              {AVATAR_COLORS.map(c => (
+              {AVATAR_COLORS.map((c, i) => (
                 <button
                   key={c}
+                  aria-label={`Couleur de l'avatar ${i + 1}`}
+                  aria-pressed={!settings.avatarImage && settings.avatarColor === c}
                   onClick={() => settings.set({ avatarColor: c, avatarImage: null })}
                   className="flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110"
                   style={{ background: c, boxShadow: !settings.avatarImage && settings.avatarColor === c ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${c}` : undefined }}
@@ -135,6 +137,7 @@ function ProfileTab() {
         <Row label="Prénom" hint="Utilisé par Copilot pour te parler.">
           <input
             className="field w-56"
+            aria-label="Prénom"
             value={name}
             onChange={e => setName(e.target.value)}
             onBlur={() => {
@@ -151,13 +154,13 @@ function ProfileTab() {
           />
         </Row>
         <Row label="Établissement">
-          <input className="field w-56" value={settings.school} placeholder="Université, école…" onChange={e => settings.set({ school: e.target.value })} />
+          <input className="field w-56" aria-label="Établissement" value={settings.school} placeholder="Université, école…" onChange={e => settings.set({ school: e.target.value })} />
         </Row>
         <Row label="Filière">
-          <input className="field w-56" value={settings.program} placeholder="Droit, info, médecine…" onChange={e => settings.set({ program: e.target.value })} />
+          <input className="field w-56" aria-label="Filière" value={settings.program} placeholder="Droit, info, médecine…" onChange={e => settings.set({ program: e.target.value })} />
         </Row>
         <Row label="Année">
-          <select className="field w-56" value={settings.year} onChange={e => settings.set({ year: e.target.value })}>
+          <select className="field w-56" aria-label="Année d’études" value={settings.year} onChange={e => settings.set({ year: e.target.value })}>
             {YEARS.map(y => (
               <option key={y} value={y}>
                 {y || 'Non renseignée'}
@@ -342,7 +345,7 @@ function CopilotTab() {
             onChange={e => s.set({ personaNotes: e.target.value.slice(0, 600) })}
             placeholder="Appelle-moi Capitaine, parle-moi de foot."
           />
-          <p className={cx('mt-1 text-right text-[11px] tabular', s.personaNotes.length >= 560 ? 'text-amber-600' : 'text-stone-400')}>{s.personaNotes.length}/600</p>
+          <p className={cx('mt-1 text-right text-[11px] tabular', s.personaNotes.length >= 560 ? 'text-amber-600' : 'text-stone-500')}>{s.personaNotes.length}/600</p>
         </div>
       </Section>
 
@@ -363,7 +366,7 @@ function CopilotTab() {
           <Stepper value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
         <Row label="Heure des séances" hint="Chaque séance dure 1 h 30.">
-          <input type="time" className="field w-32" value={s.revisionTime} onChange={e => e.target.value && s.set({ revisionTime: e.target.value })} />
+          <input type="time" className="field w-32" aria-label="Heure des séances" value={s.revisionTime} onChange={e => e.target.value && s.set({ revisionTime: e.target.value })} />
         </Row>
       </Section>
 
@@ -635,9 +638,9 @@ function AccountTab() {
 
       <Section title="Mot de passe">
         <form onSubmit={onChange} className="grid gap-3 px-5 py-4 sm:grid-cols-3">
-          <input type="password" className="field" placeholder="Mot de passe actuel" value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" />
-          <input type="password" className="field" placeholder="Nouveau mot de passe" value={next} onChange={e => setNext(e.target.value)} autoComplete="new-password" />
-          <input type="password" className="field" placeholder="Confirmer" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} autoComplete="new-password" />
+          <input type="password" className="field" placeholder="Mot de passe actuel" aria-label="Mot de passe actuel" value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" />
+          <input type="password" className="field" placeholder="Nouveau mot de passe" aria-label="Nouveau mot de passe" value={next} onChange={e => setNext(e.target.value)} autoComplete="new-password" />
+          <input type="password" className="field" placeholder="Confirmer" aria-label="Confirmer le nouveau mot de passe" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} autoComplete="new-password" />
           <div className="sm:col-span-3">
             <button className="btn-primary h-8" disabled={busy || !current || !next}>
               Modifier le mot de passe
@@ -656,7 +659,7 @@ function AccountTab() {
 
       <Section title="Supprimer le compte" danger>
         <Row label="Supprimer définitivement mon compte" hint="Le compte, tes fichiers, notes et événements seront définitivement effacés. Pense à exporter une sauvegarde avant.">
-          <input type="password" className="field w-44" placeholder="Mot de passe" value={deletePw} onChange={e => setDeletePw(e.target.value)} />
+          <input type="password" className="field w-44" placeholder="Mot de passe" aria-label="Mot de passe, pour confirmer la suppression" value={deletePw} onChange={e => setDeletePw(e.target.value)} />
           <button
             className="btn-danger h-8"
             disabled={!deletePw}

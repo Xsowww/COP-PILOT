@@ -201,7 +201,7 @@ function Groups() {
       <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[248px]', active ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Groupes</h1>
-          <button className="icon-btn ml-auto" title="Rejoindre avec un code" onClick={() => setDialog('join')}>
+          <button className="icon-btn ml-auto" title="Rejoindre avec un code" aria-label="Rejoindre avec un code" onClick={() => setDialog('join')}>
             <LogIn size={16} />
           </button>
           <button className="btn-primary h-8 px-3" onClick={() => setDialog('create')}>
@@ -209,7 +209,7 @@ function Groups() {
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {!loaded && <p className="p-4 text-[13px] text-stone-400">Chargement…</p>}
+          {!loaded && <p className="p-4 text-[13px] text-stone-500">Chargement…</p>}
           {loaded && failed && (
             <div className="p-4 text-[13px] text-stone-500">
               Impossible de charger tes groupes.{' '}
@@ -228,13 +228,13 @@ function Groups() {
               <GroupBadge group={g} size={28} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-medium">{g.name}</span>
-                <span className="block text-[11px] text-stone-400">{g.ownerId === userId ? 'Tu l’as créé' : 'Membre'}</span>
+                <span className="block text-[11px] text-stone-500">{g.ownerId === userId ? 'Tu l’as créé' : 'Membre'}</span>
               </span>
             </button>
           ))}
           {loaded && !failed && groups.length === 0 && (
             <>
-              <p className="hidden px-2 py-3 text-[13px] text-stone-400 md:block">Aucun groupe pour l’instant.</p>
+              <p className="hidden px-2 py-3 text-[13px] text-stone-500 md:block">Aucun groupe pour l’instant.</p>
               <div className="card px-5 md:hidden">
                 <Intro onCreate={() => setDialog('create')} onJoin={() => setDialog('join')} />
               </div>
@@ -248,7 +248,7 @@ function Groups() {
         {active ? (
           <>
             <div className="flex items-center gap-3 pb-3">
-              <button className="icon-btn md:hidden" onClick={() => go(null)} title="Retour">
+              <button className="icon-btn md:hidden" onClick={() => go(null)} title="Retour" aria-label="Retour">
                 <ArrowLeft size={17} />
               </button>
               <GroupBadge group={active} size={34} />
@@ -264,7 +264,7 @@ function Groups() {
                 </button>
               </div>
               {active.ownerId === userId && (
-                <button className="icon-btn" title="Paramètres du groupe" onClick={() => setDialog('settings')}>
+                <button className="icon-btn" title="Paramètres du groupe" aria-label="Paramètres du groupe" onClick={() => setDialog('settings')}>
                   <Settings2 size={16} />
                 </button>
               )}

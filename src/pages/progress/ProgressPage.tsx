@@ -42,7 +42,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
     <div className="card px-4 py-3.5">
       <p className="eyebrow">{label}</p>
       <p className="mt-1.5 text-[24px] font-semibold leading-none tracking-[-0.02em]">{value}</p>
-      {sub && <p className="mt-1.5 text-[12px] text-stone-400">{sub}</p>}
+      {sub && <p className="mt-1.5 text-[12px] text-stone-500">{sub}</p>}
     </div>
   );
 }
@@ -93,7 +93,7 @@ export default function ProgressPage() {
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <Section id="taches" icon={ListChecks} title="Tâches" color="var(--color-brand-500)" aside={<span className="tabular text-[12px] text-stone-400">{openTodos} à faire</span>}>
+          <Section id="taches" icon={ListChecks} title="Tâches" color="var(--color-brand-500)" aside={<span className="tabular text-[12px] text-stone-500">{openTodos} à faire</span>}>
             <div className="card flex min-h-[200px] flex-col p-4">
               <TodoList grouped />
             </div>
@@ -107,7 +107,7 @@ export default function ProgressPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <div>
                   <h3 className="text-[13px] font-medium text-stone-600">Par matière</h3>
-                  <p className="text-[12px] text-stone-400">Minutes en session focus</p>
+                  <p className="text-[12px] text-stone-500">Minutes en session focus</p>
                 </div>
                 <div className="ml-auto flex rounded-lg bg-stone-100 p-0.5" role="group" aria-label="Période">
                   {RANGES.map(r => (

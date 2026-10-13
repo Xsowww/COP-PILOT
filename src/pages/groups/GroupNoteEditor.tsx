@@ -18,7 +18,7 @@ function Toolbar({ editor }: { editor: Editor }) {
     <button
       key={label}
       type="button"
-      title={label}
+      title={label} aria-label={label}
       onMouseDown={e => e.preventDefault()}
       onClick={run}
       className={cx('flex h-7 w-7 items-center justify-center rounded-md transition-colors', active ? 'bg-stone-200/70 text-ink' : 'text-stone-500 hover:bg-stone-100 hover:text-ink')}
@@ -75,7 +75,7 @@ export default function GroupNoteEditor({ noteId, onClose }: { noteId: string; o
     };
   }, [noteId]);
 
-  if (note === undefined) return <div className="flex-1 p-8 text-[13px] text-stone-400">Chargement de la note…</div>;
+  if (note === undefined) return <div className="flex-1 p-8 text-[13px] text-stone-500">Chargement de la note…</div>;
   if (note === null)
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
@@ -170,7 +170,7 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
       TaskItem.configure({ nested: true }),
     ],
     content: initial.content,
-    editorProps: { attributes: { class: 'prose-note' } },
+    editorProps: { attributes: { class: 'prose-note', 'aria-label': 'Contenu de la note', 'aria-multiline': 'true' } },
     onUpdate: ({ editor: ed }) => {
       html.current = ed.getHTML();
       changed();
@@ -248,13 +248,14 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-start gap-1 px-4 pt-5 md:px-10">
-        <button className="icon-btn mt-1" onClick={onClose} title="Retour à la liste">
+        <button className="icon-btn mt-1" onClick={onClose} title="Retour à la liste" aria-label="Retour à la liste">
           <ArrowLeft size={17} />
         </button>
         <div className="min-w-0 flex-1">
           <input
             value={title}
             placeholder="Sans titre"
+            aria-label="Titre de la note"
             maxLength={200}
             onChange={e => {
               setTitle(e.target.value);
@@ -262,11 +263,11 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
               changed();
             }}
             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), editor.commands.focus('start'))}
-            className="w-full bg-transparent text-[24px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-300"
+            className="w-full bg-transparent text-[24px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-400"
           />
-          <p className={cx('mt-0.5 text-[12px]', conflict ? 'text-amber-700' : status === 'error' ? 'text-red-600' : 'text-stone-400')}>{statusText}</p>
+          <p className={cx('mt-0.5 text-[12px]', conflict ? 'text-amber-700' : status === 'error' ? 'text-red-600' : 'text-stone-500')}>{statusText}</p>
         </div>
-        <button className="icon-btn mt-1 hover:text-red-600" title="Supprimer la note" onClick={() => void remove()}>
+        <button className="icon-btn mt-1 hover:text-red-600" title="Supprimer la note" aria-label="Supprimer la note" onClick={() => void remove()}>
           <Trash2 size={15} />
         </button>
       </div>

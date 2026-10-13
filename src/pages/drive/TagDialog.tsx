@@ -35,7 +35,7 @@ export function TagPill({ tag, active, onClick, onRemove, size = 'sm' }: { tag: 
             e.stopPropagation();
             onRemove();
           }}
-          className="-mr-1 rounded-full p-0.5 text-stone-400 hover:bg-stone-100 hover:text-ink"
+          className="-mr-1 rounded-full p-0.5 text-stone-500 hover:bg-stone-100 hover:text-ink"
         >
           <X size={11} />
         </span>
@@ -83,7 +83,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
       </div>
 
       <div className="mt-4 flex min-h-8 flex-wrap gap-1.5">
-        {current.length ? current.map(t => <TagPill key={t} tag={t} size="md" onRemove={() => remove(t)} />) : <p className="text-[13px] text-stone-400">Aucune étiquette pour l'instant.</p>}
+        {current.length ? current.map(t => <TagPill key={t} tag={t} size="md" onRemove={() => remove(t)} />) : <p className="text-[13px] text-stone-500">Aucune étiquette pour l'instant.</p>}
       </div>
 
       <form

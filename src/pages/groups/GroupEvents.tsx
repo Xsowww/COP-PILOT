@@ -133,7 +133,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
       <div className="min-w-0 flex-1">
         <p className="flex items-baseline gap-2">
           <span className="truncate text-[14px] font-medium">{ev.title}</span>
-          <span className="shrink-0 text-[11px] font-medium text-stone-400">{countdownLabel(ev.date)}</span>
+          <span className="shrink-0 text-[11px] font-medium text-stone-500">{countdownLabel(ev.date)}</span>
         </p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-stone-500">
           <span className="flex items-center gap-1 capitalize">
@@ -161,7 +161,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
           )}
           <span className="truncate text-[12px] text-stone-500">{who.charAt(0).toUpperCase() + who.slice(1)}</span>
         </div>
-        <p className="mt-1 text-[11px] text-stone-400">Proposée par {nameOf(ev.createdBy)}</p>
+        <p className="mt-1 text-[11px] text-stone-500">Proposée par {nameOf(ev.createdBy)}</p>
       </div>
       <div className="flex shrink-0 basis-full items-center gap-1.5 pl-[68px] sm:basis-auto sm:pl-0">
         <button
@@ -173,11 +173,11 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
         >
           {iCome && <Check size={14} />} Je viens
         </button>
-        <button className="icon-btn" title={inCalendar ? 'Déjà dans ton calendrier' : 'Ajouter à mon calendrier'} disabled={inCalendar} onClick={addToCalendar}>
+        <button className="icon-btn" title={inCalendar ? 'Déjà dans ton calendrier' : 'Ajouter à mon calendrier'} aria-label={inCalendar ? 'Déjà dans ton calendrier' : 'Ajouter à mon calendrier'} disabled={inCalendar} onClick={addToCalendar}>
           {inCalendar ? <Check size={15} className="text-emerald-600" /> : <CalendarPlus size={15} />}
         </button>
         {canDelete && (
-          <button className="icon-btn hover:text-red-600" title="Annuler la révision" onClick={() => void remove()}>
+          <button className="icon-btn hover:text-red-600" title="Annuler la révision" aria-label="Annuler la révision" onClick={() => void remove()}>
             <Trash2 size={15} />
           </button>
         )}
@@ -202,7 +202,7 @@ export default function GroupEvents({ group }: { group: Group }) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {adding && <EventForm group={group} onDone={() => setAdding(false)} />}
-        {!events && <p className="text-[13px] text-stone-400">Chargement…</p>}
+        {!events && <p className="text-[13px] text-stone-500">Chargement…</p>}
         {events && events.length === 0 && !adding && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <CalendarPlus size={26} strokeWidth={1.5} className="text-stone-300" />

@@ -40,7 +40,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
         <h3 className="text-[15px] font-semibold">{event ? "Modifier l'événement" : 'Nouvel événement'}</h3>
-        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder="Titre (ex. Partiel de maths)" className="field mt-4 h-10 w-full text-[14px]" />
+        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} aria-label="Titre de l’événement" placeholder="Titre (ex. Partiel de maths)" className="field mt-4 h-10 w-full text-[14px]" />
 
         <p className="mb-2 mt-4 text-[12px] font-medium text-stone-600">Catégorie</p>
         <div className="flex flex-wrap gap-2">
@@ -76,7 +76,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           </label>
         </div>
 
-        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (salle, chapitres à réviser…)" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
+        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (salle, chapitres à réviser…)" aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
 
         {linked.length > 0 && (
           <div className="mt-4">
