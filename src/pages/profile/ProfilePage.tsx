@@ -6,6 +6,7 @@ import {
   Timer, HardDrive, Smartphone, Keyboard,
 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
+import { useFocusLog } from '../../store/focusLog';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness, type PersonaKey } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
@@ -46,6 +47,9 @@ function useStats() {
   const notes = useNotes(s => s.notes);
   const events = useCalendar(s => s.events);
   const { focusSessions, focusTotalMinutes } = useSettings();
+  // The counters live in the settings, which a device left behind can overwrite with older values:
+  // the session log (one row per session, never overwritten) is the floor.
+  const log = useFocusLog(s => s.sessions);
   const files = items.filter(i => i.kind === 'file');
   const today = todayKey();
   const doneDays = new Set(events.filter(e => e.done).map(e => e.date));
@@ -62,8 +66,8 @@ function useStats() {
     words: notes.reduce((s, n) => s + (stripHtml(n.content).match(/\S+/g)?.length ?? 0), 0),
     done: events.filter(e => e.done).length,
     exams: events.filter(e => e.category === 'examen' && (e.done || e.date < today)).length,
-    focusSessions,
-    focusHours: focusTotalMinutes / 60,
+    focusSessions: Math.max(focusSessions, log.length),
+    focusHours: Math.max(focusTotalMinutes, log.reduce((s, x) => s + x.minutes, 0)) / 60,
     streak,
   };
 }
@@ -610,10 +614,10 @@ function DataTab() {
 
   const onImport = async (f?: File) => {
     if (!f) return;
-    if (!(await confirmAction('Restaurer cette sauvegarde ?', 'Tes notes, ton calendrier et tes réglages actuels seront remplacés.', 'Restaurer', false))) return;
+    if (!(await confirmAction('Restaurer cette sauvegarde ?', 'Les notes, événements, tâches et dossiers absents d’ici seront ajoutés. Rien d’actuel n’est remplacé (sauf les réglages).', 'Restaurer', false))) return;
     try {
       const r = await importBackup(f);
-      toast(`${r.notes} notes et ${r.events} événements restaurés`, 'success');
+      toast(r.notes + r.events ? `${r.notes} note${r.notes > 1 ? 's' : ''} et ${r.events} événement${r.events > 1 ? 's' : ''} récupérés` : 'Rien à récupérer : tout est déjà là', 'success');
     } catch (e) {
       toast((e as Error).message, 'error');
     }

@@ -879,6 +879,25 @@ begin
   end if;
 end $$;
 
+-- ── Synchro : une version plus ancienne n'écrase pas une plus récente ───────
+create or replace function public.keep_newest() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if new.updated_at < old.updated_at then
+    return null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists notes_keep_newest on public.notes;
+create trigger notes_keep_newest before update on public.notes
+  for each row execute function public.keep_newest();
+
+drop trigger if exists drive_items_keep_newest on public.drive_items;
+create trigger drive_items_keep_newest before update on public.drive_items
+  for each row execute function public.keep_newest();
+
 -- ── 3. Te déclarer administrateur ───────────────────────────────────────────
 -- Remplace l'adresse par celle de ton compte COP-PILOT :
 -- insert into public.admins (user_id) select id from auth.users where email = 'ton.adresse@exemple.fr' on conflict do nothing;

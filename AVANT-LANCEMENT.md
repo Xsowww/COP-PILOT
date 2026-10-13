@@ -22,13 +22,13 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [x] Mode local qui ouvre l'IA sans connexion en production
 
 ## Lot 3 — Synchronisation (ne jamais perdre de travail)
-- [ ] Une ligne refusée bloque toute la synchro de l'appareil
-- [ ] Un appareil en retard écrase les notes plus récentes (+ compteur de concentration)
-- [ ] Plus de 1000 éléments : une partie disparaît
-- [ ] Rechargement en plein milieu d'une modification qui la défait
-- [ ] Deux onglets hors ligne qui s'écrasent
-- [ ] Restauration d'une sauvegarde qui supprime définitivement
-- [ ] Images dans les notes qui remplissent la mémoire du navigateur
+- [x] Une ligne refusée bloque toute la synchro de l'appareil
+- [x] Un appareil en retard écrase les notes plus récentes (+ compteur de concentration) (SQL à appliquer : `2026-10-14_synchro_version_recente.sql`)
+- [x] Plus de 1000 éléments : une partie disparaît
+- [x] Rechargement en plein milieu d'une modification qui la défait
+- [x] Deux onglets hors ligne qui s'écrasent
+- [x] Restauration d'une sauvegarde qui supprime définitivement
+- [x] Images dans les notes qui remplissent la mémoire du navigateur (alerte claire ; stocker les images en ligne : plus tard)
 
 ## Lot 4 — Fichiers et stockage
 - [ ] Fichiers restants après suppression de compte / de groupe (RGPD)

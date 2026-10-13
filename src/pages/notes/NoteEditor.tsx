@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -104,6 +104,18 @@ function Toolbar({ editor }: { editor: Editor }) {
 
 export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 md:px-12' }: { note: Note; readOnly?: boolean; inset?: string }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  /** Typing not saved yet in the store. */
+  const unsaved = useRef(false);
+  /** The content this editor last wrote or loaded: anything else in the store came from another device. */
+  const known = useRef(note.content);
+  const save = useCallback(
+    (html: string) => {
+      unsaved.current = false;
+      known.current = html;
+      useNotes.getState().updateNote(note.id, { content: html });
+    },
+    [note.id],
+  );
   const editor = useEditor({
     editable: !readOnly,
     extensions: [
@@ -133,10 +145,19 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 
       },
     },
     onUpdate: ({ editor: ed }) => {
+      unsaved.current = true;
       clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => useNotes.getState().updateNote(note.id, { content: ed.getHTML() }), 350);
+      saveTimer.current = setTimeout(() => save(ed.getHTML()), 350);
     },
   });
+
+  // Newer version from another device (synchronisation): shown here, unless the student is
+  // typing (then their text wins). Without this, the next keystroke would save the old text over it.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || unsaved.current || note.content === known.current) return;
+    editor.commands.setContent(note.content, { emitUpdate: false });
+    known.current = editor.getHTML();
+  }, [editor, note.content]);
 
   // Flush pending save when switching notes, leaving the page or closing the tab.
   useEffect(() => {
@@ -146,7 +167,7 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 
         const html = editor.getHTML();
         const saved = useNotes.getState().notes.find(n => n.id === note.id);
         // Gone (e.g. moved to the trash): nothing to save.
-        if (saved && html !== saved.content) useNotes.getState().updateNote(note.id, { content: html });
+        if (saved && html !== saved.content && html !== known.current) save(html);
       }
     };
     window.addEventListener('pagehide', flush);
@@ -156,7 +177,7 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 
       registerEditorFlush(null, flush);
       flush();
     };
-  }, [editor, note.id, readOnly]);
+  }, [editor, note.id, readOnly, save]);
 
   if (!editor) return null;
   return (

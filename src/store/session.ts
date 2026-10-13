@@ -13,8 +13,19 @@ import { toast } from './ui';
 import { useTodos } from './todos';
 import { useFocusLog } from './focusLog';
 
-/** Load the signed-in user's data (or reset everything when signed out). */
-export async function loadUserData() {
+let loading: Promise<void> = Promise.resolve();
+
+/**
+ * Load the signed-in user's data (or reset everything when signed out). Calls run one after the
+ * other: two loads interleaved would reset the stores and the sync queue under each other.
+ */
+export function loadUserData() {
+  const run = loading.then(load);
+  loading = run.catch(() => undefined);
+  return run;
+}
+
+async function load() {
   const userId = getStorageUser();
   if (cloudEnabled) stopSync();
   // Detach storage while clearing memory, otherwise the reset would overwrite the saved data.
