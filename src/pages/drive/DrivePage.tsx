@@ -647,27 +647,27 @@ export default function DrivePage() {
           </button>
           {!inTrash && (
             <>
-            <button className="btn-secondary" onClick={() => void newFolder()} title="Nouveau dossier">
-              <FolderPlus size={15} /> <span className="hidden sm:inline">Nouveau dossier</span>
-            </button>
-            <div className="flex">
-              <button className="btn-primary rounded-r-none" onClick={() => fileInput.current?.click()} disabled={busy} title="Importer des fichiers">
-                <Upload size={15} /> <span className="hidden sm:inline">{busy ? 'Import…' : 'Importer'}</span>
+              <button className="btn-secondary" onClick={() => void newFolder()} title="Nouveau dossier">
+                <FolderPlus size={15} /> <span className="hidden sm:inline">Nouveau dossier</span>
               </button>
-              <button
-                className="btn-primary rounded-l-none border-l border-white/20 px-1.5"
-                disabled={busy}
-                title="Plus d’options d’import"
-                aria-label="Plus d’options d’import"
-                aria-haspopup="menu"
-                onClick={e => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setImportMenu({ x: r.right - 208, y: r.bottom + 6 });
-                }}
-              >
-                <ChevronDown size={14} />
-              </button>
-            </div>
+              <div className="flex">
+                <button className="btn-primary rounded-r-none" onClick={() => fileInput.current?.click()} disabled={busy} title="Importer des fichiers">
+                  <Upload size={15} /> <span className="hidden sm:inline">{busy ? 'Import…' : 'Importer'}</span>
+                </button>
+                <button
+                  className="btn-primary rounded-l-none border-l border-white/20 px-1.5"
+                  disabled={busy}
+                  title="Plus d’options d’import"
+                  aria-label="Plus d’options d’import"
+                  aria-haspopup="menu"
+                  onClick={e => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setImportMenu({ x: r.right - 208, y: r.bottom + 6 });
+                  }}
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
             </>
           )}
         </div>
