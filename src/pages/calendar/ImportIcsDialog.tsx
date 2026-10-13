@@ -44,8 +44,10 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
 
   const plan = useMemo(() => {
     if (!parsed) return null;
-    const known = new Set(events.map(e => e.externalId).filter(Boolean));
-    const ids = new Set(events.map(e => e.id));
+    // Events in the trash count too: a deleted course must not come back with the next import.
+    const all = [...events, ...useCalendar.getState().trash];
+    const known = new Set(all.map(e => e.externalId).filter(Boolean));
+    const ids = new Set(all.map(e => e.id));
     // Also recognise events exported from COP-PILOT itself (UID "<id>@cop-pilot").
     const dup = (e: IcsEvent) => known.has(e.externalId) || ids.has(e.externalId.replace(/@cop-pilot(_\d{8})?$/, ''));
     const fresh = parsed.filter(e => !dup(e));

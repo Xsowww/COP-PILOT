@@ -167,7 +167,7 @@ export const TOOLS = [
   },
   {
     name: 'delete_event',
-    description: "Supprime définitivement un événement du calendrier. Demande confirmation à l'étudiant avant.",
+    description: "Met un événement du calendrier à la corbeille (restaurable 30 jours). Demande confirmation à l'étudiant avant.",
     input_schema: { type: 'object', properties: { event_id: { type: 'string' } }, required: ['event_id'] },
   },
   {
@@ -236,7 +236,7 @@ export const TOOLS = [
   },
   {
     name: 'list_trash',
-    description: 'Liste ce qui est dans la corbeille (Drive et Notes), avec les id et la date de suppression.',
+    description: 'Liste ce qui est dans la corbeille (notes, dossiers, fichiers du Drive, événements), avec les id et la date de suppression.',
     input_schema: { type: 'object', properties: {} },
   },
   {
