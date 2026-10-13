@@ -240,7 +240,7 @@ export default function Copilot() {
 
     setThinking(true);
     let reply: BotReply;
-    if (aiEnabled) {
+    if (aiEnabled && !(await brain()).aiPausedUntil()) {
       try {
         reply = await (await brain()).claudeReply(clean, user?.name ?? '');
       } catch (e) {

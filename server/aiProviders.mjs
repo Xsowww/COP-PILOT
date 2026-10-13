@@ -7,7 +7,7 @@
 export const PRESETS = {
   anthropic: { label: 'Claude (Anthropic)', model: 'claude-opus-5-5' },
   gemini: { label: 'Gemini (Google)', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/', model: 'gemini-2.5-flash' },
-  groq: { label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
+  groq: { label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.1-8b-instant' },
   openrouter: { label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'meta-llama/llama-3.3-70b-instruct:free' },
   mistral: { label: 'Mistral', baseUrl: 'https://api.mistral.ai/v1', model: 'mistral-small-latest' },
   ollama: { label: 'Ollama (local)', baseUrl: 'http://localhost:11434/v1', model: 'llama3.1', keyless: true },
@@ -141,7 +141,18 @@ export class ProviderError extends Error {
     this.code = code;
     this.status = status;
     this.detail = detail;
+    /** Seconds before the provider accepts requests again (quota reached), when it says so. */
+    this.retryAfter = undefined;
   }
+}
+
+/** « 30 », « 2m59.5s », « 7h3m » (Retry-After / x-ratelimit-reset-*) → seconds. */
+export function parseWait(v) {
+  if (!v) return undefined;
+  if (/^\d+(\.\d+)?$/.test(v)) return Math.ceil(Number(v));
+  const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?$/.exec(v.trim());
+  if (!m || !m[0]) return undefined;
+  return Math.ceil(Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0));
 }
 
 /** HTTP status from the provider → Copilot's error codes (bad_key, rate_limited, upstream). */
@@ -189,7 +200,12 @@ async function callOnce(p, body, timeoutMs) {
     const detail = String(err?.message ?? raw).slice(0, 300) + (err?.code ? ` [${err.code}]` : '');
     // Gemini answers 400 (not 401) to an invalid key.
     const code = status === 400 && /api[ _]?key/i.test(detail) ? 'bad_key' : mapStatus(status);
-    throw new ProviderError(code, status, detail);
+    const error = new ProviderError(code, status, detail);
+    if (code === 'rate_limited') {
+      const waits = ['retry-after', 'x-ratelimit-reset-requests', 'x-ratelimit-reset-tokens'].map(h => parseWait(res.headers.get(h))).filter(Boolean);
+      error.retryAfter = waits.length ? Math.max(...waits) : undefined;
+    }
+    throw error;
   }
   if (!data?.choices?.length) throw new ProviderError('upstream', 502, 'réponse vide');
   return data;

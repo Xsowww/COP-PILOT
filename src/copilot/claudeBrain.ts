@@ -30,6 +30,25 @@ export class CopilotApiError extends Error {
   }
 }
 
+// shortcut: the pause lives in this tab's sessionStorage, each tab finds the limit by itself (one failed call); fine for now.
+const PAUSE_KEY = 'cop-ai-paused-until';
+function pauseAi(seconds: number) {
+  try {
+    sessionStorage.setItem(PAUSE_KEY, String(Date.now() + seconds * 1000));
+  } catch {
+    /* storage unavailable: the next call will simply hit the limit again */
+  }
+}
+/** Time until which the AI is paused (quota reached), or 0. */
+export function aiPausedUntil(): number {
+  try {
+    const t = Number(sessionStorage.getItem(PAUSE_KEY));
+    return t > Date.now() ? t : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Personality and preferences, sent with every request (the server builds the prompt). */
 function persona() {
   const { persona, personaNotes } = getSettings();
@@ -48,7 +67,11 @@ async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise
       signal: ctrl.signal,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new CopilotApiError(data.error ?? `http_${res.status}`);
+    if (!res.ok) {
+      // Quota of the free AI reached: simple mode until the provider accepts requests again.
+      if (data.error === 'rate_limited') pauseAi(Number(data.retryAfter) || 60);
+      throw new CopilotApiError(data.error ?? `http_${res.status}`);
+    }
     return data as T;
   } catch (e) {
     if (e instanceof CopilotApiError) throw e;
@@ -331,6 +354,7 @@ const NUDGE_MAX: Record<NudgeKind, number> = { remark: 320, brief: 520, review: 
 
 /** Lets the AI phrase a proactive remark in Copilot's voice. Returns null on any problem. */
 export async function aiNudge(situation: Record<string, unknown>, userName: string, kind: NudgeKind = 'remark'): Promise<string | null> {
+  if (aiPausedUntil()) return null;
   try {
     const res = await post<{ text: string }>(
       'nudge',
@@ -346,7 +370,12 @@ export async function aiNudge(situation: Record<string, unknown>, userName: stri
 
 export function describeApiError(e: unknown): string {
   const code = e instanceof CopilotApiError ? e.code : 'unknown';
-  if (code === 'rate_limited') return 'Doucement, je reprends mon souffle deux secondes. Réessaie juste après.';
+  if (code === 'rate_limited') {
+    const until = aiPausedUntil();
+    return until - Date.now() > 10 * 60_000
+      ? `L'IA gratuite a atteint sa limite pour l'instant : je passe en mode simple jusqu'à ${fmt(new Date(until), "HH'h'mm")}.`
+      : "L'IA gratuite est très demandée : je passe en mode simple une minute.";
+  }
   if (code === 'network' || code === 'timeout') return "J'ai perdu la connexion une seconde.";
   if (code === 'bad_key') return "Ma clé d'accès à l'IA ne marche pas (à vérifier dans la configuration du serveur).";
   return "J'ai un petit souci technique de mon côté.";

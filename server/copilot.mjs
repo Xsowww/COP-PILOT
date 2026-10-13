@@ -142,7 +142,7 @@ export async function handleCopilot(req, res, env = process.env) {
     return true;
   }
   if (rateLimited(caller.id ?? req.socket?.remoteAddress ?? 'unknown')) {
-    send(res, 429, { error: 'rate_limited' });
+    send(res, 429, { error: 'rate_limited', retryAfter: 60 });
     return true;
   }
 
@@ -171,7 +171,7 @@ export async function handleCopilot(req, res, env = process.env) {
     const response = await chat(provider, { system: chatSystem(body), tools: TOOLS, messages, maxTokens: provider.id === 'anthropic' ? 16000 : 8000 });
     send(res, 200, response);
   } catch (e) {
-    if (e instanceof ProviderError) send(res, e.code === 'timeout' ? 504 : e.code === 'rate_limited' ? 429 : 502, { error: e.code, status: e.status });
+    if (e instanceof ProviderError) send(res, e.code === 'timeout' ? 504 : e.code === 'rate_limited' ? 429 : 502, { error: e.code, status: e.status, retryAfter: e.retryAfter });
     else if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) send(res, 502, { error: 'bad_key' });
     else if (e instanceof Anthropic.RateLimitError) send(res, 429, { error: 'rate_limited' });
     else if (e instanceof Anthropic.APIConnectionTimeoutError) send(res, 504, { error: 'timeout' });
