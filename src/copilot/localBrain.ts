@@ -306,8 +306,35 @@ export function localReply(raw: string): BotReply {
     };
   }
 
+  // ── Reminder: « rappelle-moi ce soir 17h d'étendre le linge » ───────────────
+  if (/(rappel|rappelle[- ]moi|fais[- ]moi penser|pense a me dire)/.test(q)) {
+    const parsed = parseQuickAdd(input);
+    // Date/heure retirées par parseQuickAdd, puis tout ce qui précède le sujet du rappel.
+    let what = (parsed.title || input).replace(/\b(?:stp|s'il te pla[iî]t|svp|merci)\b/gi, '').replace(/\s+[àa]\s*(?=\s|$)/g, ' ');
+    const after = what.match(/\b(?:que je (?:dois|doit|devrais)|qu'il faut que je|de ne pas oublier d(?:e\s|'))\s*(.+)$/i) ?? what.match(/\b(?:rappel(?:le[- ]moi)?|fais[- ]moi penser|pense [àa] me dire)\b.*?\b(?:d'|de\s|pour\s)\s*(.+)$/i);
+    what = (after ? after[1] : '').replace(/[\s,.!]+$/, '').trim();
+    if (what) {
+      const title = what.charAt(0).toUpperCase() + what.slice(1);
+      const ev = addEvent({ title, date: parsed.date ?? todayKey(), start: parsed.start ?? undefined, category: 'perso' });
+      return { text: `C'est noté : ${describeEvent(ev)}. Je te le rappellerai.`, links: [{ label: 'Voir le jour', to: linkToDay(ev.date) }] };
+    }
+  }
+
+  // ── Revision sheet: « crée une fiche de révision de maths dans le dossier Cours » ──
+  let m = input.match(/(?:cr[ée]e|cr[ée]er|fais|faire|pr[ée]pare|[ée]cris)\s+(?:moi\s+)?(?:une\s+)?(?:petite\s+)?fiche(?:\s+de\s+r[ée]vision)?(?:\s+(?:de|d'|en|sur|pour)\s*(.+?))?(?:\s+dans\s+(?:le\s+dossier\s+)?(.+?))?(?:\s+dans\s+(?:les\s+|mes\s+)?notes)?\s*[.!?]*$/i);
+  if (m) {
+    const subject = m[1] ? unquote(m[1]) : '';
+    const folder = m[2] && !/^(?:les |mes )?notes$/i.test(m[2]) ? unquote(m[2]) : undefined;
+    const title = `Fiche de révision${subject ? ` — ${subject.charAt(0).toUpperCase() + subject.slice(1)}` : ''}`;
+    const note = createNote(title, '# Notions clés\n- \n# Définitions\n- \n# Formules / dates à retenir\n- \n# Exemples\n- \n# Je me teste\n- ', folder);
+    return {
+      text: `C'est fait : « ${note.title} »${folder ? ` dans le dossier « ${folder} »` : ''}, avec un plan prêt à remplir. (Avec l'IA, je peux aussi la remplir pour toi.)`,
+      links: [{ label: 'Ouvrir la fiche', to: linkToNote(note.id) }],
+    };
+  }
+
   // ── Create a note ─────────────────────────────────────────────────────────
-  let m = input.match(/(?:cr[ée]e|cr[ée]er|fais|faire|[ée]cris|ajoute|nouvelle)\s+(?:moi\s+)?(?:une\s+)?note\s*(?:qui s'appelle|appel[ée]e|intitul[ée]e|nomm[ée]e|sur|:)?\s*(.*)$/i);
+  m = input.match(/(?:cr[ée]e|cr[ée]er|fais|faire|[ée]cris|ajoute|nouvelle)\s+(?:moi\s+)?(?:une\s+)?note\s*(?:qui s'appelle|appel[ée]e|intitul[ée]e|nomm[ée]e|sur|:)?\s*(.*)$/i);
   if (m) {
     let rest = m[1];
     let content = '';
