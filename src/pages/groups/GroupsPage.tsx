@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, CloudOff, Copy, LogIn, NotebookText, Plus, Settings2, Users } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CloudOff, Copy, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useGroups, watchFocus } from '../../store/groups';
 import { toast } from '../../store/ui';
@@ -9,14 +9,17 @@ import { cloudEnabled } from '../../lib/supabase';
 import { GROUP_COLORS, copyCode, createGroup, groupError, joinGroup, updateGroup, type Group } from '../../lib/groups';
 import { cx } from '../../lib/utils';
 import { ColorPicker, GroupBadge } from './shared';
-import { groupColor } from './util';
+import { groupColor, useRights } from './util';
 import GroupNotes from './GroupNotes';
 import GroupEvents from './GroupEvents';
 import GroupMembers from './GroupMembers';
+import GroupFiles from './GroupFiles';
+import ShareButton from './GroupShare';
 
-type Tab = 'notes' | 'revisions' | 'membres';
+type Tab = 'notes' | 'fichiers' | 'revisions' | 'membres';
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: 'notes', label: 'Notes', icon: NotebookText },
+  { id: 'fichiers', label: 'Fichiers', icon: Paperclip },
   { id: 'revisions', label: 'Révisions', icon: CalendarClock },
   { id: 'membres', label: 'Membres', icon: Users },
 ];
@@ -152,6 +155,8 @@ function Groups() {
   const gid = params.get('g');
   const tab = (TABS.find(t => t.id === params.get('onglet'))?.id ?? 'notes') as Tab;
   const active = groups.find(g => g.id === gid) ?? null;
+  const code = useGroups(s => (active ? s.codes[active.id] : null));
+  const rights = useRights(active ?? { id: '', ownerId: null });
 
   useEffect(() => {
     useGroups.getState().reset();
@@ -234,15 +239,24 @@ function Groups() {
               <GroupBadge group={active} size={34} />
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-[18px] font-semibold tracking-[-0.01em]">{active.name}</h2>
-                <button
-                  className="group/code flex items-center gap-1.5 text-[12px] text-stone-500 hover:text-ink"
-                  title="Copier le code d’invitation"
-                  onClick={() => void copyCode(active.inviteCode)}
-                >
-                  Code <span className="font-mono font-medium tracking-wider text-stone-700">{active.inviteCode}</span>
-                  <Copy size={12} className="text-stone-400 group-hover/code:text-ink" />
-                </button>
+                {code && (
+                  <button
+                    className="group/code flex items-center gap-1.5 text-[12px] text-stone-500 hover:text-ink"
+                    title="Copier le code d’invitation"
+                    onClick={() => void copyCode(code)}
+                  >
+                    Code <span className="font-mono font-medium tracking-wider text-stone-700">{code}</span>
+                    <Copy size={12} className="text-stone-400 group-hover/code:text-ink" />
+                  </button>
+                )}
               </div>
+              {rights.canEdit && (
+                <ShareButton
+                  group={active}
+                  onNote={id => setParams({ g: active.id, note: id })}
+                  onFiles={() => go(active.id, 'fichiers')}
+                />
+              )}
               {active.ownerId === userId && (
                 <button className="icon-btn" title="Paramètres du groupe" aria-label="Paramètres du groupe" onClick={() => setDialog('settings')}>
                   <Settings2 size={16} />
@@ -269,6 +283,7 @@ function Groups() {
             </div>
             <div className="flex min-h-0 flex-1 flex-col pt-4">
               {tab === 'notes' && <GroupNotes key={active.id} group={active} />}
+              {tab === 'fichiers' && <GroupFiles key={active.id} group={active} />}
               {tab === 'revisions' && <GroupEvents key={active.id} group={active} />}
               {tab === 'membres' && <GroupMembers key={active.id} group={active} onLeft={() => go(null)} />}
             </div>

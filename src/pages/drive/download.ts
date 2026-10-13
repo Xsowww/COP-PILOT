@@ -1,7 +1,8 @@
 import { getFileUrl, type DriveItem } from '../../store/drive';
 
-export function downloadItem(item: DriveItem) {
-  void getFileUrl(item.id).then(url => {
+/** `getUrl` : d'où vient le contenu (par défaut, le Drive personnel). */
+export function downloadItem(item: Pick<DriveItem, 'id' | 'name'>, getUrl: (id: string) => Promise<string | null> = getFileUrl) {
+  void getUrl(item.id).then(url => {
     if (!url) return;
     const a = document.createElement('a');
     a.href = url;

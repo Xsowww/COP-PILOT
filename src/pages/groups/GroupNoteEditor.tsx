@@ -62,7 +62,7 @@ function Toolbar({ editor }: { editor: Editor }) {
 type Status = 'saved' | 'pending' | 'saving' | 'error';
 
 /** Charge la note, puis affiche l'éditeur. */
-export default function GroupNoteEditor({ noteId, onClose }: { noteId: string; onClose: () => void }) {
+export default function GroupNoteEditor({ noteId, onClose, readOnly = false }: { noteId: string; onClose: () => void; readOnly?: boolean }) {
   const [note, setNote] = useState<GroupNote | null | undefined>(undefined);
   useEffect(() => {
     let alive = true;
@@ -84,10 +84,11 @@ export default function GroupNoteEditor({ noteId, onClose }: { noteId: string; o
         <button className="btn-secondary mt-4" onClick={onClose}>Retour à la liste</button>
       </div>
     );
-  return <LoadedEditor initial={note} onClose={onClose} />;
+  return <LoadedEditor initial={note} onClose={onClose} readOnly={readOnly} />;
 }
 
-function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () => void }) {
+/** `readOnly` : lecteur du groupe (la base refuserait de toute façon l'enregistrement). */
+function LoadedEditor({ initial, onClose, readOnly }: { initial: GroupNote; onClose: () => void; readOnly: boolean }) {
   const id = initial.id;
   const nameOf = useMemberName(initial.groupId);
   const [meta, setMeta] = useState({ updatedAt: initial.updatedAt, updatedBy: initial.updatedBy });
@@ -131,10 +132,12 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
             setStatus('saved');
           } else setStatus('pending');
         } else {
-          // Quelqu'un a enregistré entre-temps (ou la note a été supprimée).
+          // Quelqu'un a enregistré entre-temps, la note a été supprimée, ou la base a refusé
+          // (passé lecteur entre-temps) : la version en ligne n'a alors pas bougé.
           blocked.current = true;
           const remote = await fetchNote(id);
-          if (remote) setConflict(remote);
+          if (remote && (force || remote.updatedAt === base.current)) toast('Tu ne peux plus modifier cette note : tu es lecteur dans ce groupe.', 'error');
+          else if (remote) setConflict(remote);
           else setDeleted(true);
           setStatus('error');
         }
@@ -170,8 +173,10 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
       TaskItem.configure({ nested: true }),
     ],
     content: initial.content,
+    editable: !readOnly,
     editorProps: { attributes: { class: 'prose-note', 'aria-label': 'Contenu de la note', 'aria-multiline': 'true' } },
     onUpdate: ({ editor: ed }) => {
+      if (!ed.isEditable) return;
       html.current = ed.getHTML();
       changed();
     },
@@ -179,6 +184,9 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
   useEffect(() => {
     editorRef.current = editor;
   }, [editor]);
+  useEffect(() => {
+    editor?.setEditable(!readOnly, false); // sans « update » : rien à enregistrer
+  }, [editor, readOnly]);
 
   const loadRemote = useCallback(
     (n: GroupNote) => {
@@ -242,7 +250,7 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
   };
 
   const statusText =
-    conflict ? 'En attente : choisis la version à garder' : status === 'saving' ? 'Enregistrement…' : status === 'pending' ? 'Modifications non enregistrées' : status === 'error' ? 'Non enregistré' : `Modifiée par ${nameOf(meta.updatedBy)} ${relativeTime(meta.updatedAt)}`;
+    readOnly && status === 'saved' ? `Lecture seule · modifiée par ${nameOf(meta.updatedBy)} ${relativeTime(meta.updatedAt)}` : conflict ? 'En attente : choisis la version à garder' : status === 'saving' ? 'Enregistrement…' : status === 'pending' ? 'Modifications non enregistrées' : status === 'error' ? 'Non enregistré' : `Modifiée par ${nameOf(meta.updatedBy)} ${relativeTime(meta.updatedAt)}`;
 
   if (!editor) return null;
   return (
@@ -254,6 +262,7 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
         <div className="min-w-0 flex-1">
           <input
             value={title}
+            readOnly={readOnly}
             placeholder="Sans titre"
             aria-label="Titre de la note"
             maxLength={200}
@@ -267,9 +276,11 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
           />
           <p className={cx('mt-0.5 text-[12px]', conflict ? 'text-amber-700' : status === 'error' ? 'text-red-600' : 'text-stone-500')}>{statusText}</p>
         </div>
-        <button className="icon-btn mt-1 hover:text-red-600" title="Supprimer la note" aria-label="Supprimer la note" onClick={() => void remove()}>
-          <Trash2 size={15} />
-        </button>
+        {!readOnly && (
+          <button className="icon-btn mt-1 hover:text-red-600" title="Supprimer la note" aria-label="Supprimer la note" onClick={() => void remove()}>
+            <Trash2 size={15} />
+          </button>
+        )}
       </div>
 
       {gone && (
@@ -290,9 +301,13 @@ function LoadedEditor({ initial, onClose }: { initial: GroupNote; onClose: () =>
         </div>
       )}
 
-      <div className="mt-3 border-y border-stone-100 bg-surface px-4 py-1.5 md:px-9">
-        <Toolbar editor={editor} />
-      </div>
+      {readOnly ? (
+        <div className="mt-3 border-t border-stone-100" />
+      ) : (
+        <div className="mt-3 border-y border-stone-100 bg-surface px-4 py-1.5 md:px-9">
+          <Toolbar editor={editor} />
+        </div>
+      )}
       <div className="min-h-0 flex-1 cursor-text overflow-y-auto px-4 py-5 md:px-11" onClick={() => !editor.isFocused && editor.commands.focus('end')}>
         <EditorContent editor={editor} onClick={e => e.stopPropagation()} />
       </div>

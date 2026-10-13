@@ -3,7 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { todayKey } from '../lib/dates';
 import * as api from '../lib/groups';
-import type { Attendance, Group, GroupEvent, GroupMember, GroupNoteSummary } from '../lib/groups';
+import type { Attendance, Group, GroupEvent, GroupFile, GroupMember, GroupNoteSummary } from '../lib/groups';
 
 // Groupes de travail (en ligne seulement). Rien n'est gardé dans le navigateur : tout est relu
 // depuis Supabase à l'ouverture, en direct (Realtime) et quand l'onglet reprend la main.
@@ -17,6 +17,9 @@ interface GroupsState {
   notes: Record<string, GroupNoteSummary[]>;
   events: Record<string, GroupEvent[]>;
   attendance: Record<string, Attendance[]>;
+  files: Record<string, GroupFile[]>;
+  /** Code d'invitation (null : pas le droit d'inviter). Lu à part, jamais dans la table groups. */
+  codes: Record<string, string | null>;
   loadGroups: () => Promise<void>;
   /** Ouvre un groupe : charge son contenu et écoute les changements des autres membres. */
   open: (id: string | null) => void;
@@ -27,7 +30,7 @@ interface GroupsState {
   reset: () => void;
 }
 
-type Part = 'members' | 'notes' | 'events';
+type Part = 'members' | 'notes' | 'events' | 'files';
 
 let channel: RealtimeChannel | null = null;
 let channelGroup: string | null = null;
@@ -56,8 +59,10 @@ export const useGroups = create<GroupsState>((set, get) => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_notes', filter: f }, () => soon(gid, 'notes'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_events', filter: f }, () => soon(gid, 'events'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_event_attendees', filter: f }, () => soon(gid, 'events'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_files', filter: f }, () => soon(gid, 'files'))
+      // Droits changés, arrivée, départ : membres + code d'invitation. (La table groups n'est pas
+      // diffusée en direct, pour ne pas exposer le code : la liste est relue ici et au retour sur l'onglet.)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter: f }, () => (soon(gid, 'members'), soon(gid, 'groups')))
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${gid}` }, () => soon(gid, 'groups'))
       // Les suppressions ne sont pas filtrables côté Realtime : on reçoit seulement des identifiants.
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_notes' }, p => {
         const id = String((p.old as { id?: string }).id ?? '');
@@ -65,8 +70,8 @@ export const useGroups = create<GroupsState>((set, get) => {
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_events' }, () => soon(gid, 'events'))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_event_attendees' }, () => soon(gid, 'events'))
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_files' }, () => soon(gid, 'files'))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_members' }, () => (soon(gid, 'members'), soon(gid, 'groups')))
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'groups' }, () => soon(gid, 'groups'))
       .subscribe();
   };
 
@@ -79,6 +84,8 @@ export const useGroups = create<GroupsState>((set, get) => {
     notes: {},
     events: {},
     attendance: {},
+    files: {},
+    codes: {},
 
     async loadGroups() {
       try {
@@ -95,9 +102,14 @@ export const useGroups = create<GroupsState>((set, get) => {
       if (id) void get().refresh(id);
     },
 
-    async refresh(id, parts = ['members', 'notes', 'events']) {
+    async refresh(id, parts = ['members', 'notes', 'events', 'files']) {
       const jobs: Promise<unknown>[] = [];
-      if (parts.includes('members')) jobs.push(api.fetchMembers(id).then(m => set(s => ({ members: { ...s.members, [id]: m } }))));
+      if (parts.includes('members'))
+        jobs.push(
+          api.fetchMembers(id).then(m => set(s => ({ members: { ...s.members, [id]: m } }))),
+          api.fetchInviteCode(id).then(c => set(s => ({ codes: { ...s.codes, [id]: c } }))),
+        );
+      if (parts.includes('files')) jobs.push(api.fetchFiles(id).then(f => set(s => ({ files: { ...s.files, [id]: f } }))));
       if (parts.includes('notes')) jobs.push(api.fetchNotes(id).then(n => set(s => ({ notes: { ...s.notes, [id]: n } }))));
       if (parts.includes('events'))
         jobs.push(
@@ -121,7 +133,7 @@ export const useGroups = create<GroupsState>((set, get) => {
 
     reset() {
       subscribe(null);
-      set({ groups: [], loaded: false, failed: false, activeId: null, members: {}, notes: {}, events: {}, attendance: {} });
+      set({ groups: [], loaded: false, failed: false, activeId: null, members: {}, notes: {}, events: {}, attendance: {}, files: {}, codes: {} });
     },
   };
 });
