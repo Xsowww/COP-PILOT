@@ -45,7 +45,7 @@ export default function NotesTrash({ onOpen, onBack }: { onOpen: (noteId: string
         </button>
         <div className="min-w-0 flex-1">
           <h2 className="text-[20px] font-semibold tracking-[-0.015em]">Corbeille</h2>
-          <p className="mt-0.5 text-[13px] text-stone-500">Les notes supprimées restent ici {TRASH_DAYS} jours, puis sont effacées.</p>
+          <p className="mt-0.5 text-[13px] text-stone-500">Effacées définitivement après {TRASH_DAYS} jours.</p>
         </div>
         {rows.length > 0 && (
           <button className="btn-secondary h-8 px-3 text-red-600 hover:text-red-700" onClick={() => void empty()}>
@@ -57,8 +57,7 @@ export default function NotesTrash({ onOpen, onBack }: { onOpen: (noteId: string
         {rows.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-8 text-center">
             <Trash2 size={26} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">La corbeille est vide</p>
-            <p className="mt-1 text-[13px] text-stone-500">Les notes et dossiers supprimés apparaîtront ici.</p>
+            <p className="mt-3 text-[13px] text-stone-500">La corbeille est vide.</p>
           </div>
         ) : (
           rows.map(r => (
@@ -71,8 +70,7 @@ export default function NotesTrash({ onOpen, onBack }: { onOpen: (noteId: string
                 </span>
               </button>
               <span className="hidden shrink-0 text-right text-[12px] sm:block">
-                <span className="block text-stone-500">Supprimé le {deletedOn(r.deletedAt)}</span>
-                <span className={daysLeft(r.deletedAt) <= 3 ? 'text-red-600' : 'text-stone-500'}>{leftLabel(r.deletedAt)}</span>
+                <span className={daysLeft(r.deletedAt) <= 3 ? 'text-red-600' : 'text-stone-500'} title={`Supprimé le ${deletedOn(r.deletedAt)}`}>{leftLabel(r.deletedAt)}</span>
               </span>
               <div className="flex shrink-0 gap-0.5">
                 <button className="icon-btn" title="Restaurer" aria-label="Restaurer" onClick={() => restore(r.id, r.title)}>

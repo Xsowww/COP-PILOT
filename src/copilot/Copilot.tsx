@@ -15,7 +15,7 @@ import { useDictation, speakText, stopSpeaking, useSpeaking, canSpeak } from './
 // The AI part (and the Anthropic types it uses) is loaded on first use.
 const brain = () => import('./claudeBrain');
 
-const SUGGESTIONS = ['Analyse ma semaine', 'Planifie mes révisions', 'Explique-moi la photosynthèse', 'Raconte-moi une blague'];
+const SUGGESTIONS = ['Analyse ma semaine', 'Planifie mes révisions'];
 const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|avec plaisir|je veux bien|volontiers)\b/;
 
 function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer) => void; disabled?: boolean }) {
@@ -313,9 +313,8 @@ export default function Copilot() {
               <CopilotAvatar size={24} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold leading-tight">Copilot</p>
-              <p className="flex w-fit items-center gap-1.5 text-[11px] text-stone-500" title={providerInfo}>
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Dans le coin
+              <p className="w-fit text-[13px] font-semibold leading-tight" title={providerInfo}>
+                Copilot
               </p>
             </div>
             {speaking && (

@@ -118,7 +118,7 @@ export default function TasksPage() {
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
-      <div className="mx-auto max-w-[1080px]">
+      <div className="mx-auto max-w-[1180px]">
         <h1 className="pb-7 pt-2 text-[24px] font-semibold tracking-[-0.02em]">Tâches</h1>
 
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">

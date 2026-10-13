@@ -128,7 +128,7 @@ function ProfileTab() {
 
   return (
     <div className="space-y-5">
-      <Section title="Profil">
+      <Section label="Profil">
         <div className="flex flex-wrap items-center gap-5 px-5 py-5">
           <div className="relative">
             <Avatar size={72} />
@@ -203,8 +203,8 @@ function ProfileTab() {
           <Stat value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d'affilée`} />
           <Stat value={stats.done} label="éléments cochés" />
           <Stat value={stats.exams} label="examens passés" />
-          <Stat value={stats.focusSessions} label="sessions focus" sub={`${stats.focusHours.toFixed(1)} h`} />
-          <Stat value={stats.notes} label="notes" sub={`${stats.words} mots`} />
+          <Stat value={stats.focusSessions} label="sessions focus" sub={stats.focusHours ? `${stats.focusHours.toFixed(1)} h` : undefined} />
+          <Stat value={stats.notes} label="notes" sub={stats.words ? `${stats.words} mots` : undefined} />
           <Stat value={stats.files} label="fichiers" sub={stats.files ? formatBytes(stats.size) : undefined} />
         </div>
       </Section>
@@ -227,7 +227,7 @@ function AppearanceTab() {
     applyAppearance({ ...settings, theme });
   };
   return (
-    <Section title="Apparence">
+    <Section label="Apparence">
       <Row label="Thème" hint="Automatique suit ton appareil.">
         <Segmented
           label="Thème"
@@ -303,7 +303,7 @@ function CopilotTab() {
   }, []);
   return (
     <div className="space-y-5">
-      <Section title="Copilot">
+      <Section label="Copilot">
         <div className="flex items-center gap-3 px-5 py-4">
           <span className={cx('h-2 w-2 rounded-full', aiEnabled ? 'bg-emerald-500' : 'bg-stone-400')} />
           <p className="text-[13px]">
@@ -533,7 +533,7 @@ function NotificationsTab() {
   };
 
   return (
-    <Section title="Notifications">
+    <Section label="Notifications">
       <Row
         label="Notifications du navigateur"
         hint={
