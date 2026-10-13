@@ -77,6 +77,13 @@ Pour qu'il comprenne tout, choisis un fournisseur dans `.env` (détails dans `.e
 | `anthropic` | payant | `claude-opus-5-5` | [console.anthropic.com](https://console.anthropic.com) |
 | `openai-compatible` | selon le service | `AI_MODEL` | `AI_BASE_URL` + `AI_API_KEY` |
 
+**Ne plus recréer `.env` à chaque lancement** : `AI_PROVIDER=groq` est déjà dans la configuration publique du projet (`.env.supabase.public`). Il ne reste que la clé, à enregistrer **une seule fois** comme secret, jamais dans le code :
+- **GitHub Codespaces** : github.com › Settings › Codespaces › Secrets › *New secret* : nom `AI_API_KEY`, valeur = ta clé, dépôt `COP-PILOT`. Chaque Codespace l'a automatiquement (redémarre un Codespace déjà ouvert).
+- **Hébergeur** (Render, Railway…) : variable d'environnement `AI_API_KEY`.
+- **Sur ton ordinateur** : un fichier `.env` avec `AI_API_KEY=…` (il reste d'un lancement à l'autre).
+
+Dans le chat, la ligne sous « Copilot » indique « Mode intelligent · Groq » ou « Mode simple · IA dans 0:42 » (compte à rebours quand le quota gratuit est atteint).
+
 Exemple gratuit en trois lignes :
 
 ```bash

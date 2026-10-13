@@ -18,6 +18,7 @@ import {
 } from './actions';
 import { readFileText } from './fileText';
 import type { BotReply } from './localBrain';
+import { aiPausedUntil, pauseAi } from './aiPause';
 
 type Block = Anthropic.Beta.BetaContentBlock;
 type Param = Anthropic.Beta.BetaMessageParam;
@@ -30,24 +31,7 @@ export class CopilotApiError extends Error {
   }
 }
 
-// shortcut: the pause lives in this tab's sessionStorage, each tab finds the limit by itself (one failed call); fine for now.
-const PAUSE_KEY = 'cop-ai-paused-until';
-function pauseAi(seconds: number) {
-  try {
-    sessionStorage.setItem(PAUSE_KEY, String(Date.now() + seconds * 1000));
-  } catch {
-    /* storage unavailable: the next call will simply hit the limit again */
-  }
-}
-/** Time until which the AI is paused (quota reached), or 0. */
-export function aiPausedUntil(): number {
-  try {
-    const t = Number(sessionStorage.getItem(PAUSE_KEY));
-    return t > Date.now() ? t : 0;
-  } catch {
-    return 0;
-  }
-}
+export { aiPausedUntil } from './aiPause';
 
 /** Personality and preferences, sent with every request (the server builds the prompt). */
 function persona() {
