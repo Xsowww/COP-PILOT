@@ -156,9 +156,10 @@ function Groups() {
   const gid = params.get('g');
   const tab = (TABS.find(t => t.id === params.get('onglet'))?.id ?? 'notes') as Tab;
   const unread = useGroupActivity(s => s.unread);
+  const tabNews = gid ? (unread[gid]?.[tab as 'notes'] ?? 0) : 0;
   useEffect(() => {
     if (gid) useGroupActivity.getState().markSeen(gid, tab);
-  }, [gid, tab, unread]);
+  }, [gid, tab, tabNews]);
   const active = groups.find(g => g.id === gid) ?? null;
   const code = useGroups(s => (active ? s.codes[active.id] : null));
   const rights = useRights(active ?? { id: '', ownerId: null });
