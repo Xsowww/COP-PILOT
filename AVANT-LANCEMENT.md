@@ -37,9 +37,9 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [x] Lien de partage encore valable 30 jours après suppression
 
 ## Lot 5 — Serveur de production
-- [ ] Écran blanc après une mise à jour du site (erreur 404 + écran « Recharger »)
-- [ ] Compression, en-têtes de sécurité, URL malformée, journal d'erreurs
-- [ ] Écran blanc pendant le chargement, Drive et Agenda chargés à la demande
+- [x] Écran blanc après une mise à jour du site (erreur 404 + écran « Recharger »)
+- [x] Compression, en-têtes de sécurité, URL malformée, journal d'erreurs
+- [x] Écran blanc pendant le chargement, Drive et Agenda chargés à la demande
 
 ## Lot 6 — Groupes et agenda
 - [ ] Temps réel non filtré et comptage toutes les 30 s trop coûteux

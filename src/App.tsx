@@ -7,10 +7,10 @@ import AuthPage from './pages/AuthPage';
 import MfaPage from './pages/MfaPage';
 import AppShell from './layout/AppShell';
 import Dashboard from './pages/Dashboard';
-import DrivePage from './pages/drive/DrivePage';
-import CalendarPage from './pages/calendar/CalendarPage';
 import { DialogHost, Toasts } from './components/Overlays';
 
+const DrivePage = lazy(() => import('./pages/drive/DrivePage'));
+const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
 const NotesPage = lazy(() => import('./pages/notes/NotesPage'));
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
@@ -49,7 +49,12 @@ export default function App() {
       });
   }, []);
 
-  if (!ready) return null;
+  if (!ready)
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-paper" role="status" aria-label="Chargement">
+        <span className="animate-pulse text-[15px] font-semibold tracking-tight text-stone-400">cop·pilot</span>
+      </div>
+    );
 
   return (
     <BrowserRouter>
@@ -61,8 +66,8 @@ export default function App() {
         <Route path="/securite" element={<MfaPage />} />
         <Route element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route index element={<Dashboard />} />
-          <Route path="drive" element={<DrivePage />} />
-          <Route path="calendrier" element={<CalendarPage />} />
+          <Route path="drive" element={<Suspense fallback={null}><DrivePage /></Suspense>} />
+          <Route path="calendrier" element={<Suspense fallback={null}><CalendarPage /></Suspense>} />
           <Route path="notes" element={<Suspense fallback={null}><NotesPage /></Suspense>} />
           <Route path="taches" element={<Suspense fallback={null}><TasksPage /></Suspense>} />
           <Route path="progression" element={<Navigate to="/taches" replace />} />
