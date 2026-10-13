@@ -9,8 +9,9 @@ import { goTo } from '../copilot/actions';
 
 // Pastilles et notifications « du nouveau dans tes groupes » : ce que les AUTRES membres ont ajouté
 // ou modifié depuis ta dernière visite de l'onglet concerné. Tout passe par un recomptage depuis la
-// base : déclenché en direct par le temps réel quand il fonctionne, et toutes les 30 s sinon
-// (réseaux qui bloquent les WebSockets). Une notification part quand un compteur augmente.
+// base : déclenché en direct par le temps réel (limité à tes groupes) quand il fonctionne, toutes les
+// 30 s sinon (réseaux qui bloquent les WebSockets), et toutes les 5 min par sécurité.
+// Une notification part quand un compteur augmente.
 
 export type ActivityTab = 'notes' | 'fichiers' | 'revisions';
 type Counts = Partial<Record<ActivityTab, number>>;
@@ -21,6 +22,10 @@ const TABLES: { table: string; tab: ActivityTab; at: string; by: string; one: st
   { table: 'group_events', tab: 'revisions', at: 'created_at', by: 'created_by', one: 'révision', many: 'révisions' },
 ];
 const POLL_MS = 30_000;
+/** Realtime connected: the count only runs every 10 polls (5 min), as a safety net. */
+const POLLS_WHEN_LIVE = 10;
+/** Older changes aren't news anymore, and never re-read a whole group history. */
+const MAX_AGE_MS = 7 * 864e5;
 
 interface ActivityState {
   unread: Record<string, Counts>;
@@ -38,11 +43,38 @@ const seenAt = (gid: string, tab: string) => getSettings().groupsSeen[key(gid, t
 export const totalUnread = (c: Counts = {}) => (c.notes ?? 0) + (c.fichiers ?? 0) + (c.revisions ?? 0);
 
 let channel: RealtimeChannel | null = null;
+let channelKey = '';
+let live = false;
+let started = false;
+/** Bumped by each start/stop: a start still counting when stopped gives up. */
+let generation = 0;
 let poll: ReturnType<typeof setInterval> | undefined;
 let soon: ReturnType<typeof setTimeout> | undefined;
 let names: Record<string, string> = {};
 let counted = false; // le premier comptage ne notifie pas (ce qui attendait déjà est juste affiché)
 const recount = () => void useGroupActivity.getState().count();
+
+/** Realtime limited to the student's groups (rebuilt when they join or leave one). */
+function listen(groupIds: string[]) {
+  const key = [...groupIds].sort().join(',');
+  if (!supabase || key === channelKey) return;
+  if (channel) void supabase.removeChannel(channel);
+  channel = null;
+  channelKey = key;
+  live = false;
+  if (!key) return;
+  const ch = supabase.channel(`groupes-activite-${Date.now()}`); // new name: the old channel may still be closing
+  for (const t of TABLES) {
+    ch.on('postgres_changes', { event: '*', schema: 'public', table: t.table, filter: `group_id=in.(${key})` }, () => {
+      clearTimeout(soon);
+      soon = setTimeout(recount, 1500); // une rafale de sauvegardes = un seul recomptage
+    });
+  }
+  ch.subscribe(status => {
+    if (channel === ch) live = status === 'SUBSCRIBED';
+  });
+  channel = ch;
+}
 
 function watching(gid: string, tab: ActivityTab) {
   const q = new URLSearchParams(location.search);
@@ -73,6 +105,7 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
       return; // réseau coupé : on garde l'affichage actuel
     }
     names = Object.fromEntries(groups.map(g => [g.id, g.name]));
+    if (started) listen(groups.map(g => g.id));
 
     // Groupe jamais visité sur ce compte : on part de maintenant (pas d'avalanche de vieilles pastilles).
     const now = new Date().toISOString();
@@ -84,8 +117,10 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
     const unread: Record<string, Counts> = {};
     const results = await Promise.all(
       TABLES.map(async t => {
-        const since = groups.map(g => seenAt(g.id, t.tab)).sort()[0];
-        if (!since) return true;
+        const oldest = groups.map(g => seenAt(g.id, t.tab)).sort()[0];
+        if (!oldest) return true;
+        const floor = new Date(Date.now() - MAX_AGE_MS).toISOString();
+        const since = oldest > floor ? oldest : floor;
         const { data, error } = await supabase!.from(t.table).select(`group_id, ${t.at}`).gt(t.at, since).neq(t.by, me);
         for (const r of (data ?? []) as unknown as Record<string, string>[]) {
           if (r[t.at] <= (seenAt(r.group_id, t.tab) ?? now)) continue;
@@ -118,29 +153,30 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
   },
 
   async start() {
-    if (!supabase || channel) return;
-    // Réservé tout de suite : un second appel pendant le premier comptage ne doit pas recréer le canal.
-    channel = supabase.channel('groupes-activite');
-    await get().count();
-    if (!channel) return; // arrêté entre-temps (déconnexion)
-    // En direct quand le temps réel passe (la RLS ne laisse arriver que les groupes dont on est membre).
-    for (const t of TABLES) {
-      channel.on('postgres_changes', { event: '*', schema: 'public', table: t.table }, () => {
-        clearTimeout(soon);
-        soon = setTimeout(recount, 1500); // une rafale de sauvegardes = un seul recomptage
-      });
-    }
-    channel.subscribe();
-    poll = setInterval(() => !document.hidden || getSettings().browserNotifications ? recount() : undefined, POLL_MS);
+    if (!supabase || started) return;
+    started = true;
+    const run = ++generation;
+    await get().count(); // also opens the Realtime channel on the student's groups
+    if (run !== generation) return; // stopped (sign-out, account switch) meanwhile
+    let ticks = 0;
+    poll = setInterval(() => {
+      if (document.hidden && !getSettings().browserNotifications) return;
+      if (live && ++ticks % POLLS_WHEN_LIVE) return;
+      recount();
+    }, POLL_MS);
     addEventListener('focus', recount);
   },
 
   stop() {
+    started = false;
+    generation++;
     removeEventListener('focus', recount);
     clearInterval(poll);
     clearTimeout(soon);
     if (channel && supabase) void supabase.removeChannel(channel);
     channel = null;
+    channelKey = '';
+    live = false;
     counted = false;
     set({ unread: {} });
   },

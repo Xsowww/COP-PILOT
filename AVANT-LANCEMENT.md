@@ -42,9 +42,9 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [x] Écran blanc pendant le chargement, Drive et Agenda chargés à la demande
 
 ## Lot 6 — Groupes et agenda
-- [ ] Temps réel non filtré et comptage toutes les 30 s trop coûteux
-- [ ] Démarrage / arrêt des pastilles qui double le comptage
-- [ ] .ics : cours annulés encore affichés, réimport qui ne met rien à jour
+- [x] Temps réel non filtré et comptage toutes les 30 s trop coûteux
+- [x] Démarrage / arrêt des pastilles qui double le comptage
+- [x] .ics : cours annulés encore affichés, réimport qui ne met rien à jour
 
 ## Lot 7 — Tests et ménage
 - [ ] Tests automatiques (dates, .ics, adaptateur IA, synchro) + vérification à chaque push

@@ -260,15 +260,35 @@ function toEvents(ev: RawEvent, start: Date, durationMs: number, allDay: boolean
   return [{ ...base, externalId: externalId(start), date: dateKey(start), start: hhmm(start), end: endTime }];
 }
 
+/**
+ * Tells which already imported events the file now cancels: a cancelled occurrence or series,
+ * or an occurrence excluded from its series (EXDATE). Used when importing an updated timetable.
+ */
+export function cancelledBy(text: string): (externalId: string) => boolean {
+  const ids = new Set<string>();
+  const series = new Set<string>();
+  for (const e of readEvents(text)) {
+    if (!e.uid) continue;
+    for (const k of e.exdates) ids.add(`${e.uid}_${k}`);
+    if (e.status !== 'CANCELLED') continue;
+    if (e.recurrenceId) ids.add(`${e.uid}_${e.recurrenceId}`);
+    else if (e.rrule) series.add(`${e.uid}_`);
+    else ids.add(e.uid);
+  }
+  return id => ids.has(id) || [...series].some(p => id.startsWith(p));
+}
+
 /** Parses an .ics file into individual, single-day events sorted by date. */
 export function parseIcs(text: string, opts: ParseOptions = {}): IcsEvent[] {
   const now = opts.now ?? new Date();
   const horizon = opts.horizon ?? new Date(now.getFullYear(), now.getMonth() + 9, now.getDate(), 23, 59);
-  const raw = readEvents(text).filter(e => e.start && e.status !== 'CANCELLED');
+  const all = readEvents(text).filter(e => e.start);
+  const raw = all.filter(e => e.status !== 'CANCELLED');
 
-  // RECURRENCE-ID blocks replace one occurrence of their master event.
+  // RECURRENCE-ID blocks replace one occurrence of their master event — a cancelled one too
+  // (Outlook, ADE: « STATUS:CANCELLED » on the override), which then just removes it.
   const overridden = new Map<string, Set<string>>();
-  for (const e of raw) if (e.recurrenceId) overridden.set(e.uid, (overridden.get(e.uid) ?? new Set()).add(e.recurrenceId));
+  for (const e of all) if (e.recurrenceId) overridden.set(e.uid, (overridden.get(e.uid) ?? new Set()).add(e.recurrenceId));
 
   const out: IcsEvent[] = [];
   raw.forEach((e, i) => {

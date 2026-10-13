@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { CalendarArrowDown, FileUp } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { CATEGORIES, guessCategory, useCalendar, type EventCategory, type NewEvent } from '../../store/calendar';
-import { isIcsFile, parseIcs, type IcsEvent } from '../../lib/ics';
+import { cancelledBy, isIcsFile, parseIcs, type IcsEvent } from '../../lib/ics';
 import { fmt, fromKey, todayKey } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { cx } from '../../lib/utils';
@@ -43,7 +43,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
   }, [source]);
 
   const plan = useMemo(() => {
-    if (!parsed) return null;
+    if (!parsed || !source) return null;
     // Events in the trash count too: a deleted course must not come back with the next import.
     const all = [...events, ...useCalendar.getState().trash];
     const known = new Set(all.map(e => e.externalId).filter(Boolean));
@@ -54,8 +54,22 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
     const todo = fresh.filter(e => !skipPast || e.date >= today);
     const cats = new Map<EventCategory, number>();
     for (const e of todo) cats.set(categoryOf(e), (cats.get(categoryOf(e)) ?? 0) + 1);
-    return { todo, duplicates: parsed.length - fresh.length, past: fresh.filter(e => e.date < today).length, cats };
-  }, [parsed, events, skipPast, today]);
+    // An updated timetable: courses moved or renamed are updated, cancelled ones go to the trash.
+    const current = (e: { date: string }) => !skipPast || e.date >= today;
+    const byExternal = new Map(events.filter(e => e.externalId).map(e => [e.externalId!, e]));
+    const updates = parsed.flatMap(e => {
+      const old = byExternal.get(e.externalId);
+      if (!old || !(current(old) || current(e))) return [];
+      const patch = { title: e.title, date: e.date, start: e.start, end: e.end, details: e.details };
+      const same = (Object.keys(patch) as (keyof typeof patch)[]).every(k => (old[k] ?? undefined) === (patch[k] ?? undefined));
+      return same ? [] : [{ id: old.id, patch }];
+    });
+    const cancelled = cancelledBy(source.text);
+    const removals = events.filter(e => e.externalId && current(e) && cancelled(e.externalId));
+    const duplicates = parsed.length - fresh.length - updates.length;
+    return { todo, duplicates, updates, removals, past: fresh.filter(e => e.date < today).length, cats };
+  }, [parsed, source, events, skipPast, today]);
+  const changes = plan ? plan.todo.length + plan.updates.length + plan.removals.length : 0;
 
   const read = async (file: File | undefined) => {
     if (!file) return;
@@ -67,12 +81,22 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
   };
 
   const submit = () => {
-    if (!plan?.todo.length) return;
+    if (!plan || !changes) return;
+    const cal = useCalendar.getState();
     const list: NewEvent[] = plan.todo.map(e => ({ title: e.title, date: e.date, start: e.start, end: e.end, details: e.details, externalId: e.externalId, category: categoryOf(e) }));
-    useCalendar.getState().addMany(list);
-    const n = list.length;
-    toast(`${n} événement${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''}${plan.duplicates ? ` · ${plan.duplicates} déjà présent${plan.duplicates > 1 ? 's' : ''}` : ''}`, 'success');
-    onImported(list.find(e => e.date >= today)?.date ?? list[0].date);
+    if (list.length) cal.addMany(list);
+    for (const u of plan.updates) cal.update(u.id, u.patch);
+    for (const e of plan.removals) cal.remove(e.id);
+    const s = (n: number) => (n > 1 ? 's' : '');
+    const parts = [
+      list.length && `${list.length} événement${s(list.length)} importé${s(list.length)}`,
+      plan.updates.length && `${plan.updates.length} mis à jour`,
+      plan.removals.length && `${plan.removals.length} annulé${s(plan.removals.length)} (dans la corbeille)`,
+      plan.duplicates > 0 && `${plan.duplicates} déjà présent${s(plan.duplicates)}`,
+    ].filter(Boolean);
+    toast(parts.join(' · '), 'success');
+    const first = list.find(e => e.date >= today)?.date ?? list[0]?.date ?? plan.updates[0]?.patch.date;
+    if (first) onImported(first);
     onClose();
   };
 
@@ -180,6 +204,18 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                   Ignorer les événements passés
                   {plan.past > 0 && <span className="tabular text-stone-500">({plan.past})</span>}
                 </label>
+                {(plan.updates.length > 0 || plan.removals.length > 0) && (
+                  <p className="mt-2 text-[12px] text-stone-600">
+                    Emploi du temps mis à jour :{' '}
+                    {[
+                      plan.updates.length && `${plan.updates.length} cours modifié${plan.updates.length > 1 ? 's' : ''} (horaire, salle…)`,
+                      plan.removals.length && `${plan.removals.length} cours annulé${plan.removals.length > 1 ? 's' : ''}, mis à la corbeille`,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                    .
+                  </p>
+                )}
                 {plan.duplicates > 0 && (
                   <p className="mt-2 text-[12px] text-stone-500">
                     {plan.duplicates} événement{plan.duplicates > 1 ? 's' : ''} déjà dans ton calendrier ne {plan.duplicates > 1 ? 'seront' : 'sera'} pas ajouté{plan.duplicates > 1 ? 's' : ''} en double.
@@ -196,8 +232,8 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
             <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
               Annuler
             </button>
-            <button type="button" className="btn-primary" disabled={!plan?.todo.length} onClick={submit}>
-              <CalendarArrowDown size={15} /> Importer
+            <button type="button" className="btn-primary" disabled={!changes} onClick={submit}>
+              <CalendarArrowDown size={15} /> {plan?.todo.length || !changes ? 'Importer' : 'Mettre à jour'}
             </button>
           </div>
         </>

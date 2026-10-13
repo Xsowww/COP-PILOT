@@ -35,6 +35,8 @@ type Part = 'members' | 'notes' | 'events' | 'files';
 let channel: RealtimeChannel | null = null;
 let channelGroup: string | null = null;
 const timers: Partial<Record<string, ReturnType<typeof setTimeout>>> = {};
+/** The primary key of a deleted row (all Realtime sends for a DELETE). */
+const oldOf = (p: { old: unknown }) => (p.old ?? {}) as Record<string, string | undefined>;
 
 export const useGroups = create<GroupsState>((set, get) => {
   /** Regroupe les rafales d'événements Realtime en une seule relecture. */
@@ -68,10 +70,21 @@ export const useGroups = create<GroupsState>((set, get) => {
         const id = String((p.old as { id?: string }).id ?? '');
         if (get().notes[gid]?.some(n => n.id === id)) get().dropNote(gid, id);
       })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_events' }, () => soon(gid, 'events'))
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_event_attendees' }, () => soon(gid, 'events'))
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_files' }, () => soon(gid, 'files'))
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_members' }, () => (soon(gid, 'members'), soon(gid, 'groups')))
+      // Every deletion of the whole site arrives here: only those touching this group cause a reload.
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_events' }, p => {
+        if (get().events[gid]?.some(e => e.id === oldOf(p).id)) soon(gid, 'events');
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_event_attendees' }, p => {
+        if (get().events[gid]?.some(e => e.id === oldOf(p).event_id)) soon(gid, 'events');
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_files' }, p => {
+        if (get().files[gid]?.some(f => f.id === oldOf(p).id)) soon(gid, 'files');
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_members' }, p => {
+        if (oldOf(p).group_id !== gid) return;
+        soon(gid, 'members');
+        soon(gid, 'groups');
+      })
       .subscribe();
   };
 
