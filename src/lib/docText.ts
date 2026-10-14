@@ -1,13 +1,11 @@
 // Text inside PDF and Word files, read in the browser (Drive search and Kompa).
 // pdf.js and mammoth are heavy: downloaded the first time a document is read.
 
-// Only the worker's URL (a string): the worker itself is downloaded when a PDF is read.
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { loadPdfjs } from './pdf';
 
 /** Text of each page, until about `maxChars` characters; `total` is the document's page count. */
 export async function pdfPages(blob: Blob, maxChars: number, maxPages = 400): Promise<{ pages: string[]; total: number }> {
-  const pdfjs = await import('pdfjs-dist');
-  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  const pdfjs = await loadPdfjs();
   const task = pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) });
   try {
     const doc = await task.promise;

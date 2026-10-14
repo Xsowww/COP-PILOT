@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
+import Tour from '../components/Tour';
 import { startProactive } from '../copilot/proactive';
 import { registerNavigate, search, type SearchHit } from '../copilot/actions';
 import Logo from '../components/Logo';
@@ -276,6 +277,7 @@ export default function AppShell() {
       </nav>
 
       <Copilot />
+      <Tour />
     </div>
   );
 }

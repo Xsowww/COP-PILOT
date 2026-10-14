@@ -26,6 +26,7 @@ import { currentStreak, useBadges } from '../../lib/badges';
 import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
 import BadgeGrid from './BadgeGrid';
 import { USAGES, WORDS, applyUsage, type Usage } from '../../lib/usage';
+import { eraseMyData } from '../../lib/eraseData';
 
 const TABS = [
   { key: 'profil', label: 'Profil', icon: User },
@@ -606,6 +607,17 @@ function NotificationsTab() {
 // ── Data ────────────────────────────────────────────────────────────────────
 
 function DataTab() {
+  async function eraseAll() {
+    const ok = await confirmAction(
+      'Effacer toutes tes données ?',
+      'Tous tes fichiers, notes, événements, tâches et ta conversation avec Kompa seront supprimés définitivement, sur tous tes appareils. Pense à exporter une sauvegarde avant si tu veux les garder.',
+      'Tout effacer',
+    );
+    if (!ok) return;
+    await eraseMyData();
+    toast('Ton espace est vide : tu repars de zéro.', 'success');
+  }
+
   const importRef = useRef<HTMLInputElement>(null);
   const [usage, setUsage] = useState<{ used: number; quota: number } | null>(null);
   const events = useCalendar(s => s.events.length);
@@ -642,6 +654,14 @@ function DataTab() {
         <Row label="Exporter le calendrier" hint="Format .ics (Google Agenda, Apple Calendrier, Outlook).">
           <button className="btn-secondary h-8" disabled={!events} onClick={() => exportIcs()}>
             <CalendarArrowDown size={14} /> Exporter
+          </button>
+        </Row>
+      </Section>
+
+      <Section title="Repartir de zéro" description="Ton compte, ton profil et tes réglages restent. Tes groupes aussi.">
+        <Row label="Effacer toutes mes données" hint="Fichiers du Drive, notes, événements, tâches, historique et conversation avec Kompa, corbeilles comprises.">
+          <button className="btn-danger h-8" onClick={() => void eraseAll()}>
+            Tout effacer
           </button>
         </Row>
       </Section>

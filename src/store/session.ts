@@ -11,6 +11,7 @@ import { pullAll, pushLeftovers, startSync, stopSync, updateCloudProfile } from 
 import { useAuth } from './auth';
 import { toast } from './ui';
 import { useTodos } from './todos';
+import { TOUR_TODO } from './tour';
 import { useFocusLog } from './focusLog';
 import { renameToKompa } from '../lib/renameToKompa';
 import { applyUsage, SEEDS, type Usage } from '../lib/usage';
@@ -115,5 +116,6 @@ export function seedNewAccount(name: string, usage: Usage = useSettings.getState
   const cal = useCalendar.getState();
   const today = new Date();
   cal.add({ title: 'Découvrir Kompa', date: toKey(today), category: 'perso' });
+  useTodos.getState().add(TOUR_TODO, toKey(today));
   for (const e of seed.events) cal.add({ title: e.title, date: toKey(addDays(today, e.inDays)), start: e.start, end: e.end, category: e.category });
 }

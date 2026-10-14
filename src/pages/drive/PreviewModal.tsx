@@ -4,6 +4,7 @@ import { categoryOf, getFileUrl, type DriveItem } from '../../store/drive';
 import { downloadItem } from './download';
 import { formatBytes, relativeTime } from '../../lib/utils';
 import FileIcon from '../../components/FileIcon';
+import PdfView from './PdfView';
 import { trapTab } from '../../lib/a11y';
 import { docxToHtml, pptxSlides, revokeSlides, type Slide } from './officePreview';
 
@@ -119,7 +120,7 @@ export default function PreviewModal({ item, onClose, getUrl = getFileUrl }: { i
           ) : cat === 'image' ? (
             <img src={url} alt={item.name} className="max-h-[80vh] max-w-full rounded-md object-contain shadow-2xl" />
           ) : cat === 'pdf' ? (
-            <iframe src={url} title={item.name} className="h-[82vh] w-[min(1000px,92vw)] rounded-md bg-white" />
+            <PdfView url={url} title={item.name} />
           ) : cat === 'video' ? (
             <video src={url} controls autoPlay className="max-h-[80vh] max-w-full rounded-md" />
           ) : cat === 'audio' ? (

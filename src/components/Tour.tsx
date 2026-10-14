@@ -1,0 +1,156 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useSettings } from '../store/settings';
+import { useTour, endTour } from '../store/tour';
+import type { Usage } from '../lib/usage';
+
+interface Step {
+  /** Element pointed at (the first visible match); none = a card in the middle of the screen. */
+  target?: string;
+  title: string;
+  text: (usage: Usage) => string;
+}
+
+const NEXT: Record<Usage, string> = { etudes: 'ton prochain examen', travail: 'ta prochaine échéance', perso: 'ton prochain grand jour' };
+
+const nav = (path: string) => `nav[aria-label="Navigation principale"] a[href="${path}"]`;
+
+const STEPS: Step[] = [
+  {
+    title: 'Bienvenue sur Kompa',
+    text: () => 'En une minute, voici où trouver chaque chose. Tu peux passer l’intro à tout moment.',
+  },
+  {
+    target: nav('/'),
+    title: 'L’accueil',
+    text: u => `Ta journée, ${NEXT[u]} et tes tâches, réunis sur une seule page.`,
+  },
+  {
+    target: nav('/calendrier'),
+    title: 'Le calendrier',
+    text: u =>
+      `Écris simplement « ${u === 'travail' ? 'Réunion client jeudi 10h' : u === 'perso' ? 'Dentiste mardi 17h' : 'Partiel de maths vendredi 14h'} » : Kompa le range tout seul.`,
+  },
+  {
+    target: nav('/taches'),
+    title: 'Les tâches',
+    text: () => 'Ta liste de choses à faire, avec une échéance si tu veux. Coche-les quand c’est fait.',
+  },
+  {
+    target: nav('/notes'),
+    title: 'Les notes',
+    text: () => 'Prends tes notes, range-les en dossiers et relie-les à tes fichiers ou à tes événements.',
+  },
+  {
+    target: nav('/drive'),
+    title: 'Le Drive',
+    text: () => 'Glisse tes fichiers dans la page. La recherche fouille même le texte de tes PDF.',
+  },
+  {
+    target: nav('/groupes'),
+    title: 'Le travail à plusieurs',
+    text: u => `Crée ${u === 'travail' ? 'une équipe' : 'un groupe'}, partage le code, et vous partagez notes et fichiers.`,
+  },
+  {
+    target: 'input[aria-label^="Rechercher dans tes fichiers"]',
+    title: 'La recherche',
+    text: () => 'Retrouve n’importe quel fichier, note ou événement. Raccourci : Ctrl K.',
+  },
+  {
+    target: '[role="button"][aria-label="Parler à Kompa"]',
+    title: 'Kompa, ton ami',
+    text: () => 'Clique sur lui pour discuter : il répond, ajoute des événements et t’aide à t’organiser.',
+  },
+  {
+    target: 'a[href="/profil"]',
+    title: 'Ton profil',
+    text: () => 'Thème, couleur, ton de Kompa, notifications : tout se règle ici.',
+  },
+];
+
+const visible = (sel: string) =>
+  [...document.querySelectorAll<HTMLElement>(sel)].find(el => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }) ?? null;
+
+const CARD_W = 300;
+
+/** The guided tour: one small card at a time, pointing at a part of the screen. */
+export default function Tour() {
+  const step = useTour(s => s.step);
+  const usage = useSettings(s => s.usage);
+  const navigate = useNavigate();
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const nextBtn = useRef<HTMLButtonElement>(null);
+  const current = step === null ? null : STEPS[step];
+
+  // The tour starts on the home page, where every target is on screen.
+  useEffect(() => {
+    if (step === 0) navigate('/');
+  }, [step, navigate]);
+
+  useLayoutEffect(() => {
+    if (!current) return;
+    const place = () => setRect(current.target ? (visible(current.target)?.getBoundingClientRect() ?? null) : null);
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [current]);
+
+  useEffect(() => {
+    if (step === null) return;
+    nextBtn.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && endTour();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [step]);
+
+  if (step === null || !current) return null;
+  const last = step === STEPS.length - 1;
+  const next = () => (last ? endTour() : useTour.setState({ step: step + 1 }));
+
+  // Card beside the target when there is room (right, then left), else under or above it.
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let pos: React.CSSProperties = { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
+  if (rect) {
+    const w = Math.min(CARD_W, vw - 32);
+    if (rect.right + 16 + w <= vw - 16) pos = { left: rect.right + 16, top: Math.min(Math.max(16, rect.top + rect.height / 2 - 70), vh - 200) };
+    else if (rect.left - 16 - w >= 16) pos = { left: rect.left - 16 - w, top: Math.min(Math.max(16, rect.top + rect.height / 2 - 70), vh - 200) };
+    else if (rect.bottom + 200 <= vh) pos = { left: Math.min(Math.max(16, rect.left), vw - w - 16), top: rect.bottom + 12 };
+    else pos = { left: Math.min(Math.max(16, rect.left), vw - w - 16), bottom: vh - rect.top + 12 };
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+      {rect ? (
+        <div
+          className="pointer-events-none absolute rounded-lg ring-2 ring-brand-500 transition-all duration-300"
+          style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, boxShadow: '0 0 0 9999px rgba(22, 24, 29, 0.45)' }}
+        />
+      ) : (
+        <div className="absolute inset-0" style={{ background: 'rgba(22, 24, 29, 0.45)' }} />
+      )}
+      <div className="enter absolute w-[min(300px,calc(100vw-32px))] rounded-xl bg-surface p-4 shadow-pop ring-1 ring-stone-200" style={pos}>
+        <p className="tabular text-[11px] font-medium text-stone-500">
+          {step + 1} / {STEPS.length}
+        </p>
+        <h2 id="tour-title" className="mt-1 text-[15px] font-semibold">
+          {current.title}
+        </h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-stone-600">{current.text(usage)}</p>
+        <div className="mt-4 flex items-center gap-2">
+          {!last && (
+            <button type="button" onClick={endTour} className="text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
+              Passer l’intro
+            </button>
+          )}
+          <button ref={nextBtn} type="button" onClick={next} className="btn-primary ml-auto h-8">
+            {last ? 'C’est parti' : 'Suivant'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
