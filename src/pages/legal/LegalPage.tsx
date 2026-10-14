@@ -8,7 +8,7 @@ import { LEGAL_LINKS } from './links';
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
 
 const UPDATED = '14 octobre 2026';
-const CONTACT = '[À COMPLÉTER : adresse e-mail de contact]';
+const CONTACT = 'contactappkompa@gmail.com';
 
 type Section = { title: string; body: string[] };
 
@@ -19,9 +19,9 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Éditeur du site',
         body: [
-          'Kompa est édité par [À COMPLÉTER : nom et prénom, ou nom de la structure, forme juridique et numéro SIREN le cas échéant].',
-          'Adresse : [À COMPLÉTER : adresse postale]. Contact : ' + CONTACT + '.',
-          'Directeur de la publication : [À COMPLÉTER : nom].',
+          'Kompa est édité par Léo Boucher, particulier, à titre non professionnel.',
+          'Comme le permet l’article 6, III, 2 de la loi pour la confiance dans l’économie numérique (LCEN), l’adresse de l’éditeur n’est pas publiée : son identité est connue de l’hébergeur. Contact : ' + CONTACT + '.',
+          'Directeur de la publication : Léo Boucher.',
         ],
       },
       {
