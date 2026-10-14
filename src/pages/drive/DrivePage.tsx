@@ -13,6 +13,7 @@ import { fold, highlightParts, searchFileContents, startTextIndexing } from '../
 import FileIcon from '../../components/FileIcon';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import PreviewModal from './PreviewModal';
+import StorageGauge from './StorageGauge';
 import { downloadItem } from './download';
 import MoveDialog from './MoveDialog';
 import ShareDialog from './ShareDialog';
@@ -600,6 +601,8 @@ export default function DrivePage() {
             </div>
         </div>
       </div>
+
+      <StorageGauge />
 
       {/* Breadcrumb / selection bar */}
       <div className="flex h-10 items-center gap-1 text-[13px]">

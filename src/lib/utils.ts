@@ -24,7 +24,7 @@ export function formatBytes(bytes = 0): string {
     v /= 1024;
     i++;
   }
-  return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+  return `${v.toFixed(v < 10 ? 1 : 0).replace(/\.0$/, '').replace('.', ',')} ${units[i]}`;
 }
 
 export function stripHtml(html: string): string {
