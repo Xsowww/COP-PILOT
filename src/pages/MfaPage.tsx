@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ShieldCheck, Smartphone } from 'lucide-react';
 import { useAuth, type MfaEnrollment } from '../store/auth';
-import { loadUserData } from '../store/session';
+import { loadUserData, useWelcome } from '../store/session';
 import Logo from '../components/Logo';
 
 /**
@@ -30,6 +30,7 @@ export default function MfaPage() {
   const [showSecret, setShowSecret] = useState(false);
   const [keptKey, setKeptKey] = useState(false);
   const started = useRef(false);
+  const submitting = useRef(false); // the submit itself navigates once the account's data is loaded
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -40,21 +41,29 @@ export default function MfaPage() {
 
   useEffect(() => {
     if (!user) navigate('/connexion', { replace: true });
-    else if (!mfaStep) navigate('/', { replace: true });
+    else if (!mfaStep && !submitting.current) navigate('/', { replace: true });
   }, [user, mfaStep, navigate]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!/^\d{6}$/.test(code.replace(/\s/g, ''))) return setError('Le code contient 6 chiffres.');
-    if (mfaStep === 'setup' && !keptKey) return setError('Garde d’abord ta clé de secours (étape 3).');
+    if (mfaStep === 'setup' && !keptKey) return setError('Garde d’abord ta clé de secours (étape 2).');
     setBusy(true);
     setError('');
+    submitting.current = true;
     try {
       await submitMfaCode(code, enrollment?.factorId);
       await loadUserData();
-      navigate('/', { replace: true });
+      // Straight to the right page: going through « / » first left a blank screen when the questionnaire was due.
+      navigate(useWelcome.getState().pending ? '/bienvenue' : '/', { replace: true });
     } catch (err) {
-      setError((err as Error).message);
+      submitting.current = false;
+      const msg = (err as Error).message;
+      setError(
+        mfaStep === 'setup' && msg.startsWith('Code incorrect')
+          ? 'Code refusé. Ce QR code est nouveau : supprime toute ancienne entrée « Kompa » de ton app, scanne celui-ci, puis tape le code de la nouvelle entrée.'
+          : msg,
+      );
       setCode('');
       inputRef.current?.focus();
     } finally {
@@ -88,6 +97,7 @@ export default function MfaPage() {
                   <p className="mt-0.5 text-stone-500">
                     iPhone : l’appareil photo, puis « Ajouter dans Mots de passe ». Android : Google Authenticator ou Microsoft Authenticator.
                   </p>
+                  <p className="mt-1 text-stone-500">Un ancien « Kompa » dans ton app ? Supprime-le : ce QR code est nouveau et remplace les précédents.</p>
                   <div className="mt-3 flex h-[180px] w-[180px] items-center justify-center rounded-xl border border-stone-200 bg-surface p-2.5">
                     {enrollment ? <img src={enrollment.qrCode} alt="QR code à scanner" className="h-full w-full" /> : <Loader2 className="animate-spin text-stone-400" />}
                   </div>
