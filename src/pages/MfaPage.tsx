@@ -61,7 +61,7 @@ export default function MfaPage() {
       const msg = (err as Error).message;
       setError(
         mfaStep === 'setup' && msg.startsWith('Code incorrect')
-          ? 'Code refusé. Ce QR code est nouveau : supprime toute ancienne entrée « Kompa » de ton app, scanne celui-ci, puis tape le code de la nouvelle entrée.'
+          ? 'Code refusé. Tape le code de l’entrée Kompa que tu viens d’ajouter (celle d’un ancien compte supprimé ne marche plus), et vérifie que l’heure de ton téléphone est réglée sur automatique.'
           : msg,
       );
       setCode('');
@@ -97,7 +97,7 @@ export default function MfaPage() {
                   <p className="mt-0.5 text-stone-500">
                     iPhone : l’appareil photo, puis « Ajouter dans Mots de passe ». Android : Google Authenticator ou Microsoft Authenticator.
                   </p>
-                  <p className="mt-1 text-stone-500">Un ancien « Kompa » dans ton app ? Supprime-le : ce QR code est nouveau et remplace les précédents.</p>
+                  <p className="mt-1 text-stone-500">Un « Kompa » d’un ancien compte supprimé dans ton app ? Supprime-le, ses codes ne marchent plus.</p>
                   <div className="mt-3 flex h-[180px] w-[180px] items-center justify-center rounded-xl border border-stone-200 bg-surface p-2.5">
                     {enrollment ? <img src={enrollment.qrCode} alt="QR code à scanner" className="h-full w-full" /> : <Loader2 className="animate-spin text-stone-400" />}
                   </div>

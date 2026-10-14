@@ -362,29 +362,66 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   async startMfaSetup() {
     if (!supabase) throw new Error('Indisponible en mode local.');
-    // Leftovers from an abandoned attempt would block a new enrolment.
+    const key = `cop-mfa-setup:${get().user?.id}`;
     const { data: list } = await supabase.auth.mfa.listFactors();
-    for (const f of list?.all ?? []) if (f.status !== 'verified') await supabase.auth.mfa.unenroll({ factorId: f.id });
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Kompa ${new Date().toISOString().slice(0, 10)}`, issuer: 'Kompa' });
+    const pending = (list?.all ?? []).filter(f => f.status !== 'verified');
+    // Page reloaded (back from the camera app, tab restored): show the same QR code as before.
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(key) ?? 'null') as MfaEnrollment | null;
+      if (saved && pending.some(f => f.id === saved.factorId)) return saved;
+    } catch {
+      /* nothing saved */
+    }
+    // Earlier QR codes are kept (another tab or device may show one that was just scanned); the extras go once one is confirmed.
+    const enroll = () => supabase!.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Kompa ${Date.now()}`, issuer: 'Kompa' });
+    let { data, error } = await enroll();
+    if (error && pending.length) {
+      // Too many unfinished attempts: start over once.
+      for (const f of pending) await supabase.auth.mfa.unenroll({ factorId: f.id });
+      ({ data, error } = await enroll());
+    }
     if (error || !data) throw new Error("Impossible de générer le QR code, réessaie dans un instant.");
-    return { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri };
+    const enrollment = { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri };
+    try {
+      sessionStorage.setItem(key, JSON.stringify(enrollment));
+    } catch {
+      /* private mode: a reload just shows a new QR code, the old one still works */
+    }
+    return enrollment;
   },
 
   async submitMfaCode(code, factorId) {
     if (!supabase) return;
-    let id = factorId;
-    if (!id) {
-      const { data } = await supabase.auth.mfa.listFactors();
-      id = data?.totp[0]?.id;
-    }
-    if (!id) throw new Error("Aucun appareil n'est associé à ce compte.");
+    const { data } = await supabase.auth.mfa.listFactors();
+    const all = data?.all ?? [];
+    // During setup, the code may come from any QR code shown so far (other tab, other device, before a reload): try each, newest first.
+    const ids = factorId
+      ? [factorId, ...all.filter(f => f.status !== 'verified' && f.factor_type === 'totp' && f.id !== factorId).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(f => f.id)].slice(0, 5)
+      : [data?.totp[0]?.id].filter((id): id is string => !!id);
+    if (!ids.length) throw new Error("Aucun appareil n'est associé à ce compte.");
     ownSignIn = true;
-    const { error } = await supabase.auth.mfa
-      .challengeAndVerify({ factorId: id, code: code.replace(/\s/g, '') })
-      .finally(() => setTimeout(() => (ownSignIn = false), 1500));
-    if (error) {
-      const msg = error.message.toLowerCase();
+    let error: { message: string } | null = null;
+    let verified = '';
+    try {
+      for (const id of ids) {
+        ({ error } = await supabase.auth.mfa.challengeAndVerify({ factorId: id, code: code.replace(/\s/g, '') }));
+        if (!error) {
+          verified = id;
+          break;
+        }
+        if (/ip address|rate|too many/i.test(error.message)) break; // trying the others would not help
+      }
+    } finally {
+      setTimeout(() => (ownSignIn = false), 1500);
+    }
+    if (!verified) {
+      const msg = (error?.message ?? '').toLowerCase();
       throw new Error(msg.includes('ip address') ? 'Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.' : msg.includes('expired') ? 'Ce code a expiré, tape le nouveau code affiché.' : msg.includes('rate') || msg.includes('too many') ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Vérifie que tu tapes le code Kompa affiché en ce moment.');
+    }
+    if (factorId) {
+      // Setup done: the QR codes that weren't used are dropped.
+      for (const f of all) if (f.status !== 'verified' && f.id !== verified) await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => undefined);
+      sessionStorage.removeItem(`cop-mfa-setup:${get().user?.id}`);
     }
     const user = get().user;
     if (user) setStorageUser(user.id);
