@@ -606,7 +606,6 @@ function NotificationsTab() {
 // ── Data ────────────────────────────────────────────────────────────────────
 
 function DataTab() {
-
   const importRef = useRef<HTMLInputElement>(null);
   const [usage, setUsage] = useState<{ used: number; quota: number } | null>(null);
   const events = useCalendar(s => s.events.length);
@@ -667,7 +666,7 @@ function DataTab() {
           <button
             className="btn-danger h-8"
             onClick={async () => {
-              if (!(await confirmAction('Tout effacer ?', 'Tous tes fichiers, notes, événements, tâches et ta conversation avec Kompa seront supprimés définitivement, sur tous tes appareils. Pense à exporter une sauvegarde avant si tu veux les garder.', 'Tout effacer'))) return;
+              if (!(await confirmAction('Tout effacer ?', `Tous tes fichiers, notes, événements et tâches seront supprimés définitivement${cloudEnabled ? ' sur tous tes appareils' : ''}, ainsi que ta conversation avec Kompa sur cet appareil. Pense à exporter une sauvegarde avant si tu veux les garder.`, 'Tout effacer'))) return;
               await wipeUserData();
               toast('Données effacées', 'success');
             }}
