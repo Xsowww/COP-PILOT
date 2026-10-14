@@ -37,7 +37,7 @@ const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
-function GlobalSearch() {
+function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () => void }) {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -61,13 +61,15 @@ function GlobalSearch() {
     setQ('');
     setOpen(false);
     inputRef.current?.blur();
+    onDone?.();
   };
 
   return (
-    <div className="relative w-full max-w-[300px]">
+    <div className={cx('relative w-full', !onDone && 'max-w-[300px]')}>
       <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
       <input
         ref={inputRef}
+        autoFocus={autoFocus}
         value={q}
         onChange={e => {
           setQ(e.target.value);
@@ -80,7 +82,10 @@ function GlobalSearch() {
           if (e.key === 'ArrowDown') setActive(a => Math.min(a + 1, hits.length - 1));
           if (e.key === 'ArrowUp') setActive(a => Math.max(a - 1, 0));
           if (e.key === 'Enter' && hits[active]) go(hits[active]);
-          if (e.key === 'Escape') inputRef.current?.blur();
+          if (e.key === 'Escape') {
+            inputRef.current?.blur();
+            onDone?.();
+          }
         }}
         placeholder="Rechercher"
         aria-label="Rechercher dans tes fichiers, notes et événements"
@@ -129,6 +134,7 @@ export default function AppShell() {
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
   const trashCount = useTrashCount();
+  const [searchOpen, setSearchOpen] = useState(false);
   const trashLabel = trashCount ? `Corbeille, ${trashCount} élément${trashCount > 1 ? 's' : ''}` : 'Corbeille';
 
   useEffect(() => registerNavigate(navigate), [navigate]);
@@ -159,11 +165,11 @@ export default function AppShell() {
         Aller au contenu
       </a>
       {/* Sidebar (desktop) */}
-      <aside aria-label="Barre latérale" className="hidden w-[232px] shrink-0 flex-col border-r border-stone-200/80 px-3 pb-3 pt-4 md:flex">
+      <aside aria-label="Barre latérale" className="hidden w-[256px] shrink-0 flex-col border-r border-stone-200/80 px-3 pb-3 pt-4 lg:flex">
         <div className="mb-6 px-2">
           <Logo />
         </div>
-        <nav aria-label="Navigation principale" className="flex flex-1 flex-col gap-0.5">
+        <nav aria-label="Navigation principale" className="flex flex-1 flex-col gap-1">
           {NAV.map(n => (
             <NavLink
               key={n.to}
@@ -171,14 +177,14 @@ export default function AppShell() {
               end={n.end}
               className={({ isActive }) =>
                 cx(
-                  'flex h-8 items-center gap-2.5 rounded-md border px-2 text-[13px] font-medium transition-colors',
+                  'flex h-10 items-center gap-3 rounded-lg border px-2.5 text-[14px] font-medium transition-colors',
                   isActive ? 'border-stone-200 bg-surface text-ink shadow-card' : 'border-transparent text-stone-600 hover:bg-stone-100 hover:text-ink',
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  <n.icon size={16} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
+                  <n.icon size={18} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
                   {label(n)}
                   {n.to === '/groupes' && groupNews > 0 && (
                     <span className="ml-auto rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={`${groupNews} nouveautés dans tes groupes`}>
@@ -194,12 +200,12 @@ export default function AppShell() {
               to="/admin"
               className={({ isActive }) =>
                 cx(
-                  'mt-4 flex h-8 items-center gap-2.5 rounded-md border px-2 text-[13px] font-medium transition-colors',
+                  'mt-4 flex h-10 items-center gap-3 rounded-lg border px-2.5 text-[14px] font-medium transition-colors',
                   isActive ? 'border-stone-200 bg-surface text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
                 )
               }
             >
-              <ChartNoAxesColumn size={16} strokeWidth={1.9} />
+              <ChartNoAxesColumn size={18} strokeWidth={1.9} />
               Administration
             </NavLink>
           )}
@@ -209,12 +215,12 @@ export default function AppShell() {
           aria-label={trashLabel}
           className={({ isActive }) =>
             cx(
-              'mb-2 mt-2 flex h-8 items-center gap-2.5 rounded-md border px-2 text-[13px] transition-colors',
+              'mb-2 mt-2 flex h-10 items-center gap-3 rounded-lg border px-2.5 text-[14px] transition-colors',
               isActive ? 'border-stone-200 bg-surface font-medium text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
             )
           }
         >
-          <Trash2 size={16} strokeWidth={1.9} />
+          <Trash2 size={18} strokeWidth={1.9} />
           <span className="flex-1">Corbeille</span>
           {trashCount > 0 && <span className="tabular text-[11px] text-stone-500">{trashCount}</span>}
         </NavLink>
@@ -235,27 +241,35 @@ export default function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-3 px-4 md:px-8">
-          <span className="md:hidden">
+          <span className="lg:hidden">
             <Logo />
           </span>
-          <div className="hidden flex-1 md:block">
+          <div className="hidden flex-1 lg:block">
             <GlobalSearch />
           </div>
-          <NavLink to="/corbeille" className="icon-btn relative ml-auto md:hidden" title="Corbeille" aria-label={trashLabel}>
+          <button type="button" className="icon-btn ml-auto lg:hidden" title="Rechercher" aria-label="Rechercher" aria-expanded={searchOpen} onClick={() => setSearchOpen(o => !o)}>
+            <Search size={18} strokeWidth={1.9} />
+          </button>
+          <NavLink to="/corbeille" className="icon-btn relative lg:hidden" title="Corbeille" aria-label={trashLabel}>
             <Trash2 size={18} strokeWidth={1.9} />
             {trashCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-paper" aria-hidden />}
           </NavLink>
-          <NavLink to="/profil" className="rounded-full md:hidden" title="Profil et réglages" aria-label="Profil et réglages">
+          <NavLink to="/profil" className="rounded-full lg:hidden" title="Profil et réglages" aria-label="Profil et réglages">
             <Avatar size={30} />
           </NavLink>
         </header>
-        <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-14 outline-none md:pb-0">
+        {searchOpen && (
+          <div className="px-4 pb-2 md:px-8 lg:hidden">
+            <GlobalSearch autoFocus onDone={() => setSearchOpen(false)} />
+          </div>
+        )}
+        <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-14 outline-none lg:pb-0">
           <Outlet />
         </main>
       </div>
 
       {/* Bottom nav (mobile) */}
-      <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-stone-200 bg-paper/95 backdrop-blur md:hidden">
+      <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-stone-200 bg-paper/95 backdrop-blur lg:hidden">
         {NAV.map(n => (
           <NavLink
             key={n.to}

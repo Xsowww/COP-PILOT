@@ -244,7 +244,7 @@ export default function NotesPage() {
       <span className="flex-1 truncate">{n.title}</span>
       {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" />}
       <button
-        className="rounded p-0.5 text-stone-500 opacity-0 hover:text-ink group-hover:opacity-100 group-focus-visible:opacity-100"
+        className="touch-show rounded p-0.5 text-stone-500 opacity-0 hover:text-ink group-hover:opacity-100 group-focus-visible:opacity-100"
         tabIndex={-1}
         aria-label="Plus d'actions"
         onClick={e => { e.stopPropagation(); setMenu({ x: e.clientX, y: e.clientY, items: noteMenu(n) }); }}

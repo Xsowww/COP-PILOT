@@ -8,7 +8,7 @@ Object.assign(globalThis, {
 });
 const { CATEGORIES, guessCategory } = await import('../src/store/calendar');
 const { useSettings } = await import('../src/store/settings');
-const { applyUsage, SEEDS } = await import('../src/lib/usage');
+const { applyUsage } = await import('../src/lib/usage');
 
 afterEach(() => {
   useSettings.setState({ usage: 'etudes' });
@@ -32,11 +32,5 @@ describe('usage', () => {
     expect(CATEGORIES.devoir.label).toBe('Devis');
     applyUsage('etudes');
     expect(CATEGORIES.cours.label).toBe('Cours');
-  });
-  it('has starter content for every usage', () => {
-    for (const seed of Object.values(SEEDS)) {
-      expect(seed.events.length).toBeGreaterThan(0);
-      expect(seed.welcome('Léa')).toContain('Léa');
-    }
   });
 });

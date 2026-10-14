@@ -52,7 +52,7 @@ const STEPS: Step[] = [
     text: u => `Crée ${u === 'travail' ? 'une équipe' : 'un groupe'}, partage le code, et vous partagez notes et fichiers.`,
   },
   {
-    target: 'input[aria-label^="Rechercher dans tes fichiers"]',
+    target: 'input[aria-label^="Rechercher dans tes fichiers"], button[aria-label="Rechercher"]',
     title: 'La recherche',
     text: () => 'Retrouve n’importe quel fichier, note ou événement. Raccourci : Ctrl K.',
   },
@@ -132,23 +132,26 @@ export default function Tour() {
       ) : (
         <div className="absolute inset-0" style={{ background: 'rgba(22, 24, 29, 0.45)' }} />
       )}
-      <div className="enter absolute w-[min(300px,calc(100vw-32px))] rounded-xl bg-surface p-4 shadow-pop ring-1 ring-stone-200" style={pos}>
-        <p className="tabular text-[11px] font-medium text-stone-500">
-          {step + 1} / {STEPS.length}
-        </p>
-        <h2 id="tour-title" className="mt-1 text-[15px] font-semibold">
-          {current.title}
-        </h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-stone-600">{current.text(usage)}</p>
-        <div className="mt-4 flex items-center gap-2">
-          {!last && (
-            <button type="button" onClick={endTour} className="text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
-              Passer l’intro
+      {/* Placed by this outer box: the entrance animation's transform would undo the centring. */}
+      <div className="absolute w-[min(300px,calc(100vw-32px))]" style={pos}>
+        <div className="enter rounded-xl bg-surface p-4 shadow-pop ring-1 ring-stone-200">
+          <p className="tabular text-[11px] font-medium text-stone-500">
+            {step + 1} / {STEPS.length}
+          </p>
+          <h2 id="tour-title" className="mt-1 text-[15px] font-semibold">
+            {current.title}
+          </h2>
+          <p className="mt-1 text-[13px] leading-relaxed text-stone-600">{current.text(usage)}</p>
+          <div className="mt-4 flex items-center gap-2">
+            {!last && (
+              <button type="button" onClick={endTour} className="text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
+                Passer l’intro
+              </button>
+            )}
+            <button ref={nextBtn} type="button" onClick={next} className="btn-primary ml-auto h-8">
+              {last ? 'C’est parti' : 'Suivant'}
             </button>
-          )}
-          <button ref={nextBtn} type="button" onClick={next} className="btn-primary ml-auto h-8">
-            {last ? 'C’est parti' : 'Suivant'}
-          </button>
+          </div>
         </div>
       </div>
     </div>

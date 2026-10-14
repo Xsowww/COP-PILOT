@@ -64,7 +64,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
       ) : (
         <span
           onDoubleClick={() => editable && !t.done && setEditing(true)}
-          className={cx('min-w-0 flex-1 truncate text-[13px]', t.done ? 'text-stone-500 line-through' : 'text-ink')}
+          className={cx('line-clamp-2 min-w-0 flex-1 break-words text-[13px]', t.done ? 'text-stone-500 line-through' : 'text-ink')}
           title={editable && !t.done ? 'Double-clic pour modifier' : t.title}
         >
           {t.title}
@@ -92,7 +92,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
         </span>
       )}
       {t.done && t.doneAt && <span className="tabular shrink-0 text-[11px] text-stone-500">{fmt(new Date(t.doneAt), 'd MMM')}</span>}
-      <button onClick={() => remove(t.id)} className="icon-btn h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
+      <button onClick={() => remove(t.id)} className="icon-btn touch-show h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
         <Trash2 size={13} />
       </button>
     </li>

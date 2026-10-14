@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUp, Check, Copy, Maximize2, Mic, Minimize2, RotateCcw, Square, Volume2, X } from 'lucide-react';
+import { ArrowUp, Check, Copy, Maximize2, Mic, Minimize2, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
@@ -8,11 +8,11 @@ import { localReply, type BotReply } from './localBrain';
 import { acceptOffer, runOffer } from './offers';
 import * as claudeBrain from './claudeBrain';
 import { normalize, cx } from '../lib/utils';
-import { useSettings, getSettings } from '../store/settings';
+import { useSettings } from '../store/settings';
 import Markdown from './Markdown';
 import { stripMarkdown } from './markdown';
 import { aiPausedUntil } from './aiPause';
-import { useDictation, speakText, stopSpeaking, useSpeaking, canSpeak } from './voice';
+import { useDictation } from './voice';
 
 // The AI part (and the Anthropic types it uses) is loaded on first use.
 // Already loaded with the app (proactive.ts uses it): the promise keeps the call sites unchanged.
@@ -63,7 +63,7 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setDone(false), 1400);
         });
       }}
-      className="absolute -bottom-2.5 right-1 flex h-6 w-6 items-center justify-center rounded-md border border-stone-200 bg-surface text-stone-500 opacity-0 shadow-card transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+      className="absolute -bottom-2.5 right-1 flex h-6 w-6 items-center justify-center rounded-md border border-stone-200 bg-surface text-stone-500 opacity-0 shadow-card touch-show transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
     >
       {done ? <Check size={12} /> : <Copy size={12} />}
     </button>
@@ -75,8 +75,6 @@ export default function Copilot() {
   const user = useAuth(s => s.user);
   const { messages, pose, bubble, thinking, aiEnabled, offsetY } = useCopilot();
   const visible = useSettings(s => s.copilotVisible);
-  const voiceReplies = useSettings(s => s.voiceReplies);
-  const speaking = useSpeaking();
   const [wide, setWide] = useState(false);
   const [providerInfo, setProviderInfo] = useState('');
   const [providerLabel, setProviderLabel] = useState('');
@@ -187,7 +185,8 @@ export default function Copilot() {
       const h = panelRef.current?.offsetHeight ?? 0;
       const centre = offsetY * window.innerHeight;
       const margin = 12;
-      const wanted = Math.min(Math.max(centre, h / 2 + margin), window.innerHeight - h / 2 - margin);
+      const bottom = window.innerWidth < 1024 ? 68 : margin; // above the bottom navigation on phones and tablets
+      const wanted = Math.min(Math.max(centre, h / 2 + margin), window.innerHeight - h / 2 - bottom);
       setShift(Math.round(wanted - centre));
     };
     place();
@@ -221,8 +220,7 @@ export default function Copilot() {
     clearBubble();
   };
 
-  const speak = (text: string, aloud = false) => {
-    if (aloud && getSettings().voiceReplies) speakText(text);
+  const speak = (text: string) => {
     setTalking(true);
     setTimeout(() => setTalking(false), Math.min(2200, 300 + text.length * 16));
   };
@@ -242,7 +240,6 @@ export default function Copilot() {
     const clean = text.trim();
     if (!clean || thinking) return;
     setInput('');
-    stopSpeaking();
     const pending = useCopilot.getState().pendingOffer;
     push('user', clean);
 
@@ -250,7 +247,7 @@ export default function Copilot() {
     if (pending && YES.test(normalize(clean))) {
       const r = runOffer(pending);
       push('bot', r.text, { links: r.links });
-      speak(r.text, true);
+      speak(r.text);
       return;
     }
 
@@ -269,7 +266,7 @@ export default function Copilot() {
     }
     setThinking(false);
     push('bot', reply.text, { links: reply.links, offers: reply.offers });
-    speak(reply.text, true);
+    speak(reply.text);
   }
 
   // Talking instead of typing: words appear as they're recognised, sent at the end.
@@ -319,8 +316,9 @@ export default function Copilot() {
           inert={!isOpen}
           style={{ marginTop: shift }}
           className={cx(
-            'absolute right-[104px] top-1/2 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-surface shadow-pop transition-all duration-200',
-            wide ? 'h-[min(720px,86vh)] w-[min(600px,calc(100vw-120px))]' : 'max-h-[min(600px,80vh)] w-[min(380px,calc(100vw-120px))]',
+            // Phone: the whole width, over the character; larger screens: beside it.
+            'absolute right-3 top-1/2 z-10 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-surface shadow-pop transition-all duration-200 sm:right-[104px]',
+            wide ? 'h-[min(720px,86vh)] w-[calc(100vw-24px)] sm:w-[min(600px,calc(100vw-120px))]' : 'max-h-[min(600px,72vh)] w-[calc(100vw-24px)] sm:max-h-[min(600px,80vh)] sm:w-[min(380px,calc(100vw-120px))]',
             isOpen ? 'pointer-events-auto scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0',
           )}
         >
@@ -334,11 +332,6 @@ export default function Copilot() {
               </p>
               <ModeLine ai={aiEnabled} label={providerLabel} until={pausedUntil} now={now} />
             </div>
-            {speaking && (
-              <button title="Arrêter la lecture" aria-label="Arrêter la lecture" onClick={stopSpeaking} className="icon-btn text-brand-600" tabIndex={isOpen ? 0 : -1}>
-                <Volume2 size={15} />
-              </button>
-            )}
             <button title={wide ? 'Réduire' : 'Agrandir'} aria-label={wide ? 'Réduire' : 'Agrandir'} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
               {wide ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             </button>
@@ -418,7 +411,6 @@ export default function Copilot() {
             </button>
           </form>
           {dictation.error && <p className="px-3.5 pb-2 text-[11px] text-red-600">{dictation.error}</p>}
-          {voiceReplies && !canSpeak() && <p className="px-3.5 pb-2 text-[11px] text-stone-500">Ton navigateur ne sait pas lire les réponses à voix haute.</p>}
         </div>
 
         {/* Spontaneous remarks are read out even though the bubble only appears visually. */}

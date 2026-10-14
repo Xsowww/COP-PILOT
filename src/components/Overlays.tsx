@@ -29,7 +29,7 @@ function ToastRow({ t }: { t: Toast }) {
 export function Toasts() {
   const toasts = useUi(s => s.toasts).slice(-3);
   return (
-    <div className="pointer-events-none fixed bottom-20 left-1/2 z-[70] flex -translate-x-1/2 flex-col items-center gap-2 md:bottom-6">
+    <div className="pointer-events-none fixed bottom-20 left-1/2 z-[70] flex -translate-x-1/2 flex-col items-center gap-2 lg:bottom-6">
       <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
         {toasts.filter(t => t.tone !== 'error').map(t => <ToastRow key={t.id} t={t} />)}
       </div>

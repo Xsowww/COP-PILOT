@@ -1,4 +1,3 @@
-import { addDays } from 'date-fns';
 import { useDrive } from './drive';
 import { useCalendar } from './calendar';
 import { useNotes } from './notes';
@@ -14,7 +13,7 @@ import { useTodos } from './todos';
 import { TOUR_TODO } from './tour';
 import { useFocusLog } from './focusLog';
 import { renameToKompa } from '../lib/renameToKompa';
-import { applyUsage, SEEDS, type Usage } from '../lib/usage';
+import { applyUsage } from '../lib/usage';
 import { create } from 'zustand';
 
 /** True while a brand-new account still has to answer the welcome questionnaire. */
@@ -96,26 +95,12 @@ export async function finishWelcome(answers: WelcomeAnswers) {
   });
   applyUsage(answers.usage);
   const user = useAuth.getState().user;
-  seedNewAccount(user?.name ?? '', answers.usage);
+  seedNewAccount();
   useWelcome.setState({ pending: false });
   if (cloudEnabled && user) await updateCloudProfile(user.id, { onboarded: true }).catch(() => undefined);
 }
 
-/** A few starter items so a brand-new account doesn't open on an empty screen (shaped by the welcome answers). */
-export function seedNewAccount(name: string, usage: Usage = useSettings.getState().usage) {
-  const seed = SEEDS[usage] ?? SEEDS.etudes;
-  const drive = useDrive.getState();
-  const folders = seed.driveFolders.map(f => drive.createFolder(f, null));
-  if (usage === 'etudes') drive.createFolder('Semestre 1', folders[0].id);
-
-  const notes = useNotes.getState();
-  const [nf] = seed.noteFolders.map(f => notes.createFolder(f, null));
-  notes.createNote({ title: 'Bienvenue sur Kompa', content: seed.welcome(name) });
-  notes.createNote({ ...seed.extraNote, folderId: nf.id });
-
-  const cal = useCalendar.getState();
-  const today = new Date();
-  cal.add({ title: 'Découvrir Kompa', date: toKey(today), category: 'perso' });
-  useTodos.getState().add(TOUR_TODO, toKey(today));
-  for (const e of seed.events) cal.add({ title: e.title, date: toKey(addDays(today, e.inDays)), start: e.start, end: e.end, category: e.category });
+/** A brand-new account starts empty: only the task that launches the guided tour. */
+export function seedNewAccount() {
+  useTodos.getState().add(TOUR_TODO, toKey(new Date()));
 }

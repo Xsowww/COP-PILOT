@@ -77,7 +77,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           </p>
           {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600">{ev.details}</p>}
         </button>
-        <div className="flex opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="touch-show flex opacity-0 transition-opacity group-hover:opacity-100">
           <button className="icon-btn" title="Modifier" aria-label="Modifier" onClick={onEdit}>
             <Pencil size={14} />
           </button>

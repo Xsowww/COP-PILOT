@@ -44,7 +44,6 @@ export interface Settings {
   revisionTime: string; // HH:mm
   persona: PersonaKey;
   personaNotes: string; // free instructions written by the student (max 600 chars)
-  voiceReplies: boolean; // Kompa reads its answers aloud
   morningBrief: boolean; // « ta journée en 3 lignes »
   weeklyReview: boolean; // Sunday evening review
   // studies
@@ -82,7 +81,6 @@ export const DEFAULT_SETTINGS: Settings = {
   revisionTime: '18:00',
   persona: 'pote',
   personaNotes: '',
-  voiceReplies: false,
   morningBrief: true,
   weeklyReview: true,
   focusMinutes: 25,

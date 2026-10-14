@@ -389,15 +389,12 @@ function CopilotTab() {
         </div>
       </Section>
 
-      <Section title="Rendez-vous et voix">
+      <Section title="Rendez-vous">
         <Row label="Point du matin" hint="Ta journée en 3 lignes, avant midi.">
           <Toggle label="Point du matin" checked={s.morningBrief} onChange={v => s.set({ morningBrief: v })} />
         </Row>
         <Row label="Bilan du dimanche" hint="Le dimanche à partir de 17 h.">
           <Toggle label="Bilan du dimanche" checked={s.weeklyReview} onChange={v => s.set({ weeklyReview: v })} />
-        </Row>
-        <Row label="Lire ses réponses à voix haute">
-          <Toggle label="Réponses à voix haute" checked={s.voiceReplies} onChange={v => s.set({ voiceReplies: v })} />
         </Row>
       </Section>
 

@@ -1,8 +1,6 @@
-// Talking with Kompa: dictation with the browser's speech recognition, and spoken
-// answers with speech synthesis. Both are optional and depend on the browser.
+// Talking to Kompa: dictation with the browser's speech recognition (optional, depends on the browser).
 
 import { useEffect, useRef, useState } from 'react';
-import { stripMarkdown } from './markdown';
 
 // Minimal typing of the Web Speech API (not in TypeScript's DOM library yet).
 interface RecognitionResult {
@@ -51,7 +49,6 @@ export function useDictation(onInterim: (text: string) => void, onFinal: (text: 
   const start = () => {
     const Ctor = recognitionCtor();
     if (!Ctor || listening) return;
-    stopSpeaking();
     const r = new Ctor();
     r.lang = 'fr-FR';
     r.interimResults = true;
@@ -88,54 +85,4 @@ export function useDictation(onInterim: (text: string) => void, onFinal: (text: 
   const stop = () => rec.current?.stop();
 
   return { listening, error, start, stop, supported: canDictate() };
-}
-
-// ── Spoken answers ────────────────────────────────────────────────────────────
-
-export const canSpeak = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
-
-const listeners = new Set<(speaking: boolean) => void>();
-const emit = (v: boolean) => listeners.forEach(l => l(v));
-
-function frenchVoice() {
-  const voices = window.speechSynthesis.getVoices();
-  return voices.find(v => v.lang === 'fr-FR' && /google|natural|premium|enhanced/i.test(v.name)) ?? voices.find(v => v.lang === 'fr-FR') ?? voices.find(v => v.lang.startsWith('fr'));
-}
-
-/** Reads a text aloud in French (Markdown symbols and emojis removed). */
-export function speakText(text: string) {
-  if (!canSpeak()) return;
-  const clean = stripMarkdown(text)
-    .replace(/\p{Extended_Pictographic}/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!clean) return;
-  const synth = window.speechSynthesis;
-  synth.cancel();
-  const u = new SpeechSynthesisUtterance(clean.slice(0, 4000));
-  u.lang = 'fr-FR';
-  const voice = frenchVoice();
-  if (voice) u.voice = voice;
-  u.rate = 1.04;
-  u.onstart = () => emit(true);
-  u.onend = () => emit(false);
-  u.onerror = () => emit(false);
-  synth.speak(u);
-}
-
-export function stopSpeaking() {
-  if (!canSpeak()) return;
-  window.speechSynthesis.cancel();
-  emit(false);
-}
-
-export function useSpeaking() {
-  const [speaking, setSpeaking] = useState(false);
-  useEffect(() => {
-    listeners.add(setSpeaking);
-    return () => {
-      listeners.delete(setSpeaking);
-    };
-  }, []);
-  return speaking;
 }

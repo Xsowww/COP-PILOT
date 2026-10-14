@@ -233,6 +233,11 @@ body {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .enter { animation: enter 0.18s ease-out both; }
+
+/* Phones and tablets have no hover: controls that appear on hover stay visible there. */
+@media (hover: none) {
+  .touch-show { opacity: 1; }
+}
 .pop { animation: pop 0.22s cubic-bezier(.2,.9,.3,1.2) both; }
 
 /* Copilot */
