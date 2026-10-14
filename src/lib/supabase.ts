@@ -19,7 +19,37 @@ export const linkError: string | null = (() => {
   return "Ce lien n'est pas valide. Essaie de te connecter ou demande un nouvel e-mail.";
 })();
 
-export const supabase = url && key ? createClient(url, key) : null;
+// « Rester connecté » : the session is kept in localStorage (still there when the browser reopens, on this
+// device only) unless the student unticked it, then in sessionStorage (gone when the tab closes).
+const REMEMBER = 'cop-remember';
+const keep = () => {
+  try {
+    return localStorage.getItem(REMEMBER) !== '0';
+  } catch {
+    return true;
+  }
+};
+export function setRememberMe(on: boolean) {
+  try {
+    if (on) localStorage.removeItem(REMEMBER);
+    else localStorage.setItem(REMEMBER, '0');
+  } catch {
+    /* storage blocked: the default (kept) applies */
+  }
+}
+const authStorage = {
+  getItem: (k: string) => (keep() ? localStorage : sessionStorage).getItem(k),
+  setItem: (k: string, v: string) => {
+    (keep() ? localStorage : sessionStorage).setItem(k, v);
+    (keep() ? sessionStorage : localStorage).removeItem(k);
+  },
+  removeItem: (k: string) => {
+    localStorage.removeItem(k);
+    sessionStorage.removeItem(k);
+  },
+};
+
+export const supabase = url && key ? createClient(url, key, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true } }) : null;
 
 /**
  * Checks a password without touching the current session (which may already be

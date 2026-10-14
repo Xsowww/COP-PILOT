@@ -96,8 +96,9 @@ export async function finishWelcome(answers: WelcomeAnswers) {
   applyUsage(answers.usage);
   const user = useAuth.getState().user;
   seedNewAccount();
-  useWelcome.setState({ pending: false });
+  // Saved before leaving the page: switching to the home page first let a closed tab lose it (questionnaire again).
   if (cloudEnabled && user) await updateCloudProfile(user.id, { onboarded: true }).catch(() => undefined);
+  useWelcome.setState({ pending: false });
 }
 
 /** A brand-new account starts empty: only the task that launches the guided tour. */

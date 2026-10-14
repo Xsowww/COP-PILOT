@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { loadUserData, useWelcome } from '../store/session';
-import { cloudEnabled, linkError } from '../lib/supabase';
+import { cloudEnabled, linkError, setRememberMe } from '../lib/supabase';
 import Character from '../copilot/Character';
 import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
@@ -98,6 +98,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState(mode === 'login' ? (linkError ?? '') : '');
   const [info, setInfo] = useState('');
   const [canResend, setCanResend] = useState(mode === 'login' && !!linkError);
@@ -129,6 +130,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         return;
       }
       if (isRegister) {
+        setRememberMe(true); // a new account stays signed in on the device it was created on
         const user = await register(name, email, password);
         if (!user) {
           setInfo(
@@ -142,6 +144,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         await loadUserData();
         if (!cloudEnabled) useWelcome.setState({ pending: true }); // cloud mode knows it from the profile on load
       } else {
+        setRememberMe(remember);
         await login(email, password);
         if (useAuth.getState().mfaStep) return navigate('/securite');
         await loadUserData();
@@ -222,6 +225,16 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                 </label>
               )}
             </div>
+
+            {mode === 'login' && cloudEnabled && (
+              <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-stone-600">
+                <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+                <span>
+                  Rester connecté sur cet appareil
+                  <span className="block text-[11.5px] text-stone-500">Décoche sur un ordinateur partagé : tu seras déconnecté en fermant l’onglet.</span>
+                </span>
+              </label>
+            )}
 
             {isRegister && (
               <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
