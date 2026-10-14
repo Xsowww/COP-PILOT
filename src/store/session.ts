@@ -12,6 +12,7 @@ import { useAuth } from './auth';
 import { toast } from './ui';
 import { useTodos } from './todos';
 import { useFocusLog } from './focusLog';
+import { renameToKompa } from '../lib/renameToKompa';
 
 let loading: Promise<void> = Promise.resolve();
 
@@ -73,6 +74,7 @@ async function load() {
   useDrive.getState().purgeExpired();
   useNotes.getState().purgeExpired();
   useCalendar.getState().purgeExpired();
+  renameToKompa();
   applyAppearance(useSettings.getState());
 }
 

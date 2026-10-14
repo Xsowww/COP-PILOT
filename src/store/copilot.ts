@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { uid, nowIso } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
+import { toKompa } from '../lib/kompaName';
 import type { CopilotMood } from '../copilot/Character';
 
 export interface CopilotLink {
@@ -112,6 +113,13 @@ export const useCopilot = create<CopilotState>()(
       name: 'copilot',
       storage: userStorage,
       skipHydration: true,
+      // v1: conversations saved before the rename to Kompa.
+      version: 1,
+      migrate: (saved, version) => {
+        const state = saved as Pick<CopilotState, 'messages' | 'offsetY' | 'memory'>;
+        if (version < 1) state.messages = (state.messages ?? []).map(m => ({ ...m, text: toKompa(m.text) }));
+        return state;
+      },
       partialize: s => ({ messages: s.messages, offsetY: s.offsetY, memory: s.memory }),
     },
   ),
