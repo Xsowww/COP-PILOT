@@ -415,6 +415,11 @@ revoke all on function public.new_group_code() from public, anon, authenticated;
 create or replace function public.group_notes_touch() returns trigger
 language plpgsql set search_path = '' as $$
 begin
+  -- Mise à jour faite par la base elle-même (suppression d'un compte : son nom passe à vide dans
+  -- ses notes, événements et fichiers de groupe) : on la laisse passer telle quelle.
+  if pg_trigger_depth() > 1 then
+    return new;
+  end if;
   if tg_op = 'INSERT' then
     new.created_by := auth.uid();
     new.created_at := now();
@@ -435,6 +440,11 @@ create trigger group_notes_touch before insert or update on public.group_notes
 create or replace function public.group_events_touch() returns trigger
 language plpgsql set search_path = '' as $$
 begin
+  -- Mise à jour faite par la base elle-même (suppression d'un compte : son nom passe à vide dans
+  -- ses notes, événements et fichiers de groupe) : on la laisse passer telle quelle.
+  if pg_trigger_depth() > 1 then
+    return new;
+  end if;
   if tg_op = 'INSERT' then
     new.created_by := auth.uid();
     new.created_at := now();
@@ -792,6 +802,11 @@ create index if not exists group_files_group on public.group_files (group_id, cr
 create or replace function public.group_files_touch() returns trigger
 language plpgsql set search_path = '' as $$
 begin
+  -- Mise à jour faite par la base elle-même (suppression d'un compte : son nom passe à vide dans
+  -- ses notes, événements et fichiers de groupe) : on la laisse passer telle quelle.
+  if pg_trigger_depth() > 1 then
+    return new;
+  end if;
   if tg_op = 'INSERT' then
     new.created_by := auth.uid();
     new.created_at := now();
