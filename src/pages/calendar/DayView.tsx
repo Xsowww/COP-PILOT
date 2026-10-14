@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Plus } from 'lucide-react';
-import { CATEGORIES, type CalendarEvent } from '../../store/calendar';
+import { catOf, type CalendarEvent } from '../../store/calendar';
 import { fromMinutes, toMinutes } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import type { DragState } from './useEventDrag';
@@ -114,7 +114,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
         <div className="flex min-w-0 flex-1 flex-wrap gap-1">
           {allDay.length === 0 && <span className="pt-1 text-[12px] text-stone-500">—</span>}
           {allDay.map(ev => {
-            const c = CATEGORIES[ev.category];
+            const c = catOf(ev.category);
             return (
               <button
                 key={ev.id}
@@ -171,7 +171,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
             )}
 
             {placed.map(({ ev, start, end, col, cols }) => {
-              const c = CATEGORIES[ev.category];
+              const c = catOf(ev.category);
               const height = Math.max(y(end) - y(start), 22) - 2;
               const compact = height < 40;
               return (
@@ -223,7 +223,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
             {preview !== null && dragged && (
               <div
                 className="pointer-events-none absolute inset-x-1 z-10 rounded-md border-2 border-dashed px-2 py-1 text-[11px] font-semibold"
-                style={{ top: y(preview) + 1, height: Math.max((previewLength / 60) * HOUR_PX - 2, 22), borderColor: CATEGORIES[dragged.category].color, color: CATEGORIES[dragged.category].text, background: 'color-mix(in srgb, var(--color-surface) 75%, transparent)' }}
+                style={{ top: y(preview) + 1, height: Math.max((previewLength / 60) * HOUR_PX - 2, 22), borderColor: catOf(dragged.category).color, color: catOf(dragged.category).text, background: 'color-mix(in srgb, var(--color-surface) 75%, transparent)' }}
               >
                 <span className="tabular">
                   {fromMinutes(preview)}

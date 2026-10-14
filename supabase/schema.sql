@@ -21,7 +21,8 @@ create table if not exists public.events (
   date date not null,
   start_time text,
   end_time text,
-  category text not null check (category in ('cours', 'examen', 'devoir', 'perso', 'sport')),
+  -- « c-… » : une catégorie créée par l'étudiant (nom et couleur dans ses réglages).
+  category text not null constraint events_category_check check (category in ('cours', 'examen', 'devoir', 'perso', 'sport') or category ~ '^c-[a-z0-9-]{1,40}$'),
   done boolean not null default false,
   details text,
   created_at timestamptz not null default now()

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { CalendarArrowDown, FileUp } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
-import { CATEGORIES, guessCategory, useCalendar, type EventCategory, type NewEvent } from '../../store/calendar';
+import { catOf, guessCategory, useCalendar, type EventCategory, type NewEvent } from '../../store/calendar';
 import { cancelledBy, isIcsFile, parseIcs, type IcsEvent } from '../../lib/ics';
 import { fmt, fromKey, todayKey } from '../../lib/dates';
 import { toast } from '../../store/ui';
@@ -178,8 +178,8 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                   <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-stone-500">
                     {[...plan.cats].map(([k, n]) => (
                       <span key={k} className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full" style={{ background: CATEGORIES[k].color }} />
-                        {CATEGORIES[k].label} <span className="tabular">{n}</span>
+                        <span className="h-2 w-2 rounded-full" style={{ background: catOf(k).color }} />
+                        {catOf(k).label} <span className="tabular">{n}</span>
                       </span>
                     ))}
                   </div>
@@ -191,7 +191,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                       <li key={e.externalId} className="flex items-center gap-3 px-3 py-2 text-[13px]">
                         <span className="w-20 shrink-0 text-[12px] text-stone-500 first-letter:uppercase">{fmt(fromKey(e.date), 'EEE d MMM')}</span>
                         <span className="tabular w-11 shrink-0 text-[12px] text-stone-500">{e.start ?? 'Journée'}</span>
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: CATEGORIES[categoryOf(e)].color }} />
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: catOf(categoryOf(e)).color }} />
                         <span className="min-w-0 flex-1 truncate font-medium">{e.title}</span>
                       </li>
                     ))}

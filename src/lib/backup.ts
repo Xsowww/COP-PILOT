@@ -1,6 +1,6 @@
 import { useDrive } from '../store/drive';
 import { useNotes } from '../store/notes';
-import { useCalendar, CATEGORIES, type CalendarEvent } from '../store/calendar';
+import { useCalendar, catOf, type CalendarEvent } from '../store/calendar';
 import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
@@ -94,7 +94,7 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
     } else {
       lines.push(`DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(nextDay(e.date))}`);
     }
-    lines.push(`SUMMARY:${icsText(e.title)}`, `CATEGORIES:${CATEGORIES[e.category].label}`);
+    lines.push(`SUMMARY:${icsText(e.title)}`, `CATEGORIES:${catOf(e.category).label}`);
     if (e.details) lines.push(`DESCRIPTION:${icsText(e.details)}`);
     lines.push('END:VEVENT');
   }

@@ -223,6 +223,8 @@ const PARENT: Partial<Record<Table, string>> = { drive_items: 'parent_id', notes
  * blocks all the others. A row whose parent folder was deleted elsewhere goes to the root;
  * a row still refused is dropped (and logged) instead of being retried forever.
  */
+let warnedCategories = false;
+
 async function upsertRows(table: Table, rows: Row[]) {
   const { error } = await supabase!.from(table).upsert(rows);
   if (!error) return 0;
@@ -232,6 +234,14 @@ async function upsertRows(table: Table, rows: Row[]) {
     let { error: e } = await supabase!.from(table).upsert(r);
     const parent = PARENT[table];
     if (e?.code === '23503' && parent && r[parent]) ({ error: e } = await supabase!.from(table).upsert({ ...r, [parent]: null }));
+    // Server not yet updated for the student's own categories (migration 2026-10-15): keep the event, as Perso online.
+    if (e?.code === '23514' && table === 'events' && String(r.category).startsWith('c-')) {
+      ({ error: e } = await supabase!.from(table).upsert({ ...r, category: 'perso' }));
+      if (!e && !warnedCategories) {
+        warnedCategories = true;
+        useUi.getState().toast('Les catégories personnelles ne sont pas encore activées sur le serveur : cet événement est enregistré en ligne comme « Perso ».', 'error');
+      }
+    }
     if (e && !permanent(e)) throw e;
     if (e) {
       console.error('[sync] ligne refusée', table, r.id, e);

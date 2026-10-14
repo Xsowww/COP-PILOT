@@ -3,12 +3,30 @@ import { persist } from 'zustand/middleware';
 import { uid, nowIso } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
 import { TRASH_DAYS } from './drive';
-import { getSettings } from './settings';
+import { getSettings, useSettings } from './settings';
 
-export type EventCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
+export type BuiltinCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
+/** A built-in category, or one the student created (`c-…`, its name and colour live in the settings). */
+export type EventCategory = BuiltinCategory | `c-${string}`;
+
+export interface CategoryInfo {
+  label: string;
+  color: string;
+  soft: string;
+  text: string;
+}
+
+export interface CustomCategory {
+  id: `c-${string}`;
+  label: string;
+  color: string;
+}
+
+/** Colours offered for a new category. */
+export const CATEGORY_COLORS = ['#3b6fd8', '#d9483b', '#d48a17', '#2f9e6b', '#7a5ad6', '#1f8a8a', '#d6457f', '#6b7280'];
 
 /** Colours: `color` is a plain hex; `soft`/`text` are CSS variables (light and dark values in index.css). */
-export const CATEGORIES: Record<EventCategory, { label: string; color: string; soft: string; text: string }> = {
+export const CATEGORIES: Record<BuiltinCategory, CategoryInfo> = {
   cours: { label: 'Cours', color: '#3b6fd8', soft: 'var(--cat-cours-soft)', text: 'var(--cat-cours-text)' },
   examen: { label: 'Examen', color: '#d9483b', soft: 'var(--cat-examen-soft)', text: 'var(--cat-examen-text)' },
   devoir: { label: 'Devoir', color: '#d48a17', soft: 'var(--cat-devoir-soft)', text: 'var(--cat-devoir-text)' },
@@ -51,8 +69,37 @@ interface CalendarState {
   toggleDone: (id: string) => void;
 }
 
+const customInfo = (c: CustomCategory): CategoryInfo => ({
+  label: c.label,
+  color: c.color,
+  soft: `color-mix(in oklab, ${c.color} 16%, var(--color-surface))`,
+  text: `color-mix(in oklab, ${c.color} 72%, var(--color-ink))`,
+});
+
+/** Name and colours of a category (one deleted in the meantime shows as Perso). */
+export function catOf(key: EventCategory): CategoryInfo {
+  if (key in CATEGORIES) return CATEGORIES[key as BuiltinCategory];
+  const c = getSettings().customCategories?.find(x => x.id === key);
+  return c ? customInfo(c) : CATEGORIES.perso;
+}
+
+/** Every category the student can pick: the built-in ones, then their own. */
+export const allCategories = (custom: CustomCategory[] = getSettings().customCategories ?? []): EventCategory[] => [
+  ...(Object.keys(CATEGORIES) as BuiltinCategory[]),
+  ...custom.map(c => c.id),
+];
+
+/** One of the student's own categories named in the title (« Stage chez Airbus » → Stage). */
+export function customCategoryIn(title: string): EventCategory | undefined {
+  const words = (x: string) => ` ${x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()} `;
+  const t = words(title);
+  return (getSettings().customCategories ?? []).find(c => words(c.label).trim() && t.includes(words(c.label)))?.id;
+}
+
 /** Guess a category from the title so the student never has to think about it. */
 export function guessCategory(title: string): EventCategory {
+  const own = customCategoryIn(title);
+  if (own) return own;
   const t = title.toLowerCase();
   // Work and personal accounts use the same five categories under other names (see lib/usage).
   if (getSettings().usage !== 'etudes') {
@@ -110,3 +157,28 @@ export const useCalendar = create<CalendarState>()(
     { name: 'calendar', storage: userStorage, skipHydration: true },
   ),
 );
+
+// ── The student's own categories ─────────────────────────────────────────────
+
+/** Creates a category, or returns the existing one with that name. */
+export function createCategory(label: string, color: string): CustomCategory {
+  const name = label.trim().replace(/\s+/g, ' ').slice(0, 24);
+  const list = getSettings().customCategories ?? [];
+  const same = list.find(c => c.label.toLowerCase() === name.toLowerCase());
+  if (same) return same;
+  const cat: CustomCategory = { id: `c-${uid().slice(0, 8)}`, label: name, color };
+  useSettings.getState().set({ customCategories: [...list, cat] });
+  return cat;
+}
+
+export function updateCategory(id: CustomCategory['id'], patch: Partial<Omit<CustomCategory, 'id'>>) {
+  const list = getSettings().customCategories ?? [];
+  useSettings.getState().set({ customCategories: list.map(c => (c.id === id ? { ...c, ...patch, label: (patch.label ?? c.label).trim().slice(0, 24) || c.label } : c)) });
+}
+
+/** Removes a category; its events (trash included) go back to Perso. */
+export function deleteCategory(id: CustomCategory['id']) {
+  const reset = (list: CalendarEvent[]) => (list.some(e => e.category === id) ? list.map(e => (e.category === id ? { ...e, category: 'perso' as const } : e)) : list);
+  useCalendar.setState(s => ({ events: reset(s.events), trash: reset(s.trash) }));
+  useSettings.getState().set({ customCategories: (getSettings().customCategories ?? []).filter(c => c.id !== id) });
+}

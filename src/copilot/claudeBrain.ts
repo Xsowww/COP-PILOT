@@ -6,7 +6,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { fmt, todayKey } from '../lib/dates';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
-import { useCalendar, type EventCategory } from '../store/calendar';
+import { useCalendar, CATEGORIES, type EventCategory } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useNotes } from '../store/notes';
 import { getSettings } from '../store/settings';
@@ -146,7 +146,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         date: str(input.date),
         start: str(input.start) || undefined,
         end: str(input.end) || undefined,
-        category: (str(input.category) as EventCategory) || undefined,
+        category: str(input.category) in CATEGORIES ? (str(input.category) as EventCategory) : undefined,
       });
       links.push({ label: 'Voir le jour', to: linkToDay(ev.date) });
       return { created: describeEvent(ev), id: ev.id };

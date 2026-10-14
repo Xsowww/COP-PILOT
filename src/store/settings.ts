@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { userStorage } from '../lib/userStorage';
 import type { Usage } from '../lib/usage';
+import type { CustomCategory } from './calendar';
 
 export type AccentKey = 'orange' | 'bleu' | 'vert' | 'violet' | 'rose' | 'encre';
 export type Chattiness = 'calme' | 'normal' | 'bavard';
@@ -58,6 +59,7 @@ export interface Settings {
   badgesSeen: string[]; // badges already announced
   badgeAnnouncements: boolean; // Kompa announces newly earned badges
   groupsSeen: Record<string, string>; // « groupId:tab » → last time the student looked (synced across devices)
+  customCategories: CustomCategory[]; // calendar categories created by the student
   renamedToKompa: boolean; // old « COP-PILOT » texts in this account already renamed (see lib/renameToKompa)
 }
 
@@ -92,6 +94,7 @@ export const DEFAULT_SETTINGS: Settings = {
   badgesSeen: [],
   badgeAnnouncements: false,
   groupsSeen: {},
+  customCategories: [],
   renamedToKompa: false,
 };
 

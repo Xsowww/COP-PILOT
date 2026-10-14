@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2 } from 'lucide-react';
 import { supabase, cloudEnabled, checkIsAdmin } from '../../lib/supabase';
-import { CATEGORIES, type EventCategory } from '../../store/calendar';
+import { CATEGORIES, type BuiltinCategory } from '../../store/calendar';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fmt, fromKey } from '../../lib/dates';
 
@@ -26,7 +26,7 @@ interface Stats {
   users: { total: number; confirmed: number; new_7d: number; active_24h: number; active_7d: number; active_30d: number };
   mfa_users: number;
   content: { notes: number; note_folders: number; events: number; events_done: number; files: number; folders: number; storage_bytes: number };
-  events_by_category: Partial<Record<EventCategory, number>>;
+  events_by_category: Partial<Record<string, number>>;
   days: { day: string; signups: number; created: number }[];
   accounts: Account[];
 }
@@ -162,7 +162,7 @@ export default function AdminPage() {
 
   const u = stats?.users;
   const c = stats?.content;
-  const categories = (Object.keys(CATEGORIES) as EventCategory[]).map(k => ({ key: k, n: stats?.events_by_category[k] ?? 0 }));
+  const categories = (Object.keys(CATEGORIES) as BuiltinCategory[]).map(k => ({ key: k, n: stats?.events_by_category[k] ?? 0 }));
   const catMax = Math.max(1, ...categories.map(x => x.n));
 
   return (

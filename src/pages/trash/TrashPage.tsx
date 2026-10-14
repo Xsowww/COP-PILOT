@@ -4,7 +4,7 @@ import { Eye, FileText, Folder, MoreHorizontal, RotateCcw, Trash2, X } from 'luc
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { categoryOf, FOLDER_COLORS, type DriveItem } from '../../store/drive';
-import { CATEGORIES } from '../../store/calendar';
+import { catOf } from '../../store/calendar';
 import { confirmAction, toast, useUi } from '../../store/ui';
 import { ContextMenu, Modal, type MenuItem } from '../../components/Overlays';
 import FileIcon from '../../components/FileIcon';
@@ -38,7 +38,7 @@ function EntryIcon({ entry, size = 28 }: { entry: TrashEntry; size?: number }) {
   if (entry.kind === 'event') {
     return (
       <span className={box} style={{ width: size, height: size }} aria-hidden>
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: CATEGORIES[entry.event.category].color }} />
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: catOf(entry.event.category).color }} />
       </span>
     );
   }
@@ -89,8 +89,8 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
             <dd className="tabular">{entry.event.start ? `${entry.event.start}${entry.event.end ? ` – ${entry.event.end}` : ''}` : 'Toute la journée'}</dd>
             <dt className="text-stone-500">Catégorie</dt>
             <dd className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ background: CATEGORIES[entry.event.category].color }} aria-hidden />
-              {CATEGORIES[entry.event.category].label}
+              <span className="h-2 w-2 rounded-full" style={{ background: catOf(entry.event.category).color }} aria-hidden />
+              {catOf(entry.event.category).label}
               {entry.event.done && <span className="text-stone-500"> · fait</span>}
             </dd>
             {entry.event.details && (

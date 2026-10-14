@@ -5,7 +5,7 @@ import { addDays } from 'date-fns';
 import { useDrive, pathOf, childrenOf, categoryOf, FOLDER_COLORS, type DriveItem } from '../store/drive';
 import { collectTrash, restoreTrash } from '../lib/trash';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
-import { useCalendar, CATEGORIES, guessCategory, sortEvents, type EventCategory } from '../store/calendar';
+import { useCalendar, catOf, guessCategory, customCategoryIn, sortEvents, type EventCategory } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useFocus, focusLeft } from '../store/focus';
 import { normalize, stripHtml, formatBytes } from '../lib/utils';
@@ -85,7 +85,7 @@ export function eventsBetween(from: string, to: string) {
 }
 
 export function describeEvent(e: { title: string; date: string; start?: string; end?: string; category: EventCategory; done?: boolean }) {
-  const c = CATEGORIES[e.category];
+  const c = catOf(e.category);
   const time = e.start ? ` à ${e.start.replace(':', 'h')}${e.end ? `–${e.end.replace(':', 'h')}` : ''}` : '';
   return `${e.title} (${c.label.toLowerCase()}) — ${fmt(fromKey(e.date), 'EEEE d MMM')}${time}${e.done ? ' · fait' : ''}`;
 }
@@ -169,7 +169,8 @@ export function addEvent(input: { title: string; date: string; start?: string; e
     date: input.date,
     start: input.start || undefined,
     end: input.end || undefined,
-    category: input.category ?? guessCategory(input.title),
+    // The student's own category named in the title wins over the AI's pick among the built-in ones.
+    category: customCategoryIn(input.title) ?? input.category ?? guessCategory(input.title),
   });
 }
 

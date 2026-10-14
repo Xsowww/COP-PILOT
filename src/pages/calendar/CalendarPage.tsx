@@ -3,9 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { trashEvent } from '../../lib/trash';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
 import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown } from 'lucide-react';
-import { useCalendar, CATEGORIES, guessCategory, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { useCalendar, catOf, allCategories, guessCategory, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, fmt, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes } from '../../lib/dates';
 import { toast } from '../../store/ui';
+import { useSettings } from '../../store/settings';
+import CategoriesDialog from './CategoriesDialog';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
 import DayView from './DayView';
@@ -43,7 +45,7 @@ interface EventItemProps {
 
 function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   const { toggleDone } = useCalendar.getState();
-  const c = CATEGORIES[ev.category];
+  const c = catOf(ev.category);
   return (
     <div className="group enter flex items-stretch gap-4">
       <div className="tabular w-12 shrink-0 pt-3 text-right text-[12px]">
@@ -102,6 +104,8 @@ export default function CalendarPage() {
   const [mode, setModeState] = useState<Mode>(savedMode);
   const [quick, setQuick] = useState('');
   const [hidden, setHidden] = useState<Set<EventCategory>>(new Set());
+  const custom = useSettings(s => s.customCategories);
+  const [managing, setManaging] = useState(false);
   const [form, setForm] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string } | null>(null);
   const [importing, setImporting] = useState<{ initial?: IcsSource } | null>(null);
   const [fileOver, setFileOver] = useState(false);
@@ -294,7 +298,7 @@ export default function CalendarPage() {
           </div>
           {parsed?.title && parsedCat && (
             <div className="enter flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-stone-100 py-2 pl-[27px] text-[12px] text-stone-500">
-              <Dot color={CATEGORIES[parsedCat].color} />
+              <Dot color={catOf(parsedCat).color} />
               <span className="font-medium text-ink">{parsed.title}</span>
               <span>·</span>
               <span>{fmt(fromKey(parsed.date ?? selected), 'EEEE d MMMM')}</span>
@@ -308,7 +312,7 @@ export default function CalendarPage() {
                 </>
               )}
               <span>·</span>
-              <span style={{ color: CATEGORIES[parsedCat].text }}>{CATEGORIES[parsedCat].label}</span>
+              <span style={{ color: catOf(parsedCat).text }}>{catOf(parsedCat).label}</span>
             </div>
           )}
         </form>
@@ -345,7 +349,7 @@ export default function CalendarPage() {
                       </span>
                       <span className="mt-1.5 flex h-1.5 gap-[3px]">
                         {evs.slice(0, 4).map(e => (
-                          <span key={e.id} className="h-1.5 w-1.5 rounded-full" style={{ background: CATEGORIES[e.category].color, opacity: e.done ? 0.3 : 1 }} />
+                          <span key={e.id} className="h-1.5 w-1.5 rounded-full" style={{ background: catOf(e.category).color, opacity: e.done ? 0.3 : 1 }} />
                         ))}
                       </span>
                     </button>
@@ -391,14 +395,14 @@ export default function CalendarPage() {
                             className={cx('mb-0.5 hidden cursor-grab select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 md:flex', drag?.ev.id === e.id && 'opacity-40')}
                             style={{ textDecoration: e.done ? 'line-through' : undefined }}
                           >
-                            <Dot color={CATEGORIES[e.category].color} size={6} />
+                            <Dot color={catOf(e.category).color} size={6} />
                             <span className="truncate">{e.title}</span>
                           </span>
                         ))}
                         {evs.length > 0 && (
                           <span className="flex justify-center gap-0.5 md:hidden">
                             {evs.slice(0, 3).map(e => (
-                              <Dot key={e.id} color={CATEGORIES[e.category].color} size={5} />
+                              <Dot key={e.id} color={catOf(e.category).color} size={5} />
                             ))}
                           </span>
                         )}
@@ -485,8 +489,8 @@ export default function CalendarPage() {
             )}
 
             <div className="mt-3 flex flex-wrap gap-1.5 border-t border-stone-100 pt-3" role="group" aria-label="Catégories affichées">
-              {(Object.keys(CATEGORIES) as EventCategory[]).map(k => {
-                const c = CATEGORIES[k];
+              {allCategories(custom).map(k => {
+                const c = catOf(k);
                 const off = hidden.has(k);
                 return (
                   <button
@@ -508,6 +512,13 @@ export default function CalendarPage() {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => setManaging(true)}
+                className="flex h-7 items-center gap-1 rounded-full border border-dashed border-stone-300 px-2.5 text-[12px] text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
+              >
+                <Plus size={13} /> Catégorie
+              </button>
             </div>
           </aside>
         </div>
@@ -515,6 +526,7 @@ export default function CalendarPage() {
 
       {form && <EventForm event={form.event} date={form.date} start={form.start} end={form.end} onClose={() => setForm(null)} />}
       {importing && <ImportIcsDialog initial={importing.initial} onClose={() => setImporting(null)} onImported={selectDay} />}
+      {managing && <CategoriesDialog onClose={() => setManaging(false)} />}
 
       {/* Chip that follows the pointer while an event is dragged */}
       {drag && (
@@ -526,7 +538,7 @@ export default function CalendarPage() {
             drag.target?.minutes !== undefined && 'opacity-0',
           )}
         >
-          <Dot color={CATEGORIES[drag.ev.category].color} size={7} />
+          <Dot color={catOf(drag.ev.category).color} size={7} />
           <span className="truncate">{drag.ev.title}</span>
         </div>
       )}

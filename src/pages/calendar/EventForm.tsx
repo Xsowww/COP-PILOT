@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Trash2 } from 'lucide-react';
+import { FileText, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
-import { CATEGORIES, guessCategory, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { catOf, allCategories, guessCategory, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { trashEvent } from '../../lib/trash';
+import { useSettings } from '../../store/settings';
 import { cx } from '../../lib/utils';
+import { NewCategory } from './CategoriesDialog';
 
 interface Props {
   event?: CalendarEvent;
@@ -24,6 +26,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [end, setEnd] = useState(event?.end ?? initialEnd ?? '');
   const [category, setCategory] = useState<EventCategory | null>(event?.category ?? null);
   const [details, setDetails] = useState(event?.details ?? '');
+  const custom = useSettings(s => s.customCategories);
+  const [creating, setCreating] = useState(false);
   const effective = category ?? guessCategory(title);
   const notes = useNotes(s => s.notes);
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
@@ -45,8 +49,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
 
         <p className="mb-2 mt-4 text-[12px] font-medium text-stone-600">Catégorie</p>
         <div className="flex flex-wrap gap-2">
-          {(Object.keys(CATEGORIES) as EventCategory[]).map(k => {
-            const c = CATEGORIES[k];
+          {allCategories(custom).map(k => {
+            const c = catOf(k);
             const active = effective === k;
             return (
               <button
@@ -60,7 +64,26 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setCreating(v => !v)}
+            aria-expanded={creating}
+            className="flex h-8 items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 text-[13px] text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
+          >
+            <Plus size={14} /> Nouvelle
+          </button>
         </div>
+        {creating && (
+          <div className="mt-2.5 rounded-lg bg-stone-50 p-3">
+            <NewCategory
+              autoFocus
+              onCreated={c => {
+                setCategory(c.id);
+                setCreating(false);
+              }}
+            />
+          </div>
+        )}
 
         <div className="mt-4 grid grid-cols-3 gap-2">
           <label className="col-span-3 sm:col-span-1">

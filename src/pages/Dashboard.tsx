@@ -3,7 +3,7 @@ import { addDays } from 'date-fns';
 import { ArrowUpRight, CalendarDays, Check, Plus } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
-import { useCalendar, CATEGORIES, sortEvents, type CalendarEvent } from '../store/calendar';
+import { useCalendar, catOf, sortEvents, type CalendarEvent } from '../store/calendar';
 import { fmt, toKey, todayKey, fromKey, weekStart, daysUntil } from '../lib/dates';
 import { relativeTime, stripHtml, cx } from '../lib/utils';
 import { hasRevisionPlan, linkToDay, linkToNote } from '../copilot/actions';
@@ -31,7 +31,7 @@ function Widget({ title, to, linkLabel, className, children }: { title: string; 
 
 function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; muted?: boolean }) {
   const toggleDone = useCalendar(s => s.toggleDone);
-  const c = CATEGORIES[e.category];
+  const c = catOf(e.category);
   return (
     <li className="group flex items-center gap-3 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50">
       <button

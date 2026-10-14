@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNotes, type Note, type NoteLink } from '../../store/notes';
 import { useDrive, categoryOf, type DriveItem } from '../../store/drive';
-import { useCalendar, CATEGORIES, sortEvents, type CalendarEvent } from '../../store/calendar';
+import { useCalendar, catOf, sortEvents, type CalendarEvent } from '../../store/calendar';
 import { Modal } from '../../components/Overlays';
 import FileIcon from '../../components/FileIcon';
 import { cx, normalize } from '../../lib/utils';
@@ -58,7 +58,7 @@ export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }
               {isFile ? (
                 <FileIcon category={categoryOf(r.file)} size={18} />
               ) : (
-                <span className="mx-1 h-2 w-2 shrink-0 rounded-full" style={{ background: CATEGORIES[r.event.category].color }} />
+                <span className="mx-1 h-2 w-2 shrink-0 rounded-full" style={{ background: catOf(r.event.category).color }} />
               )}
               <span className="truncate">{title}</span>
               {!isFile && <span className="tabular shrink-0 text-stone-500">{shortDate(r.event.date)}</span>}
@@ -165,11 +165,11 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
                   'e' + e.id,
                   has('event', e.id),
                   () => toggle('event', e.id),
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: CATEGORIES[e.category].color }} />,
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: catOf(e.category).color }} />,
                   e.title,
                   <>
                     <span className={cx('inline-block first-letter:uppercase', e.date < t && 'text-stone-500')}>{longDate(e.date)}</span>
-                    {e.start && ` · ${e.start}`} · {CATEGORIES[e.category].label}
+                    {e.start && ` · ${e.start}`} · {catOf(e.category).label}
                   </>,
                 ),
               )

@@ -1,4 +1,4 @@
-import { CATEGORIES, type EventCategory } from '../store/calendar';
+import { CATEGORIES, type BuiltinCategory } from '../store/calendar';
 
 /** What the account is for, chosen in the welcome questionnaire. It only changes words and starter content. */
 export type Usage = 'etudes' | 'travail' | 'perso';
@@ -9,7 +9,7 @@ export const USAGES: { key: Usage; label: string; hint: string }[] = [
   { key: 'perso', label: 'Ma vie perso', hint: 'Rendez-vous, papiers, projets, à-faire du quotidien' },
 ];
 
-const CATEGORY_LABELS: Record<Usage, Record<EventCategory, string>> = {
+const CATEGORY_LABELS: Record<Usage, Record<BuiltinCategory, string>> = {
   etudes: { cours: 'Cours', examen: 'Examen', devoir: 'Devoir', perso: 'Perso', sport: 'Sport' },
   travail: { cours: 'Réunion', examen: 'Échéance', devoir: 'Devis', perso: 'Perso', sport: 'Sport' },
   perso: { cours: 'Rendez-vous', examen: 'Important', devoir: 'À faire', perso: 'Perso', sport: 'Sport' },
@@ -46,5 +46,5 @@ export const WORDS: Record<Usage, {
  * component. Fine because the usage is set before the app shows any page (load / welcome) and rarely changes after.
  */
 export function applyUsage(usage: Usage) {
-  for (const [key, label] of Object.entries(CATEGORY_LABELS[usage] ?? CATEGORY_LABELS.etudes)) CATEGORIES[key as EventCategory].label = label;
+  for (const [key, label] of Object.entries(CATEGORY_LABELS[usage] ?? CATEGORY_LABELS.etudes)) CATEGORIES[key as BuiltinCategory].label = label;
 }
