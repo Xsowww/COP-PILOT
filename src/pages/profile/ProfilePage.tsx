@@ -14,7 +14,7 @@ import { useCalendar } from '../../store/calendar';
 import { useFocus } from '../../store/focus';
 import { loadUserData } from '../../store/session';
 import { askText, confirmAction, toast } from '../../store/ui';
-import { exportBackup, importBackup, exportIcs, wipeUserData, imageToAvatar } from '../../lib/backup';
+import { exportBackup, importBackup, exportIcs, wipeUserData, clearBeforeAccountDeletion, resetLocalData, imageToAvatar } from '../../lib/backup';
 import { requestNotificationPermission, notify, chime } from '../../lib/notify';
 import { formatBytes, stripHtml, cx } from '../../lib/utils';
 import { fmt, todayKey } from '../../lib/dates';
@@ -667,8 +667,12 @@ function DataTab() {
             className="btn-danger h-8"
             onClick={async () => {
               if (!(await confirmAction('Tout effacer ?', `Tous tes fichiers, notes, événements et tâches seront supprimés définitivement${cloudEnabled ? ' sur tous tes appareils' : ''}, ainsi que ta conversation avec Kompa sur cet appareil. Pense à exporter une sauvegarde avant si tu veux les garder.`, 'Tout effacer'))) return;
-              await wipeUserData();
-              toast('Données effacées', 'success');
+              try {
+                await wipeUserData();
+                toast('Données effacées', 'success');
+              } catch (err) {
+                toast((err as Error).message, 'error');
+              }
             }}
           >
             <Trash2 size={14} /> Tout effacer
@@ -773,8 +777,9 @@ function AccountTab() {
               if (!(await confirmAction('Supprimer ton compte ?', 'Cette action est irréversible.', 'Supprimer'))) return;
               try {
                 await verifyPassword(deletePw); // check first: never wipe data on a wrong password
-                await wipeUserData({ deletingAccount: true });
+                await clearBeforeAccountDeletion();
                 await deleteAccount(deletePw);
+                resetLocalData(); // only once the account is gone: a failed deletion keeps the data
                 await leave();
               } catch (err) {
                 toast((err as Error).message, 'error');

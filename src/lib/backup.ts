@@ -4,8 +4,9 @@ import { useCalendar, CATEGORIES, type CalendarEvent } from '../store/calendar';
 import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
-import { blobKey, trashBlobKey, getStorageUser } from './userStorage';
-import { cloudEnabled } from './supabase';
+import { blobKey, getStorageUser } from './userStorage';
+import { cloudEnabled, supabase } from './supabase';
+import { flushNow } from './cloudSync';
 import { purgeSoleGroups } from './groups';
 import { useTodos } from '../store/todos';
 import { useFocusLog } from '../store/focusLog';
@@ -101,28 +102,58 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
   download(`kompa-calendrier-${stamp()}.ics`, lines.join('\r\n'), 'text/calendar');
 }
 
-/** Removes everything the current account holds (files, notes, events, tasks, conversation); the account itself stays. */
-export async function wipeUserData({ deletingAccount = false } = {}) {
-  const user = getStorageUser();
-  if (cloudEnabled && user) {
-    // Everything stored under the account's folder, even files this device doesn't know about.
-    await blobStore.removeFolder(user);
-    if (deletingAccount) await purgeSoleGroups().catch(() => undefined);
-  } else {
-    // A file in the trash keeps its content under its trash key.
-    const files = [...useDrive.getState().items, ...useDrive.getState().trash].filter(i => i.kind === 'file');
-    await Promise.all(files.flatMap(f => [blobStore.delete(blobKey(f.id)), blobStore.delete(trashBlobKey(f.id))].map(p => p.catch(() => undefined))));
-  }
+/** The account's own tables (group content lives in separate tables and is left alone). */
+const OWN_TABLES = ['focus_sessions', 'todos', 'events', 'notes', 'note_folders', 'drive_items'] as const;
+
+async function deleteLocalFiles() {
+  const files = [...useDrive.getState().items, ...useDrive.getState().trash].filter(i => i.kind === 'file');
+  await Promise.all(files.map(f => blobStore.delete(blobKey(f.id)).catch(() => undefined)));
+}
+
+/** Empties this device's copy: lists, conversation with Kompa, search index of the PDFs. */
+export function resetLocalData() {
   useDrive.setState({ items: [], trash: [], clipboard: null });
   useNotes.setState({ notes: [], folders: [], trashNotes: [], trashFolders: [] });
   useCalendar.setState({ events: [], trash: [] });
   useTodos.setState({ todos: [] });
   useFocusLog.setState({ sessions: [] });
-  // The conversation with Kompa and the search index of the PDFs that were just deleted go too.
   useCopilot.getState().clearHistory();
   useCopilot.setState({ memory: {} });
   void import('../copilot/claudeBrain').then(m => m.resetClaudeHistory()).catch(() => undefined);
   void import('./textIndex').then(m => m.forgetTextIndex()).catch(() => undefined);
+}
+
+/** Removes everything the current account holds (files, notes, events, tasks, conversation); the account itself stays. */
+export async function wipeUserData() {
+  const user = getStorageUser();
+  if (cloudEnabled && user) {
+    // Send what is waiting first, so nothing is written back after the deletion below.
+    await flushNow();
+    // By owner, not by the ids this device knows: rows added on another device since the last pull go too.
+    for (const table of OWN_TABLES) {
+      const { error } = await supabase!.from(table).delete().eq('user_id', user);
+      if (error) throw new Error('L’effacement n’a pas pu se faire, réessaie dans un instant.');
+    }
+    // Every file under the account's folder, even those this device doesn't know about.
+    await blobStore.removeFolder(user);
+  } else {
+    await deleteLocalFiles();
+  }
+  resetLocalData();
+}
+
+/**
+ * Before deleting the account: what the server doesn't remove with it (files, groups left without members).
+ * The rows go with the account, so a deletion that fails leaves notes, events and tasks in place.
+ */
+export async function clearBeforeAccountDeletion() {
+  const user = getStorageUser();
+  if (cloudEnabled && user) {
+    await purgeSoleGroups().catch(() => undefined);
+    await blobStore.removeFolder(user);
+  } else {
+    await deleteLocalFiles();
+  }
 }
 
 /** Resizes a picked image to a small square data URL for the avatar. */
