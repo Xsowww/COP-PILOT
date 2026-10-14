@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom';
 import Logo from '../../components/Logo';
 import { LEGAL_LINKS } from './links';
 
-// Pages légales, lisibles sans compte. Les passages [À COMPLÉTER] dépendent de l'éditeur du site
-// (identité, adresse, hébergeur) : ils sont listés dans AVANT-LANCEMENT.md.
+// Pages légales, lisibles sans compte. Les sous-traitants cités ici doivent rester à jour (registre des traitements).
 
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
 
@@ -67,8 +66,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Kompa et l’intelligence artificielle',
         body: [
-          'Quand tu poses une question à Kompa en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : [À COMPLÉTER : Groq Inc., États-Unis, ou le fournisseur choisi].',
-          'Ce transfert hors de l’Union européenne est encadré par [À COMPLÉTER : garanties du fournisseur, par exemple clauses contractuelles types de la Commission européenne]. Le mode simple de Kompa fonctionne sans rien envoyer.',
+          'Quand tu poses une question à Kompa en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Groq, Inc. (États-Unis). Groq ne conserve ni tes messages ni les réponses (option « zéro conservation » activée) et ne s’en sert pas pour entraîner ses modèles.',
+          'Ce transfert hors de l’Union européenne est encadré par les clauses contractuelles types de la Commission européenne, prévues dans le contrat de traitement des données de Groq. Le mode simple de Kompa fonctionne sans rien envoyer.',
           'N’envoie pas à Kompa d’informations sensibles (santé, données d’autres personnes…).',
         ],
       },
