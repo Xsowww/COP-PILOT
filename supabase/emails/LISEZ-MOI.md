@@ -11,6 +11,10 @@ Six modèles aux couleurs de Kompa, en français :
 | `invite.html` | Invite user | Tu es invité sur Kompa |
 | `reauthentication.html` | Reauthentication | Ton code de confirmation · Kompa |
 
+**Prérequis : un service d’envoi personnalisé.** Sur l’offre gratuite, Supabase refuse de modifier les
+modèles tant que le projet utilise son service d’envoi par défaut. Configure d’abord Authentication ›
+SMTP Settings (Resend, Brevo, Gmail…), puis installe les modèles.
+
 Le logo est l’icône du site (`{{ .SiteURL }}/icon-192.png`) : règle d’abord **Site URL** dans
 Authentication › URL Configuration sur `https://kompa-app.onrender.com`.
 
