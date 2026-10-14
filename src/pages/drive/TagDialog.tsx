@@ -1,0 +1,120 @@
+import { useMemo, useState } from 'react';
+import { Plus, Tag, X } from 'lucide-react';
+import { Modal } from '../../components/Overlays';
+import { useDrive, FOLDER_COLORS } from '../../store/drive';
+import { cx } from '../../lib/utils';
+
+const PALETTE = Object.values(FOLDER_COLORS).map(c => c.color);
+
+/** Same label, same colour, everywhere. */
+function tagColor(tag: string) {
+  let h = 0;
+  for (const c of tag.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+export function TagPill({ tag, active, onClick, onRemove, size = 'sm' }: { tag: string; active?: boolean; onClick?: () => void; onRemove?: () => void; size?: 'sm' | 'md' }) {
+  const Comp = onClick ? 'button' : 'span';
+  return (
+    <Comp
+      onClick={onClick}
+      className={cx(
+        'inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full border font-medium transition-colors',
+        size === 'md' ? 'h-7 px-2.5 text-[12px]' : 'h-[18px] px-1.5 text-[10.5px]',
+        active ? 'border-ink bg-ink text-paper' : 'border-stone-200 bg-surface text-stone-600',
+        onClick && !active && 'hover:border-stone-300 hover:text-ink',
+      )}
+    >
+      <span className={cx('shrink-0 rounded-full', size === 'md' ? 'h-2 w-2' : 'h-1.5 w-1.5')} style={{ background: tagColor(tag) }} />
+      <span className="truncate">{tag}</span>
+      {onRemove && (
+        <span
+          role="button"
+          aria-label={`Retirer ${tag}`}
+          onClick={e => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="-mr-1 rounded-full p-0.5 text-stone-500 hover:bg-stone-100 hover:text-ink"
+        >
+          <X size={11} />
+        </span>
+      )}
+    </Comp>
+  );
+}
+
+/** Add / remove labels on one or several items. Changes apply immediately. */
+export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: () => void }) {
+  const items = useDrive(s => s.items);
+  const targets = items.filter(i => ids.includes(i.id));
+  const [draft, setDraft] = useState('');
+
+  const current = [...new Set(targets.flatMap(i => i.tags ?? []))].sort((a, b) => a.localeCompare(b, 'fr'));
+  const known = useMemo(() => [...new Set(items.flatMap(i => i.tags ?? []))].sort((a, b) => a.localeCompare(b, 'fr')), [items]);
+  const suggestions = known.filter(t => !current.includes(t) && t.toLowerCase().includes(draft.trim().toLowerCase())).slice(0, 8);
+
+  const setTags = (fn: (tags: string[]) => string[]) => {
+    for (const it of targets) {
+      const next = fn(it.tags ?? []);
+      useDrive.getState().update(it.id, { tags: next.length ? next : undefined });
+    }
+  };
+  const add = (raw: string) => {
+    const tag = raw.trim().replace(/\s+/g, ' ').slice(0, 32);
+    if (!tag) return;
+    // Reuse the existing spelling of a label ("important" → "Important").
+    const existing = known.find(t => t.toLowerCase() === tag.toLowerCase()) ?? tag;
+    setTags(tags => (tags.some(t => t.toLowerCase() === existing.toLowerCase()) ? tags : [...tags, existing]));
+    setDraft('');
+  };
+  const remove = (tag: string) => setTags(tags => tags.filter(t => t !== tag));
+
+  return (
+    <Modal open onClose={onClose} width={420}>
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
+          <Tag size={15} />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-[15px] font-semibold">Étiquettes</h3>
+          <p className="truncate text-[12px] text-stone-500">{targets.length === 1 ? targets[0].name : `${targets.length} éléments`}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex min-h-8 flex-wrap gap-1.5">
+        {current.length ? current.map(t => <TagPill key={t} tag={t} size="md" onRemove={() => remove(t)} />) : <p className="text-[13px] text-stone-500">Aucune étiquette pour l'instant.</p>}
+      </div>
+
+      <form
+        className="mt-3 flex gap-2"
+        onSubmit={e => {
+          e.preventDefault();
+          add(draft);
+        }}
+      >
+        <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} placeholder="Nouvelle étiquette, ex. Partiels" className="field min-w-0 flex-1" maxLength={32} />
+        <button type="submit" className="btn-secondary" disabled={!draft.trim()}>
+          <Plus size={15} /> Ajouter
+        </button>
+      </form>
+
+      {suggestions.length > 0 && (
+        <div className="mt-3">
+          <p className="eyebrow">Déjà utilisées</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {suggestions.map(t => (
+              <TagPill key={t} tag={t} size="md" onClick={() => add(t)} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-5 flex justify-end">
+        <button className="btn-primary" onClick={onClose}>
+          Terminé
+        </button>
+      </div>
+    </Modal>
+  );
+}

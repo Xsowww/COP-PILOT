@@ -1,0 +1,121 @@
+import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { FileText, Trash2 } from 'lucide-react';
+import { Modal } from '../../components/Overlays';
+import { useNotes } from '../../store/notes';
+import { CATEGORIES, guessCategory, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { trashEvent } from '../../lib/trash';
+import { cx } from '../../lib/utils';
+
+interface Props {
+  event?: CalendarEvent;
+  date: string;
+  /** Prefilled times for a new event (click on the day view). */
+  start?: string;
+  end?: string;
+  onClose: () => void;
+}
+
+export default function EventForm({ event, date, start: initialStart, end: initialEnd, onClose }: Props) {
+  const { add, update } = useCalendar.getState();
+  const [title, setTitle] = useState(event?.title ?? '');
+  const [day, setDay] = useState(event?.date ?? date);
+  const [start, setStart] = useState(event?.start ?? initialStart ?? '');
+  const [end, setEnd] = useState(event?.end ?? initialEnd ?? '');
+  const [category, setCategory] = useState<EventCategory | null>(event?.category ?? null);
+  const [details, setDetails] = useState(event?.details ?? '');
+  const effective = category ?? guessCategory(title);
+  const notes = useNotes(s => s.notes);
+  const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !day) return;
+    const data = { title: title.trim(), date: day, start: start || undefined, end: end || undefined, category: effective, details: details.trim() || undefined };
+    if (event) update(event.id, data);
+    else add(data);
+    onClose();
+  };
+
+  return (
+    <Modal open onClose={onClose} width={460}>
+      <form onSubmit={submit}>
+        <h3 className="text-[15px] font-semibold">{event ? "Modifier l'événement" : 'Nouvel événement'}</h3>
+        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} aria-label="Titre de l’événement" placeholder="Titre (ex. Partiel de maths)" className="field mt-4 h-10 w-full text-[14px]" />
+
+        <p className="mb-2 mt-4 text-[12px] font-medium text-stone-600">Catégorie</p>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(CATEGORIES) as EventCategory[]).map(k => {
+            const c = CATEGORIES[k];
+            const active = effective === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setCategory(k)}
+                className={cx('flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors', active ? 'border-stone-300 bg-stone-50 text-ink' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <label className="col-span-3 sm:col-span-1">
+            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Jour</span>
+            <input type="date" value={day} onChange={e => setDay(e.target.value)} className="field w-full" required />
+          </label>
+          <label>
+            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Début</span>
+            <input type="time" value={start} onChange={e => setStart(e.target.value)} className="field w-full" />
+          </label>
+          <label>
+            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Fin</span>
+            <input type="time" value={end} min={start} onChange={e => setEnd(e.target.value)} className="field w-full" />
+          </label>
+        </div>
+
+        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (salle, chapitres à réviser…)" aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
+
+        {linked.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-[12px] font-medium text-stone-600">Notes liées</p>
+            <ul className="-mx-1.5">
+              {linked.map(n => (
+                <li key={n.id}>
+                  <Link to={`/notes?note=${n.id}`} className="flex h-8 items-center gap-2 rounded-md px-1.5 text-[13px] text-stone-700 transition-colors hover:bg-stone-50 hover:text-ink">
+                    <FileText size={14} className="shrink-0 text-stone-400" />
+                    <span className="truncate">{n.title || 'Sans titre'}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-5 flex items-center gap-2">
+          {event && (
+            <button
+              type="button"
+              className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={() => {
+                trashEvent(event.id);
+                onClose();
+              }}
+            >
+              <Trash2 size={15} /> Supprimer
+            </button>
+          )}
+          <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
+            Annuler
+          </button>
+          <button type="submit" className="btn-primary" disabled={!title.trim()}>
+            {event ? 'Enregistrer' : 'Ajouter'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

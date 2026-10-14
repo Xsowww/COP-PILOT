@@ -1,0 +1,500 @@
+// Cloud mode: keeps Supabase in sync with the app's stores.
+// The stores stay the source of truth for the UI (instant, works offline for a moment);
+// every change is diffed and pushed in small batches, and retried if the network fails.
+
+import { supabase } from './supabase';
+import { useCalendar, type CalendarEvent } from '../store/calendar';
+import { useNotes, type Note, type NoteFolder } from '../store/notes';
+import { useDrive, type DriveItem } from '../store/drive';
+import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
+import { useUi } from '../store/ui';
+import { useTodos, type Todo } from '../store/todos';
+import { useFocusLog, type FocusSession } from '../store/focusLog';
+
+type Row = Record<string, unknown>;
+type Table = 'events' | 'note_folders' | 'notes' | 'drive_items' | 'todos' | 'focus_sessions';
+
+// ── Row mapping (app shape ⇄ database columns) ─────────────────────────────
+
+const eventToRow = (e: CalendarEvent): Row => ({
+  id: e.id,
+  title: e.title,
+  date: e.date,
+  start_time: e.start ?? null,
+  end_time: e.end ?? null,
+  category: e.category,
+  done: e.done,
+  details: e.details ?? null,
+  external_id: e.externalId ?? null,
+  created_at: e.createdAt,
+  deleted_at: e.deletedAt ?? null,
+});
+const rowToEvent = (r: Row): CalendarEvent => ({
+  id: r.id as string,
+  title: r.title as string,
+  date: r.date as string,
+  start: (r.start_time as string) ?? undefined,
+  end: (r.end_time as string) ?? undefined,
+  category: r.category as CalendarEvent['category'],
+  done: r.done as boolean,
+  details: (r.details as string) ?? undefined,
+  externalId: (r.external_id as string) ?? undefined,
+  createdAt: r.created_at as string,
+  deletedAt: (r.deleted_at as string) ?? undefined,
+});
+
+const folderToRow = (f: NoteFolder): Row => ({ id: f.id, name: f.name, parent_id: f.parentId, created_at: f.createdAt, deleted_at: f.deletedAt ?? null });
+const rowToFolder = (r: Row): NoteFolder => ({
+  id: r.id as string,
+  name: r.name as string,
+  parentId: (r.parent_id as string) ?? null,
+  createdAt: r.created_at as string,
+  deletedAt: (r.deleted_at as string) ?? undefined,
+});
+
+const noteToRow = (n: Note): Row => ({
+  id: n.id,
+  title: n.title,
+  content: n.content,
+  folder_id: n.folderId,
+  pinned: !!n.pinned,
+  links: n.links ?? [],
+  created_at: n.createdAt,
+  updated_at: n.updatedAt,
+  deleted_at: n.deletedAt ?? null,
+});
+const rowToNote = (r: Row): Note => ({
+  id: r.id as string,
+  title: r.title as string,
+  content: r.content as string,
+  folderId: (r.folder_id as string) ?? null,
+  pinned: r.pinned as boolean,
+  links: Array.isArray(r.links) && r.links.length ? (r.links as Note['links']) : undefined,
+  createdAt: r.created_at as string,
+  updatedAt: r.updated_at as string,
+  deletedAt: (r.deleted_at as string) ?? undefined,
+});
+
+const itemToRow = (i: DriveItem): Row => ({
+  id: i.id,
+  name: i.name,
+  kind: i.kind,
+  parent_id: i.parentId,
+  mime: i.mime ?? null,
+  size: i.size ?? null,
+  starred: !!i.starred,
+  color: i.color ?? null,
+  tags: i.tags ?? [],
+  created_at: i.createdAt,
+  updated_at: i.updatedAt,
+  deleted_at: i.deletedAt ?? null,
+});
+const rowToItem = (r: Row): DriveItem => ({
+  id: r.id as string,
+  name: r.name as string,
+  kind: r.kind as DriveItem['kind'],
+  parentId: (r.parent_id as string) ?? null,
+  mime: (r.mime as string) ?? undefined,
+  size: r.size == null ? undefined : Number(r.size),
+  starred: r.starred as boolean,
+  color: (r.color as string) ?? undefined,
+  tags: Array.isArray(r.tags) && r.tags.length ? (r.tags as string[]) : undefined,
+  createdAt: r.created_at as string,
+  updatedAt: r.updated_at as string,
+  deletedAt: (r.deleted_at as string) ?? undefined,
+});
+
+const todoToRow = (t: Todo): Row => ({ id: t.id, title: t.title, done: t.done, due: t.due ?? null, created_at: t.createdAt, done_at: t.doneAt ?? null });
+const rowToTodo = (r: Row): Todo => ({
+  id: r.id as string,
+  title: r.title as string,
+  done: r.done as boolean,
+  due: (r.due as string) ?? undefined,
+  createdAt: r.created_at as string,
+  doneAt: (r.done_at as string) ?? undefined,
+});
+
+const focusToRow = (f: FocusSession): Row => ({ id: f.id, subject: f.subject, minutes: f.minutes, started_at: f.startedAt });
+const rowToFocus = (r: Row): FocusSession => ({ id: r.id as string, subject: (r.subject as string) ?? '', minutes: Number(r.minutes), startedAt: r.started_at as string });
+
+const isTrashed = (r: Row) => r.deleted_at != null;
+
+// ── Pending changes ─────────────────────────────────────────────────────────
+
+// Parents must exist before their children: folders first, Drive items by depth.
+const ORDER: Table[] = ['note_folders', 'notes', 'drive_items', 'events', 'todos', 'focus_sessions'];
+const pending = Object.fromEntries(ORDER.map(t => [t, { upserts: new Map<string, Row>(), deletes: new Set<string>() }])) as Record<
+  Table,
+  { upserts: Map<string, Row>; deletes: Set<string> }
+>;
+let profileDirty = false;
+let pulling = false;
+let flushTimer: ReturnType<typeof setTimeout> | undefined;
+let warned = false;
+let warnedDrop = false;
+let unsubscribers: (() => void)[] = [];
+let currentUser: string | null = null;
+/** Bumped by every local change: a refresh that raced with one is thrown away. */
+let changes = 0;
+let lastPull = 0;
+
+const hasPending = () => profileDirty || ORDER.some(t => pending[t].upserts.size || pending[t].deletes.size);
+
+// The queue is mirrored in localStorage, so a change made just before closing the tab
+// is sent on the next visit instead of being overwritten by the older cloud copy.
+// One key per tab: two tabs used offline don't overwrite each other's queue; the next
+// start adopts every queue left behind.
+const TAB = Math.random().toString(36).slice(2, 10);
+const queuePrefix = (userId: string) => `cop:${userId}:sync-queue`;
+const queueKey = (userId: string) => `${queuePrefix(userId)}:${TAB}`;
+let adopted: string[] = [];
+
+function saveQueue() {
+  if (!currentUser) return;
+  try {
+    if (!hasPending()) {
+      localStorage.removeItem(queueKey(currentUser));
+      adopted.forEach(k => localStorage.removeItem(k));
+      adopted = [];
+      return;
+    }
+    const data = Object.fromEntries(ORDER.map(t => [t, { upserts: [...pending[t].upserts.values()], deletes: [...pending[t].deletes] }]));
+    localStorage.setItem(queueKey(currentUser), JSON.stringify({ tables: data, profileDirty }));
+  } catch {
+    /* storage full or unavailable: the in-memory queue still works */
+  }
+}
+
+function loadQueue(userId: string) {
+  for (const key of Object.keys(localStorage)) {
+    if (!key.startsWith(queuePrefix(userId))) continue; // this tab's own key too (loaded again after a sign-in step)
+    adopted.push(key);
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) ?? '') as { tables: Record<Table, { upserts: Row[]; deletes: string[] }>; profileDirty: boolean };
+      for (const t of ORDER) {
+        for (const r of saved.tables[t]?.upserts ?? []) pending[t].upserts.set(r.id as string, r);
+        for (const id of saved.tables[t]?.deletes ?? []) pending[t].deletes.add(id);
+      }
+      profileDirty ||= saved.profileDirty;
+    } catch {
+      /* corrupted queue: ignore */
+    }
+  }
+}
+
+function schedule(delay = 700) {
+  clearTimeout(flushTimer);
+  flushTimer = setTimeout(() => void flush(), delay);
+}
+
+function depthOf(items: DriveItem[], id: string) {
+  let d = 0;
+  let cur = items.find(i => i.id === id);
+  while (cur?.parentId && d < 50) {
+    const parent = cur.parentId;
+    cur = items.find(i => i.id === parent);
+    d++;
+  }
+  return d;
+}
+
+function folderDepth(folders: NoteFolder[], id: string) {
+  let d = 0;
+  let cur = folders.find(f => f.id === id);
+  while (cur?.parentId && d < 50) {
+    const parent = cur.parentId;
+    cur = folders.find(f => f.id === parent);
+    d++;
+  }
+  return d;
+}
+
+/**
+ * Errors that a retry won't fix (Postgres data, constraint or permission errors, PostgREST
+ * request errors) — as opposed to network failures, which are retried.
+ */
+const permanent = (e: { code?: string } | null) => /^(22|23|42|PGRST)/.test(e?.code ?? '');
+
+/** Column pointing to a parent that may have been deleted on another device. */
+const PARENT: Partial<Record<Table, string>> = { drive_items: 'parent_id', notes: 'folder_id', note_folders: 'parent_id' };
+
+/**
+ * Sends rows; a batch refused for good is retried row by row so that one bad row never
+ * blocks all the others. A row whose parent folder was deleted elsewhere goes to the root;
+ * a row still refused is dropped (and logged) instead of being retried forever.
+ */
+async function upsertRows(table: Table, rows: Row[]) {
+  const { error } = await supabase!.from(table).upsert(rows);
+  if (!error) return 0;
+  if (!permanent(error)) throw error;
+  let dropped = 0;
+  for (const r of rows) {
+    let { error: e } = await supabase!.from(table).upsert(r);
+    const parent = PARENT[table];
+    if (e?.code === '23503' && parent && r[parent]) ({ error: e } = await supabase!.from(table).upsert({ ...r, [parent]: null }));
+    if (e && !permanent(e)) throw e;
+    if (e) {
+      console.error('[sync] ligne refusée', table, r.id, e);
+      dropped++;
+    }
+  }
+  return dropped;
+}
+
+/** One send at a time; a caller arriving during a send waits for it instead of returning at once. */
+let running: Promise<void> | null = null;
+function flush() {
+  running ??= send().finally(() => (running = null));
+  return running;
+}
+
+async function send() {
+  if (!supabase || !currentUser) return;
+  try {
+    // Never send this account's changes with another account's session (switched in another tab).
+    const { data: s } = await supabase.auth.getSession();
+    if (s.session?.user.id !== currentUser) {
+      if (s.session) location.reload();
+      return;
+    }
+    for (const table of ORDER) {
+      const p = pending[table];
+      if (p.upserts.size) {
+        let rows = [...p.upserts.values()];
+        if (table === 'drive_items') {
+          const items = [...useDrive.getState().items, ...useDrive.getState().trash];
+          rows = rows.sort((a, b) => depthOf(items, a.id as string) - depthOf(items, b.id as string));
+        }
+        if (table === 'note_folders') {
+          const folders = [...useNotes.getState().folders, ...useNotes.getState().trashFolders];
+          rows = rows.sort((a, b) => folderDepth(folders, a.id as string) - folderDepth(folders, b.id as string));
+        }
+        if ((await upsertRows(table, rows)) && !warnedDrop) {
+          warnedDrop = true;
+          useUi.getState().toast('Un élément n’a pas pu être enregistré en ligne (il a peut-être été supprimé sur un autre appareil).', 'error');
+        }
+        for (const r of rows) if (p.upserts.get(r.id as string) === r) p.upserts.delete(r.id as string);
+      }
+      if (p.deletes.size) {
+        const ids = [...p.deletes];
+        const { error } = await supabase.from(table).delete().in('id', ids);
+        if (error && !permanent(error)) throw error;
+        if (error) console.error('[sync] suppression refusée', table, error);
+        ids.forEach(id => p.deletes.delete(id));
+      }
+    }
+    if (profileDirty) {
+      profileDirty = false;
+      const { set: _set, reset: _reset, ...settings } = useSettings.getState();
+      const { error } = await supabase.from('profiles').update({ settings }).eq('id', currentUser);
+      if (error) {
+        profileDirty = true;
+        throw error;
+      }
+    }
+    warned = false;
+    saveQueue();
+  } catch (e) {
+    console.error('[sync]', e);
+    if (!warned) {
+      warned = true;
+      useUi.getState().toast('Synchronisation impossible pour le moment, nouvel essai automatique…', 'error');
+    }
+    schedule(8000);
+  } finally {
+    if (hasPending() && !warned) schedule();
+  }
+}
+
+/** Records the difference between two versions of a list (immutable updates → reference check). */
+function diff<T extends { id: string }>(table: Table, cur: T[], prev: T[], toRow: (x: T) => Row) {
+  if (pulling || cur === prev) return;
+  changes++;
+  const before = new Map(prev.map(x => [x.id, x]));
+  const now = new Set<string>();
+  for (const x of cur) {
+    now.add(x.id);
+    if (before.get(x.id) !== x) {
+      pending[table].upserts.set(x.id, toRow(x));
+      pending[table].deletes.delete(x.id);
+    }
+  }
+  for (const id of before.keys()) {
+    if (!now.has(id)) {
+      pending[table].upserts.delete(id);
+      pending[table].deletes.add(id);
+    }
+  }
+  saveQueue();
+  schedule();
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
+export interface CloudProfile {
+  name: string;
+  onboarded: boolean;
+}
+
+/** Sends changes left over from a previous visit (tab closed before they were sent). */
+export async function pushLeftovers(userId: string) {
+  currentUser = userId;
+  loadQueue(userId);
+  if (!(await flushNow())) throw new Error('leftover changes could not be sent');
+}
+
+const PAGE = 1000; // Supabase answers at most 1 000 rows per request by default
+
+/** Every row of a table, page by page (a year of timetable easily passes 1 000 events). */
+async function selectAll(table: Table) {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase!.from(table).select('*').order('id').range(from, from + PAGE - 1);
+    if (error) return { data: null, error };
+    rows.push(...data);
+    if (data.length < PAGE) return { data: rows, error: null };
+  }
+}
+
+async function fetchAll(userId: string) {
+  if (!supabase) throw new Error('cloud disabled');
+  const [events, folders, notes, items, profile, todos, focus] = await Promise.all([
+    selectAll('events'),
+    selectAll('note_folders'),
+    selectAll('notes'),
+    selectAll('drive_items'),
+    supabase.from('profiles').select('*').eq('id', userId).maybeSingle(), // '*': tolerate older schemas
+    selectAll('todos'),
+    selectAll('focus_sessions'),
+  ]);
+  const err = events.error ?? folders.error ?? notes.error ?? items.error ?? profile.error;
+  if (err) throw err;
+  return { events, folders, notes, items, profile, todos, focus };
+}
+
+function apply({ events, folders, notes, items, profile, todos, focus }: Awaited<ReturnType<typeof fetchAll>>) {
+  pulling = true;
+  try {
+    const f = folders.data ?? [];
+    const n = notes.data ?? [];
+    const i = items.data ?? [];
+    const ev = events.data ?? [];
+    useCalendar.setState({ events: ev.filter(r => !isTrashed(r)).map(rowToEvent), trash: ev.filter(isTrashed).map(rowToEvent) });
+    useNotes.setState({
+      folders: f.filter(r => !isTrashed(r)).map(rowToFolder),
+      notes: n.filter(r => !isTrashed(r)).map(rowToNote),
+      trashFolders: f.filter(isTrashed).map(rowToFolder),
+      trashNotes: n.filter(isTrashed).map(rowToNote),
+    });
+    useDrive.setState({ items: i.filter(r => !isTrashed(r)).map(rowToItem), trash: i.filter(isTrashed).map(rowToItem) });
+    // Tables added later: an older database without them keeps the local copy.
+    if (!todos.error) useTodos.setState({ todos: (todos.data ?? []).map(rowToTodo) });
+    if (!focus.error) useFocusLog.setState({ sessions: (focus.data ?? []).map(rowToFocus) });
+    const saved = (profile.data?.settings ?? {}) as Partial<Settings>;
+    const known = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];
+    useSettings.setState(Object.fromEntries(known.filter(k => k in saved).map(k => [k, saved[k]])) as Partial<Settings>);
+  } finally {
+    pulling = false;
+  }
+}
+
+/** Downloads everything for the signed-in user and replaces the stores' content. */
+export async function pullAll(userId: string): Promise<CloudProfile> {
+  const data = await fetchAll(userId);
+  apply(data);
+  useDrive.setState({ clipboard: null });
+  lastPull = Date.now();
+  const { events, folders, notes, items, profile } = data;
+  // Databases created before the "onboarded" column existed: onboarded as soon as there is any data.
+  const hasData = !!(events.data?.length || notes.data?.length || items.data?.length || folders.data?.length);
+  const onboarded = typeof profile.data?.onboarded === 'boolean' ? profile.data.onboarded || hasData : hasData;
+  return { name: profile.data?.name ?? '', onboarded };
+}
+
+/**
+ * Fetches what other devices changed. Skipped while local changes wait to be sent, and
+ * thrown away if the student changed something during the download (it would undo it).
+ */
+async function refresh() {
+  const user = currentUser;
+  if (!user || hasPending() || document.hidden || Date.now() - lastPull < 30_000) return;
+  lastPull = Date.now();
+  const mark = changes;
+  const data = await fetchAll(user).catch(() => null);
+  if (data && currentUser === user && changes === mark && !hasPending()) apply(data);
+}
+
+/** Starts pushing every change of the stores to Supabase. */
+export function startSync(userId: string) {
+  stopSync();
+  currentUser = userId;
+  unsubscribers = [
+    useCalendar.subscribe((s, p) => {
+      if (s.events !== p.events || s.trash !== p.trash) diff('events', [...s.events, ...s.trash], [...p.events, ...p.trash], eventToRow);
+    }),
+    useNotes.subscribe((s, p) => {
+      if (s.folders !== p.folders || s.trashFolders !== p.trashFolders)
+        diff('note_folders', [...s.folders, ...s.trashFolders], [...p.folders, ...p.trashFolders], folderToRow);
+      if (s.notes !== p.notes || s.trashNotes !== p.trashNotes) diff('notes', [...s.notes, ...s.trashNotes], [...p.notes, ...p.trashNotes], noteToRow);
+    }),
+    useDrive.subscribe((s, p) => {
+      if (s.items !== p.items || s.trash !== p.trash) diff('drive_items', [...s.items, ...s.trash], [...p.items, ...p.trash], itemToRow);
+    }),
+    useTodos.subscribe((s, p) => diff('todos', s.todos, p.todos, todoToRow)),
+    useFocusLog.subscribe((s, p) => diff('focus_sessions', s.sessions, p.sessions, focusToRow)),
+    useSettings.subscribe(() => {
+      if (pulling) return;
+      changes++;
+      profileDirty = true;
+      saveQueue();
+      schedule(1200);
+    }),
+  ];
+  const onLeave = () => {
+    if (hasPending()) void flush();
+  };
+  window.addEventListener('pagehide', onLeave);
+  // Changes made on another device: fetched when coming back to the tab or the window, when the
+  // network returns, and every 2 minutes for a window left open (a visible tab never "comes back").
+  const onBack = () => void refresh();
+  document.addEventListener('visibilitychange', onBack);
+  window.addEventListener('focus', onBack);
+  window.addEventListener('online', onBack);
+  const timer = setInterval(onBack, 120_000);
+  unsubscribers.push(
+    () => window.removeEventListener('pagehide', onLeave),
+    () => document.removeEventListener('visibilitychange', onBack),
+    () => window.removeEventListener('focus', onBack),
+    () => window.removeEventListener('online', onBack),
+    () => clearInterval(timer),
+  );
+}
+
+export function stopSync() {
+  unsubscribers.forEach(u => u());
+  unsubscribers = [];
+  saveQueue(); // keep unsent changes for the next visit
+  adopted = [];
+  currentUser = null;
+  clearTimeout(flushTimer);
+  for (const t of ORDER) {
+    pending[t].upserts.clear();
+    pending[t].deletes.clear();
+  }
+  profileDirty = false;
+}
+
+/** Sends what is waiting (before signing out, for instance); true when nothing is left to send. */
+export async function flushNow() {
+  clearTimeout(flushTimer);
+  // Twice: a send already running when we arrive may not include the latest changes.
+  for (let i = 0; i < 2 && hasPending(); i++) await flush();
+  return !hasPending();
+}
+
+export async function updateCloudProfile(userId: string, patch: { name?: string; onboarded?: boolean }) {
+  if (!supabase) return;
+  const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+  // Older schema without the "onboarded" column: keep the name update at least.
+  if (error && 'onboarded' in patch && patch.name) await supabase.from('profiles').update({ name: patch.name }).eq('id', userId);
+}

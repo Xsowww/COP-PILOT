@@ -1,0 +1,241 @@
+import { useEffect, useId, useRef, useState } from 'react';
+import { CheckCircle2, Info, XCircle } from 'lucide-react';
+import { useUi, type Toast } from '../store/ui';
+import { cx } from '../lib/utils';
+import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
+
+function ToastRow({ t }: { t: Toast }) {
+  const dismiss = useUi(s => s.dismissToast);
+  return (
+    <div className="pop flex items-center gap-2 rounded-lg bg-inverse px-3.5 py-2 text-[13px] text-on-inverse shadow-pop">
+      {t.tone === 'success' ? <CheckCircle2 size={15} className="text-emerald-400" aria-hidden /> : t.tone === 'error' ? <XCircle size={15} className="text-red-400" aria-hidden /> : <Info size={15} className="text-stone-400" aria-hidden />}
+      {t.text}
+      {t.action && (
+        <button
+          className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
+          onClick={() => {
+            dismiss(t.id);
+            t.action!.run();
+          }}
+        >
+          {t.action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Toasts are read out by screen readers: errors right away, everything else politely. */
+export function Toasts() {
+  const toasts = useUi(s => s.toasts).slice(-3);
+  return (
+    <div className="pointer-events-none fixed bottom-20 left-1/2 z-[70] flex -translate-x-1/2 flex-col items-center gap-2 md:bottom-6">
+      <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
+        {toasts.filter(t => t.tone !== 'error').map(t => <ToastRow key={t.id} t={t} />)}
+      </div>
+      <div role="alert" aria-live="assertive" className="flex flex-col items-center gap-2">
+        {toasts.filter(t => t.tone === 'error').map(t => <ToastRow key={t.id} t={t} />)}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Modal dialog: keeps Tab inside, closes on Escape, gives the focus back to whatever had it
+ * before, and takes its accessible name from its first heading.
+ */
+export function Modal({ open, onClose, children, width = 420, label }: { open: boolean; onClose: () => void; children: React.ReactNode; width?: number; label?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  const headingId = useId();
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+  useEffect(() => {
+    if (!open) return;
+    const el = ref.current!;
+    const previous = focusBeforeOverlay();
+    const heading = el.querySelector('h1, h2, h3');
+    if (heading && !label) {
+      heading.id ||= headingId;
+      el.setAttribute('aria-labelledby', heading.id);
+    }
+    // Children focus their own field first (autoFocus, effects); otherwise the first control.
+    if (!el.contains(document.activeElement)) (focusables(el)[0] ?? el).focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeRef.current();
+      } else trapTab(e, el);
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      const now = document.activeElement;
+      if (previous?.isConnected && (!now || now === document.body || el.contains(now))) previous.focus();
+    };
+  }, [open, label, headingId]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-900/25 p-4 dark:bg-black/60" onMouseDown={onClose}>
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        className="pop w-full rounded-2xl border border-stone-200 bg-surface p-5 shadow-pop outline-none"
+        style={{ maxWidth: width }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DialogBody() {
+  const dialog = useUi(s => s.dialog)!;
+  const close = useUi(s => s.closeDialog);
+  const [value, setValue] = useState(dialog.defaultValue ?? '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    // Select the name without its extension, like a real file manager.
+    const dot = el.value.lastIndexOf('.');
+    el.setSelectionRange(0, dot > 0 ? dot : el.value.length);
+  }, []);
+
+  return (
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        close(dialog.kind === 'prompt' ? value : true);
+      }}
+    >
+      <h3 className="text-[15px] font-semibold">{dialog.title}</h3>
+      {dialog.message && <p className="mt-1 text-[13px] text-stone-500">{dialog.message}</p>}
+      {dialog.kind === 'prompt' && <input ref={inputRef} value={value} onChange={e => setValue(e.target.value)} className="field mt-4 w-full" />}
+      <div className="mt-5 flex justify-end gap-2">
+        <button type="button" className="btn-secondary" onClick={() => close(null)}>
+          Annuler
+        </button>
+        <button type="submit" className={dialog.danger ? 'btn-danger' : 'btn-primary'} disabled={dialog.kind === 'prompt' && !value.trim()} autoFocus={dialog.kind === 'confirm'}>
+          {dialog.confirmLabel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export function DialogHost() {
+  const dialog = useUi(s => s.dialog);
+  const close = useUi(s => s.closeDialog);
+  return (
+    <Modal open={!!dialog} onClose={() => close(null)}>
+      {dialog && <DialogBody key={dialog.title + (dialog.defaultValue ?? '')} />}
+    </Modal>
+  );
+}
+
+export interface MenuItem {
+  label: string;
+  icon?: React.ReactNode;
+  shortcut?: string;
+  onClick: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+  divider?: boolean;
+  /** Custom row (e.g. a colour palette) rendered instead of a button. */
+  content?: React.ReactNode;
+}
+
+export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x, y });
+
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setPos({ x: Math.min(x, window.innerWidth - r.width - 8), y: Math.min(y, window.innerHeight - r.height - 8) });
+    }
+    const close = () => closeRef.current();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      closeRef.current();
+    };
+    window.addEventListener('mousedown', close);
+    window.addEventListener('blur', close);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('blur', close);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [x, y]);
+
+  // Keyboard: focus the first entry, arrows to move, Tab closes, focus goes back to the trigger.
+  useEffect(() => {
+    const el = ref.current!;
+    const previous = document.activeElement as HTMLElement | null;
+    el.querySelector<HTMLElement>('button:not(:disabled)')?.focus();
+    return () => {
+      const now = document.activeElement;
+      if (previous?.isConnected && previous !== document.body && (!now || now === document.body || el.contains(now))) previous.focus();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      className="enter fixed z-[65] min-w-52 rounded-xl border border-stone-200 bg-surface p-1 shadow-pop"
+      style={{ left: pos.x, top: pos.y }}
+      onMouseDown={e => e.stopPropagation()}
+      onContextMenu={e => e.preventDefault()}
+      onKeyDown={e => {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          closeRef.current();
+        } else arrowNav(e, e.currentTarget, 'button');
+      }}
+    >
+      {items.map((it, i) =>
+        it.divider ? (
+          <div key={i} role="separator" className="my-1 h-px bg-stone-100" />
+        ) : it.content ? (
+          <div key={i} role="group" aria-label={it.label || undefined}>{it.content}</div>
+        ) : (
+          <button
+            key={i}
+            role="menuitem"
+            tabIndex={-1}
+            disabled={it.disabled}
+            onClick={() => {
+              onClose();
+              it.onClick();
+            }}
+            className={cx(
+              'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] transition-colors outline-none disabled:opacity-40',
+              it.danger ? 'text-red-600 hover:bg-red-50 focus-visible:bg-red-50' : 'text-stone-700 hover:bg-stone-100 focus-visible:bg-stone-100',
+            )}
+          >
+            <span className="flex w-4 justify-center text-stone-400 [&>svg]:h-[15px] [&>svg]:w-[15px]" aria-hidden>{it.icon}</span>
+            <span className="flex-1">{it.label}</span>
+            {it.shortcut && <span className="font-mono text-[10px] text-stone-500" aria-hidden>{it.shortcut}</span>}
+          </button>
+        ),
+      )}
+    </div>
+  );
+}

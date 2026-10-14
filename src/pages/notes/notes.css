@@ -1,0 +1,13 @@
+/* Images inside notes (stored as data URLs in the note HTML). */
+.prose-note img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid rgb(28 27 25 / 0.06);
+}
+.prose-note[contenteditable='true'] img { cursor: default; }
+.prose-note img.ProseMirror-selectednode {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
