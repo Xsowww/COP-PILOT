@@ -97,7 +97,11 @@ export default function MfaPage() {
                   <p className="mt-0.5 text-stone-500">
                     iPhone : l’appareil photo, puis « Ajouter dans Mots de passe ». Android : Google Authenticator ou Microsoft Authenticator.
                   </p>
-                  <p className="mt-1 text-stone-500">Un « Kompa » d’un ancien compte supprimé dans ton app ? Supprime-le, ses codes ne marchent plus.</p>
+                  {user?.email && (
+                    <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-2 text-[12.5px] leading-relaxed text-amber-900">
+                      Ce QR code est celui du compte <strong className="break-all">{user.email}</strong>. Si ton iPhone propose une autre adresse, ne la choisis pas : range le code dans l’identifiant {user.email} (ou crée-le), sinon le code de l’autre compte serait remplacé.
+                    </p>
+                  )}
                   <div className="mt-3 flex h-[180px] w-[180px] items-center justify-center rounded-xl border border-stone-200 bg-surface p-2.5">
                     {enrollment ? <img src={enrollment.qrCode} alt="QR code à scanner" className="h-full w-full" /> : <Loader2 className="animate-spin text-stone-400" />}
                   </div>

@@ -192,7 +192,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               {needsEmail && (
                 <label className="block">
                   <span className="mb-1.5 block text-[12px] font-medium text-stone-600">E-mail</span>
-                  <input className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" autoFocus={!isRegister} placeholder="prenom@universite.fr" />
+                  <input className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" autoFocus={!isRegister} placeholder="prenom@universite.fr" />
                 </label>
               )}
               {needsPassword && (
