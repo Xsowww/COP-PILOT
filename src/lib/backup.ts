@@ -4,11 +4,12 @@ import { useCalendar, CATEGORIES, type CalendarEvent } from '../store/calendar';
 import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
-import { blobKey, getStorageUser } from './userStorage';
+import { blobKey, trashBlobKey, getStorageUser } from './userStorage';
 import { cloudEnabled } from './supabase';
 import { purgeSoleGroups } from './groups';
 import { useTodos } from '../store/todos';
 import { useFocusLog } from '../store/focusLog';
+import { useCopilot } from '../store/copilot';
 
 function download(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -100,7 +101,7 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
   download(`kompa-calendrier-${stamp()}.ics`, lines.join('\r\n'), 'text/calendar');
 }
 
-/** Removes every file, note and event of the current account (the account itself stays). */
+/** Removes everything the current account holds (files, notes, events, tasks, conversation); the account itself stays. */
 export async function wipeUserData({ deletingAccount = false } = {}) {
   const user = getStorageUser();
   if (cloudEnabled && user) {
@@ -108,14 +109,20 @@ export async function wipeUserData({ deletingAccount = false } = {}) {
     await blobStore.removeFolder(user);
     if (deletingAccount) await purgeSoleGroups().catch(() => undefined);
   } else {
+    // A file in the trash keeps its content under its trash key.
     const files = [...useDrive.getState().items, ...useDrive.getState().trash].filter(i => i.kind === 'file');
-    await Promise.all(files.map(f => blobStore.delete(blobKey(f.id)).catch(() => undefined)));
+    await Promise.all(files.flatMap(f => [blobStore.delete(blobKey(f.id)), blobStore.delete(trashBlobKey(f.id))].map(p => p.catch(() => undefined))));
   }
   useDrive.setState({ items: [], trash: [], clipboard: null });
   useNotes.setState({ notes: [], folders: [], trashNotes: [], trashFolders: [] });
   useCalendar.setState({ events: [], trash: [] });
   useTodos.setState({ todos: [] });
   useFocusLog.setState({ sessions: [] });
+  // The conversation with Kompa and the search index of the PDFs that were just deleted go too.
+  useCopilot.getState().clearHistory();
+  useCopilot.setState({ memory: {} });
+  void import('../copilot/claudeBrain').then(m => m.resetClaudeHistory()).catch(() => undefined);
+  void import('./textIndex').then(m => m.forgetTextIndex()).catch(() => undefined);
 }
 
 /** Resizes a picked image to a small square data URL for the avatar. */

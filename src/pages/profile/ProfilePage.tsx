@@ -26,7 +26,6 @@ import { currentStreak, useBadges } from '../../lib/badges';
 import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
 import BadgeGrid from './BadgeGrid';
 import { USAGES, WORDS, applyUsage, type Usage } from '../../lib/usage';
-import { eraseMyData } from '../../lib/eraseData';
 
 const TABS = [
   { key: 'profil', label: 'Profil', icon: User },
@@ -607,16 +606,6 @@ function NotificationsTab() {
 // ── Data ────────────────────────────────────────────────────────────────────
 
 function DataTab() {
-  async function eraseAll() {
-    const ok = await confirmAction(
-      'Effacer toutes tes données ?',
-      'Tous tes fichiers, notes, événements, tâches et ta conversation avec Kompa seront supprimés définitivement, sur tous tes appareils. Pense à exporter une sauvegarde avant si tu veux les garder.',
-      'Tout effacer',
-    );
-    if (!ok) return;
-    await eraseMyData();
-    toast('Ton espace est vide : tu repars de zéro.', 'success');
-  }
 
   const importRef = useRef<HTMLInputElement>(null);
   const [usage, setUsage] = useState<{ used: number; quota: number } | null>(null);
@@ -658,14 +647,6 @@ function DataTab() {
         </Row>
       </Section>
 
-      <Section title="Repartir de zéro" description="Ton compte, ton profil et tes réglages restent. Tes groupes aussi.">
-        <Row label="Effacer toutes mes données" hint="Fichiers du Drive, notes, événements, tâches, historique et conversation avec Kompa, corbeilles comprises.">
-          <button className="btn-danger h-8" onClick={() => void eraseAll()}>
-            Tout effacer
-          </button>
-        </Row>
-      </Section>
-
       {!cloudEnabled && usage && usage.quota > 0 && (
         <Section title="Stockage">
           <div className="px-5 py-4">
@@ -682,16 +663,16 @@ function DataTab() {
       )}
 
       <Section title="Zone sensible" danger>
-        <Row label="Effacer toutes mes données" hint="Fichiers, notes et événements. Ton compte et tes réglages sont conservés.">
+        <Row label="Effacer toutes mes données" hint="Fichiers du Drive, notes, événements, tâches, historique et conversation avec Kompa, corbeilles comprises. Ton compte, tes réglages et tes groupes restent.">
           <button
-            className="btn-secondary h-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+            className="btn-danger h-8"
             onClick={async () => {
-              if (!(await confirmAction('Tout effacer ?', 'Tous tes fichiers, notes et événements seront supprimés définitivement.', 'Tout effacer'))) return;
+              if (!(await confirmAction('Tout effacer ?', 'Tous tes fichiers, notes, événements, tâches et ta conversation avec Kompa seront supprimés définitivement, sur tous tes appareils. Pense à exporter une sauvegarde avant si tu veux les garder.', 'Tout effacer'))) return;
               await wipeUserData();
               toast('Données effacées', 'success');
             }}
           >
-            <Trash2 size={14} /> Effacer
+            <Trash2 size={14} /> Tout effacer
           </button>
         </Row>
       </Section>
