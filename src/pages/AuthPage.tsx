@@ -98,6 +98,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [oldEnough, setOldEnough] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState(mode === 'login' ? (linkError ?? '') : '');
   const [info, setInfo] = useState('');
@@ -115,6 +116,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return setError('Adresse e-mail invalide.');
     if ((isRegister || mode === 'reset') && password.length < 8) return setError('Le mot de passe doit contenir au moins 8 caractères.');
     if (isRegister && !agreed) return setError('Accepte les conditions d’utilisation pour créer ton compte.');
+    if (isRegister && !oldEnough) return setError('Kompa est ouvert dès 15 ans. Avant, il faut l’accord d’un parent.');
     if (mode === 'login' && !password) return setError('Entre ton mot de passe.');
     setBusy(true);
     try {
@@ -250,6 +252,12 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                   </Link>
                   .
                 </span>
+              </label>
+            )}
+            {isRegister && (
+              <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
+                <input type="checkbox" checked={oldEnough} onChange={e => setOldEnough(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+                <span>J’ai 15 ans ou plus, ou l’accord d’un parent.</span>
               </label>
             )}
 

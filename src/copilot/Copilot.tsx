@@ -411,6 +411,8 @@ export default function Copilot() {
             </button>
           </form>
           {dictation.error && <p className="px-3.5 pb-2 text-[11px] text-red-600">{dictation.error}</p>}
+          {/* Required by the EU AI Act: the student knows they are talking to an AI. */}
+          <p className="px-3.5 pb-2 text-center text-[10.5px] text-stone-500">Kompa est une IA : il peut se tromper, vérifie ce qui compte.</p>
         </div>
 
         {/* Spontaneous remarks are read out even though the bubble only appears visually. */}

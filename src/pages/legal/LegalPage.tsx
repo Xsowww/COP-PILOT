@@ -75,6 +75,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Qui y a accès',
         body: [
           'Toi seul pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',
+          'L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé. Jamais le contenu de tes notes, fichiers ou événements.',
           'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande) et le fournisseur d’IA indiqué plus haut.',
         ],
       },
@@ -107,13 +108,14 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Le service',
         body: [
-          'Kompa est un espace de travail pour étudiants : Drive, calendrier, notes, tâches, groupes, et l’ami Kompa qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.',
+          'Kompa est un espace pour s’organiser (études, travail ou vie perso) : Drive, calendrier, notes, tâches, groupes, et l’ami Kompa qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.',
           'En créant un compte, tu acceptes ces conditions et la politique de confidentialité.',
         ],
       },
       {
         title: 'Ton compte',
         body: [
+          'Kompa est ouvert dès 15 ans. Avant 15 ans, il faut l’accord d’un parent ou d’un responsable légal pour créer un compte.',
           'Tu es responsable de ton mot de passe et de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.',
           'Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, un nombre limité de questions par jour à Kompa en mode intelligent.',
         ],
@@ -129,7 +131,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'L’ami Kompa',
         body: [
-          'Kompa peut se tromper. Vérifie ce qu’il te dit, surtout pour tes cours, tes dates d’examen et tes rendus. Il te demande toujours de confirmer avant de supprimer quelque chose.',
+          'Kompa est une intelligence artificielle : il peut se tromper. Vérifie ce qu’il te dit, surtout pour tes cours, tes dates d’examen et tes rendus. Il te demande toujours de confirmer avant de supprimer quelque chose.',
         ],
       },
       {
