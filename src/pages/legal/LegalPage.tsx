@@ -66,7 +66,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Kompa et l’intelligence artificielle',
         body: [
-          'Quand tu poses une question à Kompa en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Groq, Inc. (États-Unis). Groq ne conserve ni tes messages ni les réponses (option « zéro conservation » activée) et ne s’en sert pas pour entraîner ses modèles.',
+          'Quand tu poses une question à Kompa en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Groq, Inc. (États-Unis). Groq ne conserve ni tes messages ni les réponses (option « zéro conservation » activée).',
           'Ce transfert hors de l’Union européenne est encadré par les clauses contractuelles types de la Commission européenne, prévues dans le contrat de traitement des données de Groq. Le mode simple de Kompa fonctionne sans rien envoyer.',
           'N’envoie pas à Kompa d’informations sensibles (santé, données d’autres personnes…).',
         ],
