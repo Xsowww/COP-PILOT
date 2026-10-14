@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
-import { loadUserData, seedNewAccount } from '../store/session';
+import { loadUserData, useWelcome } from '../store/session';
 import { cloudEnabled, linkError } from '../lib/supabase';
 import Character from '../copilot/Character';
 import Logo from '../components/Logo';
@@ -140,7 +140,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         }
         if (useAuth.getState().mfaStep) return navigate('/securite'); // pair the phone first
         await loadUserData();
-        if (!cloudEnabled) seedNewAccount(user.name); // cloud mode seeds on first load
+        if (!cloudEnabled) useWelcome.setState({ pending: true }); // cloud mode knows it from the profile on load
       } else {
         await login(email, password);
         if (useAuth.getState().mfaStep) return navigate('/securite');

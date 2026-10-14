@@ -10,6 +10,8 @@ import { hasRevisionPlan, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
 import { toast } from '../store/ui';
 import TodoList from './tasks/TodoList';
+import { useSettings } from '../store/settings';
+import { WORDS } from '../lib/usage';
 
 function Widget({ title, to, linkLabel, className, children }: { title: string; to?: string; linkLabel?: string; className?: string; children: React.ReactNode }) {
   return (
@@ -53,6 +55,7 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
 }
 
 export default function Dashboard() {
+  const words = WORDS[useSettings(st => st.usage)] ?? WORDS.etudes;
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
   const { notes, folders } = useNotes();
@@ -129,7 +132,7 @@ export default function Dashboard() {
           </Widget>
 
           {/* Next exam */}
-          <Widget title="Prochain examen" className="lg:col-start-2 lg:row-start-1">
+          <Widget title={words.nextBig} className="lg:col-start-2 lg:row-start-1">
             {nextExam ? (
               <div className="flex flex-1 flex-col">
                 <Link to={linkToDay(nextExam.date)} className="group flex items-baseline gap-3">
@@ -147,17 +150,17 @@ export default function Dashboard() {
                 <div className="mt-auto pt-4">
                   {hasRevisionPlan(nextExam.title) ? (
                     <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
-                      <Check size={13} className="text-emerald-600" /> Révisions planifiées
+                      <Check size={13} className="text-emerald-600" /> {words.planned}
                     </p>
                   ) : (
                     <button onClick={planExam} className="btn-secondary h-8 text-[12px]">
-                      Planifier les révisions
+                      {words.plan}
                     </button>
                   )}
                 </div>
               </div>
             ) : (
-              <p className="py-1.5 text-[13px] text-stone-500">Aucun examen à venir.</p>
+              <p className="py-1.5 text-[13px] text-stone-500">{words.noBig}</p>
             )}
           </Widget>
 

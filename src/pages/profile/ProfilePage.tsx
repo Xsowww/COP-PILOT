@@ -25,6 +25,7 @@ import { cloudEnabled } from '../../lib/supabase';
 import { currentStreak, useBadges } from '../../lib/badges';
 import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
 import BadgeGrid from './BadgeGrid';
+import { USAGES, WORDS, applyUsage, type Usage } from '../../lib/usage';
 
 const TABS = [
   { key: 'profil', label: 'Profil', icon: User },
@@ -38,7 +39,6 @@ const TABS = [
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 
-const YEARS = ['', 'Lycée', 'L1', 'L2', 'L3', 'M1', 'M2', 'BTS / BUT', 'Prépa', 'École', 'Doctorat', 'Autre'];
 
 // ── Profile ─────────────────────────────────────────────────────────────────
 
@@ -111,6 +111,7 @@ function ProfileTab() {
   const user = useAuth(s => s.user)!;
   const updateName = useAuth(s => s.updateName);
   const settings = useSettings();
+  const words = WORDS[settings.usage] ?? WORDS.etudes;
   const stats = useStats();
   const [name, setName] = useState(user.name);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -180,15 +181,24 @@ function ProfileTab() {
             }}
           />
         </Row>
-        <Row label="Établissement">
-          <input className="field w-56" aria-label="Établissement" value={settings.school} placeholder="Université, école…" onChange={e => settings.set({ school: e.target.value })} />
+        <Row label="Kompa sert pour">
+          <select className="field w-56" aria-label="Kompa sert pour" value={settings.usage} onChange={e => { const usage = e.target.value as Usage; settings.set({ usage }); applyUsage(usage); }}>
+            {USAGES.map(u => (
+              <option key={u.key} value={u.key}>
+                {u.label}
+              </option>
+            ))}
+          </select>
         </Row>
-        <Row label="Filière">
-          <input className="field w-56" aria-label="Filière" value={settings.program} placeholder="Droit, info, médecine…" onChange={e => settings.set({ program: e.target.value })} />
+        <Row label={words.school}>
+          <input className="field w-56" aria-label={words.school} value={settings.school} placeholder={words.schoolHint} onChange={e => settings.set({ school: e.target.value })} />
         </Row>
-        <Row label="Année">
-          <select className="field w-56" aria-label="Année d’études" value={settings.year} onChange={e => settings.set({ year: e.target.value })}>
-            {YEARS.map(y => (
+        <Row label={words.program}>
+          <input className="field w-56" aria-label={words.program} value={settings.program} placeholder={words.programHint} onChange={e => settings.set({ program: e.target.value })} />
+        </Row>
+        <Row label={words.level}>
+          <select className="field w-56" aria-label={words.level} value={settings.year} onChange={e => settings.set({ year: e.target.value })}>
+            {(words.levels.includes(settings.year) ? words.levels : [...words.levels, settings.year]).map(y => (
               <option key={y} value={y}>
                 {y || 'Non renseignée'}
               </option>
@@ -784,6 +794,7 @@ function AccountTab() {
 export default function ProfilePage() {
   const [params, setParams] = useSearchParams();
   const tab = (TABS.find(t => t.key === params.get('onglet'))?.key ?? 'profil') as TabKey;
+  const usage = useSettings(s => s.usage);
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
@@ -803,7 +814,7 @@ export default function ProfilePage() {
                 )}
               >
                 <t.icon size={15} className={tab === t.key ? 'text-brand-600' : ''} />
-                {t.label}
+                {t.key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : t.label}
               </button>
             ))}
           </nav>

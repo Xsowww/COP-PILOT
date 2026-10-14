@@ -10,6 +10,13 @@ import { useCalendar, type EventCategory } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useNotes } from '../store/notes';
 import { getSettings } from '../store/settings';
+
+/** Who Kompa is talking to (welcome questionnaire). The category names in the calendar follow the same choice. */
+const USAGE_CONTEXT: Record<string, string> = {
+  etudes: 'ses études (catégories : Cours, Examen, Devoir, Perso, Sport)',
+  travail: 'son travail (catégories : Réunion, Échéance, Devis, Perso, Sport ; parle de réunions, devis, échéances, pas de cours ni de révisions)',
+  perso: 'sa vie perso (catégories : Rendez-vous, Important, À faire, Perso, Sport ; pas de vocabulaire scolaire)',
+};
 import { accessToken } from '../lib/supabase';
 import {
   search, analyzeCalendar, eventsBetween, addEvent, createNote, createDriveFolder, listDriveFolder, readNote, overview,
@@ -299,9 +306,10 @@ function contextBlock(): string {
     `Date : ${fmt(now, "EEEE d MMMM yyyy 'à' HH:mm")} (${todayKey()})`,
     `Page ouverte : ${PAGES[location.pathname] ?? location.pathname}`,
   ];
-  const { school, program, year } = getSettings();
+  const { school, program, year, usage, needs } = getSettings();
   const profile = [year, program, school].filter(Boolean).join(', ');
-  if (profile) lines.push(`Profil de l'étudiant : ${profile}`);
+  lines.push(`Utilise Kompa pour : ${USAGE_CONTEXT[usage] ?? USAGE_CONTEXT.etudes}${profile ? ` (${profile})` : ''}`);
+  if (needs.length) lines.push(`Ce dont il/elle a le plus besoin : ${needs.join(', ')}`);
   if (recentProactive.length) lines.push(`Tu lui as dit récemment, de toi-même : ${recentProactive.join(' ')}`);
   if (offerLog.length) lines.push(`Boutons utilisés depuis : ${offerLog.splice(0).join(' | ')}`);
   if (history.length === 0) {

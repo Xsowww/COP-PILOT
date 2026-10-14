@@ -3,7 +3,7 @@ import { useDrive } from './drive';
 import { useCalendar } from './calendar';
 import { useNotes } from './notes';
 import { useCopilot } from './copilot';
-import { useSettings, applyAppearance, storedTheme } from './settings';
+import { useSettings, applyAppearance, storedTheme, type Settings } from './settings';
 import { toKey } from '../lib/dates';
 import { getStorageUser, setStorageUser } from '../lib/userStorage';
 import { cloudEnabled } from '../lib/supabase';
@@ -13,6 +13,11 @@ import { toast } from './ui';
 import { useTodos } from './todos';
 import { useFocusLog } from './focusLog';
 import { renameToKompa } from '../lib/renameToKompa';
+import { applyUsage, SEEDS, type Usage } from '../lib/usage';
+import { create } from 'zustand';
+
+/** True while a brand-new account still has to answer the welcome questionnaire. */
+export const useWelcome = create<{ pending: boolean }>(() => ({ pending: false }));
 
 let loading: Promise<void> = Promise.resolve();
 
@@ -28,6 +33,7 @@ export function loadUserData() {
 
 async function load() {
   const userId = getStorageUser();
+  useWelcome.setState({ pending: false });
   if (cloudEnabled) stopSync();
   // Detach storage while clearing memory, otherwise the reset would overwrite the saved data.
   setStorageUser(null);
@@ -60,10 +66,8 @@ async function load() {
       await pushLeftovers(userId); // never let the cloud copy overwrite unsent local changes
       const profile = await pullAll(userId);
       startSync(userId);
-      if (!profile.onboarded) {
-        seedNewAccount(profile.name || useAuth.getState().user?.name || '');
-        await updateCloudProfile(userId, { onboarded: true });
-      }
+      // New account: the welcome questionnaire comes first, it seeds the account when done.
+      useWelcome.setState({ pending: !profile.onboarded });
     } catch (e) {
       console.error('[sync] chargement', e);
       startSync(userId);
@@ -75,30 +79,41 @@ async function load() {
   useNotes.getState().purgeExpired();
   useCalendar.getState().purgeExpired();
   renameToKompa();
+  applyUsage(useSettings.getState().usage);
   applyAppearance(useSettings.getState());
 }
 
-/** A few starter items so a brand-new account doesn't open on an empty screen. */
-export function seedNewAccount(name: string) {
+export type WelcomeAnswers = Pick<Settings, 'usage' | 'year' | 'school' | 'program' | 'needs' | 'persona' | 'revisionTime'>;
+
+/** End of the welcome questionnaire: fill the profile, adapt Kompa, seed the account, never ask again. */
+export async function finishWelcome(answers: WelcomeAnswers) {
+  const settings = useSettings.getState();
+  settings.set({
+    ...answers,
+    // Someone who didn't ask for help from the AI gets a quieter Kompa (still one click away).
+    chattiness: answers.needs.length && !answers.needs.includes('ia') ? 'calme' : settings.chattiness,
+  });
+  applyUsage(answers.usage);
+  const user = useAuth.getState().user;
+  seedNewAccount(user?.name ?? '', answers.usage);
+  useWelcome.setState({ pending: false });
+  if (cloudEnabled && user) await updateCloudProfile(user.id, { onboarded: true }).catch(() => undefined);
+}
+
+/** A few starter items so a brand-new account doesn't open on an empty screen (shaped by the welcome answers). */
+export function seedNewAccount(name: string, usage: Usage = useSettings.getState().usage) {
+  const seed = SEEDS[usage] ?? SEEDS.etudes;
   const drive = useDrive.getState();
-  const cours = drive.createFolder('Cours', null);
-  drive.createFolder('Projets', null);
-  drive.createFolder('Administratif', null);
-  drive.createFolder('Semestre 1', cours.id);
+  const folders = seed.driveFolders.map(f => drive.createFolder(f, null));
+  if (usage === 'etudes') drive.createFolder('Semestre 1', folders[0].id);
 
   const notes = useNotes.getState();
-  const nf = notes.createFolder('Cours', null);
-  notes.createFolder('Perso', null);
-  notes.createNote({
-    title: 'Bienvenue sur Kompa',
-    content: `<h2>Salut ${name}</h2><p>Voici ton espace. Quelques repères pour démarrer :</p><ul><li><p><strong>Drive</strong> : glisse tes fichiers dans la page, clic droit pour copier, couper, renommer…</p></li><li><p><strong>Calendrier</strong> : écris simplement « Partiel de maths vendredi 14h », c'est ajouté.</p></li><li><p><strong>Notes</strong> : range tes notes dans des dossiers, comme celle-ci.</p></li></ul><p>Et si tu cherches quelque chose, demande à <strong>Kompa</strong>, le petit personnage qui t'observe depuis le bord droit de l'écran.</p>`,
-  });
-  notes.createNote({ title: 'Méthode de révision', folderId: nf.id, content: '<p>1. Relire le cours<br>2. Faire une fiche<br>3. S\'entraîner sur les annales</p>' });
+  const [nf] = seed.noteFolders.map(f => notes.createFolder(f, null));
+  notes.createNote({ title: 'Bienvenue sur Kompa', content: seed.welcome(name) });
+  notes.createNote({ ...seed.extraNote, folderId: nf.id });
 
   const cal = useCalendar.getState();
   const today = new Date();
   cal.add({ title: 'Découvrir Kompa', date: toKey(today), category: 'perso' });
-  cal.add({ title: 'Cours de maths', date: toKey(addDays(today, 1)), start: '09:00', end: '11:00', category: 'cours' });
-  cal.add({ title: 'Rendre le TP de physique', date: toKey(addDays(today, 3)), start: '18:00', category: 'devoir' });
-  cal.add({ title: 'Partiel d\'anglais', date: toKey(addDays(today, 8)), start: '14:00', end: '16:00', category: 'examen' });
+  for (const e of seed.events) cal.add({ title: e.title, date: toKey(addDays(today, e.inDays)), start: e.start, end: e.end, category: e.category });
 }

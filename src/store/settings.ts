@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { userStorage } from '../lib/userStorage';
+import type { Usage } from '../lib/usage';
 
 export type AccentKey = 'orange' | 'bleu' | 'vert' | 'violet' | 'rose' | 'encre';
 export type Chattiness = 'calme' | 'normal' | 'bavard';
@@ -22,6 +23,8 @@ export const AVATAR_COLORS = ['#3d63dd', '#e8613c', '#2f9e6b', '#7a5ad6', '#d645
 
 export interface Settings {
   // profile
+  usage: Usage; // what the account is for (welcome questionnaire): changes words and starter content
+  needs: string[]; // what the person said they need most (welcome questionnaire), given to the AI
   avatarColor: string;
   avatarImage: string | null; // small data URL
   school: string;
@@ -60,6 +63,8 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  usage: 'etudes',
+  needs: [],
   avatarColor: AVATAR_COLORS[0],
   avatarImage: null,
   school: '',

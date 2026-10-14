@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { uid, nowIso } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
 import { TRASH_DAYS } from './drive';
+import { getSettings } from './settings';
 
 export type EventCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
 
@@ -53,6 +54,12 @@ interface CalendarState {
 /** Guess a category from the title so the student never has to think about it. */
 export function guessCategory(title: string): EventCategory {
   const t = title.toLowerCase();
+  // Work and personal accounts use the same five categories under other names (see lib/usage).
+  if (getSettings().usage !== 'etudes') {
+    if (/(r[ée]union|meeting|\bcall\b|visio|point (d'[ée]quipe|client|hebdo)|entretien|rendez-vous|\brdv\b|m[ée]decin|dentiste|kin[ée])/.test(t)) return 'cours';
+    if (/(devis|facture|relance|proposition|contrat|payer|imp[oô]ts?|d[ée]claration)/.test(t)) return 'devoir';
+    if (/(deadline|[ée]ch[ée]ance|livraison|lancement|audit|salon|anniversaire|mariage|d[ée]m[ée]nagement)/.test(t)) return 'examen';
+  }
   if (/(exam|partiel|contr[oô]le|\bds\b|\bqcm\b|interro|oral|soutenance|concours)/.test(t)) return 'examen';
   if (/(devoir|\btp\b|\btd\b|rendre|rendu|dm\b|projet|dossier|exo|exercice|r[ée]vis)/.test(t)) return 'devoir';
   if (/(sport|foot|basket|gym|muscu|course|piscine|natation|yoga|tennis|danse)/.test(t)) return 'sport';

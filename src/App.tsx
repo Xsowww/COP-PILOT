@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './store/auth';
-import { loadUserData } from './store/session';
+import { loadUserData, useWelcome } from './store/session';
 import { toast } from './store/ui';
 import AuthPage from './pages/AuthPage';
 import MfaPage from './pages/MfaPage';
@@ -18,12 +18,25 @@ const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
 const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
 const GroupsPage = lazy(() => import('./pages/groups/GroupsPage'));
 const TrashPage = lazy(() => import('./pages/trash/TrashPage'));
+const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
   const mfaStep = useAuth(s => s.mfaStep);
+  const welcome = useWelcome(s => s.pending);
   if (!user) return <Navigate to="/connexion" replace />;
-  return mfaStep ? <Navigate to="/securite" replace /> : children;
+  if (mfaStep) return <Navigate to="/securite" replace />;
+  return welcome ? <Navigate to="/bienvenue" replace /> : children;
+}
+
+/** The welcome questionnaire: only for a signed-in account that hasn't answered it yet. */
+function WelcomeOnly({ children }: { children: React.ReactNode }) {
+  const user = useAuth(s => s.user);
+  const mfaStep = useAuth(s => s.mfaStep);
+  const welcome = useWelcome(s => s.pending);
+  if (!user) return <Navigate to="/connexion" replace />;
+  if (mfaStep) return <Navigate to="/securite" replace />;
+  return welcome ? children : <Navigate to="/" replace />;
 }
 
 function GuestOnly({ children }: { children: React.ReactNode }) {
@@ -65,6 +78,7 @@ export default function App() {
         <Route path="/mot-de-passe-oublie" element={<GuestOnly><AuthPage mode="forgot" /></GuestOnly>} />
         <Route path="/reinitialisation" element={<AuthPage mode="reset" />} />
         <Route path="/securite" element={<MfaPage />} />
+        <Route path="/bienvenue" element={<WelcomeOnly><Suspense fallback={null}><WelcomePage /></Suspense></WelcomeOnly>} />
         <Route path="/mentions-legales" element={<Suspense fallback={null}><LegalPage doc="mentions" /></Suspense>} />
         <Route path="/confidentialite" element={<Suspense fallback={null}><LegalPage doc="confidentialite" /></Suspense>} />
         <Route path="/conditions" element={<Suspense fallback={null}><LegalPage doc="conditions" /></Suspense>} />

@@ -12,6 +12,8 @@ import { cx } from '../lib/utils';
 import { checkIsAdmin, cloudEnabled } from '../lib/supabase';
 import { useGroupActivity, totalUnread } from '../store/groupActivity';
 import { useTrashCount } from '../lib/trash';
+import { useSettings } from '../store/settings';
+import { WORDS } from '../lib/usage';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
 
@@ -121,6 +123,8 @@ function GlobalSearch() {
 }
 
 export default function AppShell() {
+  const groupsLabel = (WORDS[useSettings(st => st.usage)] ?? WORDS.etudes).groups;
+  const label = (n: { to: string; label: string }) => (n.to === '/groupes' ? groupsLabel : n.label);
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
   const trashCount = useTrashCount();
@@ -174,7 +178,7 @@ export default function AppShell() {
               {({ isActive }) => (
                 <>
                   <n.icon size={16} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
-                  {n.label}
+                  {label(n)}
                   {n.to === '/groupes' && groupNews > 0 && (
                     <span className="ml-auto rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={`${groupNews} nouveautés dans tes groupes`}>
                       {groupNews}
@@ -264,7 +268,7 @@ export default function AppShell() {
                   <n.icon size={19} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
                   {n.to === '/groupes' && groupNews > 0 && <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-brand-solid ring-2 ring-paper" aria-label="nouveautés" />}
                 </span>
-                {n.label}
+                {label(n)}
               </>
             )}
           </NavLink>
