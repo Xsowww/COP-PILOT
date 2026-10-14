@@ -27,8 +27,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Hébergement',
         body: [
-          'Site : [À COMPLÉTER : nom, adresse et téléphone de l’hébergeur du site].',
-          'Données et fichiers : Supabase Inc. (supabase.com), serveurs situés dans l’Union européenne [À VÉRIFIER : région du projet Supabase].',
+          'Site : Render Services, Inc., 525 Brannan Street, Suite 300, San Francisco, CA 94107, États-Unis, téléphone +1 415 319 8186 (render.com). Serveurs utilisés : Francfort, Allemagne (Union européenne).',
+          'Données et fichiers : Supabase Inc. (supabase.com). Serveurs utilisés : Irlande (Union européenne).',
         ],
       },
       {
@@ -75,7 +75,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Qui y a accès',
         body: [
-          'Toi seul pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe. Nos sous-traitants techniques (hébergement, base de données, IA) les traitent uniquement pour faire fonctionner le service.',
+          'Toi seul pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',
+          'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail) et le fournisseur d’IA indiqué plus haut.',
         ],
       },
       {
@@ -115,7 +116,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Ton compte',
         body: [
           'Tu es responsable de ton mot de passe et de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.',
-          'Limites actuelles : 50 Mo par fichier, [À COMPLÉTER : espace de stockage par compte], un nombre limité de questions par jour à Kompa en mode intelligent.',
+          'Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, un nombre limité de questions par jour à Kompa en mode intelligent.',
         ],
       },
       {
