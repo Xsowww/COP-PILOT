@@ -28,7 +28,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Hébergement',
         body: [
           'Site : Render Services, Inc., 525 Brannan Street, Suite 300, San Francisco, CA 94107, États-Unis, téléphone +1 415 319 8186 (render.com). Serveurs utilisés : Francfort, Allemagne (Union européenne).',
-          'Données et fichiers : Supabase Inc. (supabase.com). Serveurs utilisés : Irlande (Union européenne).',
+          'Données et fichiers : Supabase Pte. Ltd (supabase.com). Serveurs utilisés : Irlande (Union européenne).',
         ],
       },
       {
@@ -76,7 +76,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Qui y a accès',
         body: [
           'Toi seul pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',
-          'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail) et le fournisseur d’IA indiqué plus haut.',
+          'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande) et le fournisseur d’IA indiqué plus haut.',
         ],
       },
       {
