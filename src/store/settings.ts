@@ -56,6 +56,7 @@ export interface Settings {
   badgesSeen: string[]; // badges already announced
   badgeAnnouncements: boolean; // Kompa announces newly earned badges
   groupsSeen: Record<string, string>; // « groupId:tab » → last time the student looked (synced across devices)
+  renamedToKompa: boolean; // old « COP-PILOT » texts in this account already renamed (see lib/renameToKompa)
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -88,6 +89,7 @@ export const DEFAULT_SETTINGS: Settings = {
   badgesSeen: [],
   badgeAnnouncements: false,
   groupsSeen: {},
+  renamedToKompa: false,
 };
 
 interface SettingsState extends Settings {
