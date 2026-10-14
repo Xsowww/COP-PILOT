@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Ton code de confirmation</title>
+</head>
+<body style="margin:0;padding:0;background:#f7f7f5;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Ton code pour confirmer une action sur Kompa.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f5;">
+<tr><td align="center" style="padding:40px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+<tr><td style="padding:0 4px 20px 4px;">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="vertical-align:middle;"><img src="{{ .SiteURL }}/icon-192.png" width="36" height="36" alt="" style="display:block;border:0;border-radius:9px;"></td>
+<td style="vertical-align:middle;padding-left:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:22px;font-weight:600;letter-spacing:-0.5px;color:#16181d;">kompa</td>
+</tr></table>
+</td></tr>
+<tr><td style="background:#ffffff;border:1px solid #e4e4e0;border-radius:16px;padding:32px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#16181d;">
+<h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.3px;color:#16181d;">Ton code de confirmation</h1>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#3d424c;">Pour confirmer cette action sur ton compte Kompa, saisis ce code :</p>
+<div style="margin:8px 0 0 0;padding:16px;border-radius:12px;background:#eef2fd;text-align:center;font-family:'SFMono-Regular',Menlo,Consolas,monospace;font-size:30px;font-weight:600;letter-spacing:8px;color:#26409c;">{{ .Token }}</div>
+<p style="margin:20px 0 0 0;font-size:13px;line-height:1.5;color:#5e6470;">Ce code n’est valable que quelques minutes. Ne le communique à personne.</p>
+
+</td></tr>
+<tr><td style="padding:20px 4px 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:#8a8f98;">
+Kompa · L’espace de travail des étudiants<br>
+Cet e-mail a été envoyé à {{ .Email }}. Si tu n’es pas à l’origine de cette demande, ignore-le simplement.
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
