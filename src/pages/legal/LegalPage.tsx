@@ -7,7 +7,7 @@ import { LEGAL_LINKS } from './links';
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
 
 const UPDATED = '14 octobre 2026';
-const CONTACT = 'contactappkompa@gmail.com';
+const CONTACT = 'contact@kompaly.com';
 
 type Section = { title: string; body: string[] };
 
