@@ -2,7 +2,7 @@
 // leans out of the screen edge to react or to suggest something useful.
 
 import { addDays } from 'date-fns';
-import { useCalendar, sortEvents, type CalendarEvent } from '../store/calendar';
+import { useCalendar, isDeliverable, sortEvents, type CalendarEvent } from '../store/calendar';
 import { useDrive } from '../store/drive';
 import { useNotes } from '../store/notes';
 import { useCopilot, type Bubble, type CopilotOffer } from '../store/copilot';
@@ -101,7 +101,7 @@ function onEventAdded(e: CalendarEvent) {
             ]),
       offers: examOffers(e),
     });
-  } else if (e.category === 'devoir' && daysUntil(e.date) <= 1 && daysUntil(e.date) >= 0) {
+  } else if (isDeliverable(e) && daysUntil(e.date) <= 1 && daysUntil(e.date) >= 0) {
     void nudge({
       key: `hw-added:${e.id}`,
       every: 365 * DAY,
@@ -183,7 +183,7 @@ function periodicCheck() {
   }
 
   // Late homework
-  const late = events.filter(e => e.category === 'devoir' && !e.done && e.date < today && !e.title.startsWith('Révision · '));
+  const late = events.filter(e => isDeliverable(e) && !e.done && e.date < today);
   if (late.length) {
     void nudge({
       key: `late:${today}`,
@@ -198,7 +198,7 @@ function periodicCheck() {
 
   // Homework due tomorrow
   const tomorrow = toKey(addDays(now, 1));
-  const due = events.find(e => e.category === 'devoir' && !e.done && e.date === tomorrow && !e.title.startsWith('Révision · '));
+  const due = events.find(e => isDeliverable(e) && !e.done && e.date === tomorrow);
   if (due && now.getHours() >= 14) {
     void nudge({
       key: `due-tomorrow:${due.id}`,
@@ -317,7 +317,7 @@ function weeklyReview(): boolean {
   const next = events.filter(e => e.date >= nFrom && e.date <= nTo);
   const nextExams = next.filter(e => e.category === 'examen');
   // Discreet mode: only when there is something to act on (an exam next week, something late).
-  const late = events.some(e => e.category === 'devoir' && !e.done && e.date < toKey(now)) || useTodos.getState().todos.some(t => !t.done && t.due && t.due < toKey(now));
+  const late = events.some(e => isDeliverable(e) && !e.done && e.date < toKey(now)) || useTodos.getState().todos.some(t => !t.done && t.due && t.due < toKey(now));
   if (settings.chattiness === 'calme' && !nextExams.length && !late) return false;
   const hours = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`);
   const ticked = todosDone ? `${plural(todosDone, 'tâche')} cochée${todosDone > 1 ? 's' : ''}` : '';

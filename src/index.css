@@ -238,6 +238,17 @@ body {
 @media (hover: none) {
   .touch-show { opacity: 1; }
 }
+/* Fingers: small buttons get an invisible margin that can be tapped (about 44 px in all).
+   In the base layer, so a position class the button already has (absolute…) still wins. */
+@layer base {
+  @media (pointer: coarse) {
+    .icon-btn, .hit { position: relative; }
+  }
+}
+@media (pointer: coarse) {
+  .icon-btn::after, .hit::after { content: ''; position: absolute; inset: -6px; }
+  .hit::after { inset: -13px; }
+}
 .pop { animation: pop 0.22s cubic-bezier(.2,.9,.3,1.2) both; }
 
 /* Copilot */

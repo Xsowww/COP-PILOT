@@ -96,8 +96,14 @@ export function customCategoryIn(title: string): EventCategory | undefined {
   return (getSettings().customCategories ?? []).find(c => words(c.label).trim() && t.includes(words(c.label)))?.id;
 }
 
-/** Guess a category from the title so the student never has to think about it. */
-export function guessCategory(title: string): EventCategory {
+/** Something to hand in (« Marquer comme rendu »): a revision session is homework-coloured but not one. */
+export const isDeliverable = (e: Pick<CalendarEvent, 'category' | 'title'>) => e.category === 'devoir' && !/^r[ée]vision/i.test(e.title.trim());
+
+/**
+ * Guess a category from the title so the student never has to think about it. `timed`: a TD or TP
+ * with an hour is a class, not homework.
+ */
+export function guessCategory(title: string, timed = false): EventCategory {
   const own = customCategoryIn(title);
   if (own) return own;
   const t = title.toLowerCase();
@@ -108,6 +114,7 @@ export function guessCategory(title: string): EventCategory {
     if (/(deadline|[ée]ch[ée]ance|livraison|lancement|audit|salon|anniversaire|mariage|d[ée]m[ée]nagement)/.test(t)) return 'examen';
   }
   if (/(exam|partiel|contr[oô]le|\bds\b|\bqcm\b|interro|oral|soutenance|concours)/.test(t)) return 'examen';
+  if (timed && /\b(td|tp|cm)\b/.test(t)) return 'cours';
   if (/(devoir|\btp\b|\btd\b|rendre|rendu|dm\b|projet|dossier|exo|exercice|r[ée]vis)/.test(t)) return 'devoir';
   if (/(sport|foot|basket|gym|muscu|course|piscine|natation|yoga|tennis|danse)/.test(t)) return 'sport';
   if (/(cours|amphi|cm\b|lecture|classe|prof|math|physique|chimie|histoire|anglais|fran[cç]ais|info|bio|[ée]co|philo)/.test(t)) return 'cours';
@@ -160,9 +167,20 @@ export const useCalendar = create<CalendarState>()(
 
 // ── The student's own categories ─────────────────────────────────────────────
 
+const cleanLabel = (label: string) => label.trim().replace(/\s+/g, ' ').slice(0, 24);
+
+/** A built-in category, or another of the student's, already has this name (« Cours » twice would be confusing). */
+export function labelTaken(label: string, exceptId?: string) {
+  const name = cleanLabel(label).toLowerCase();
+  return (
+    Object.values(CATEGORIES).some(c => c.label.toLowerCase() === name) ||
+    (getSettings().customCategories ?? []).some(c => c.id !== exceptId && c.label.toLowerCase() === name)
+  );
+}
+
 /** Creates a category, or returns the existing one with that name. */
 export function createCategory(label: string, color: string): CustomCategory {
-  const name = label.trim().replace(/\s+/g, ' ').slice(0, 24);
+  const name = cleanLabel(label);
   const list = getSettings().customCategories ?? [];
   const same = list.find(c => c.label.toLowerCase() === name.toLowerCase());
   if (same) return same;
@@ -172,6 +190,7 @@ export function createCategory(label: string, color: string): CustomCategory {
 }
 
 export function updateCategory(id: CustomCategory['id'], patch: Partial<Omit<CustomCategory, 'id'>>) {
+  if (patch.label !== undefined && labelTaken(patch.label, id)) return;
   const list = getSettings().customCategories ?? [];
   useSettings.getState().set({ customCategories: list.map(c => (c.id === id ? { ...c, ...patch, label: (patch.label ?? c.label).trim().slice(0, 24) || c.label } : c)) });
 }

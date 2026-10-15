@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Check, GraduationCap, House, Loader2 } from 'lucide-react';
 import Logo from '../components/Logo';
 import { useAuth } from '../store/auth';
 import { finishWelcome, type WelcomeAnswers } from '../store/session';
-import type { PersonaKey } from '../store/settings';
+import { PERSONAS } from '../lib/personas';
 import { USAGES, WORDS, type Usage } from '../lib/usage';
 import { cx } from '../lib/utils';
 
@@ -19,12 +19,6 @@ const NEEDS = (usage: Usage) => [
   { key: 'ia', label: 'Être aidé par une IA' },
 ];
 
-const PERSONAS: { key: PersonaKey; label: string; hint: string }[] = [
-  { key: 'pote', label: 'Comme un pote', hint: 'Détendu, il tutoie et encourage' },
-  { key: 'coach', label: 'Comme un coach', hint: 'Motivant, il pousse à avancer' },
-  { key: 'prof', label: 'Comme un pro', hint: 'Clair, précis, sans détour' },
-  { key: 'zen', label: 'Tout en douceur', hint: 'Calme, rassurant, sans pression' },
-];
 
 const TIMES = [
   { value: '09:00', label: 'Le matin' },
@@ -49,7 +43,16 @@ export default function WelcomePage() {
   const [busy, setBusy] = useState(false);
   const [a, setA] = useState<WelcomeAnswers>({ usage: 'etudes', year: '', school: '', program: '', needs: [], persona: 'pote', revisionTime: '18:00' });
   const words = WORDS[a.usage];
+  // A double click would also answer the next question, shown under the pointer.
+  const moving = useRef(false);
+  const settled = () => {
+    if (moving.current) return false;
+    moving.current = true;
+    setTimeout(() => (moving.current = false), 300);
+    return true;
+  };
   const set = (patch: Partial<WelcomeAnswers>, next = true) => {
+    if (next && !settled()) return;
     setA(prev => ({ ...prev, ...patch }));
     if (next) setStep(s => s + 1);
   };
@@ -69,7 +72,7 @@ export default function WelcomePage() {
   return (
     <div className="flex h-full flex-col overflow-y-auto px-6 py-6 sm:px-10">
       <Logo />
-      <div className="flex flex-1 items-center justify-center py-8">
+      <div className="flex flex-1 justify-center py-8 sm:pt-[8vh]">
         <div className="enter w-full max-w-[440px]">
           <div className="flex items-center gap-3">
             {step > 0 && (
@@ -151,7 +154,7 @@ export default function WelcomePage() {
                 <button key={p.key} type="button" className={choice(a.persona === p.key)} onClick={() => set({ persona: p.key })}>
                   <span>
                     <span className="block text-[14px] font-medium">{p.label}</span>
-                    <span className="block text-[12px] text-stone-500">{p.hint}</span>
+                    <span className="block text-[12px] text-stone-500">{p.description}</span>
                   </span>
                 </button>
               ))}
@@ -161,7 +164,7 @@ export default function WelcomePage() {
           {step === 5 && (
             <Question title={TIME_QUESTION[a.usage]} hint="Kompaly placera tes séances de travail à ce moment-là.">
               {TIMES.map(t => (
-                <button key={t.value} type="button" disabled={busy} className={choice(a.revisionTime === t.value)} onClick={() => void finish({ ...a, revisionTime: t.value })}>
+                <button key={t.value} type="button" disabled={busy} className={choice(a.revisionTime === t.value)} onClick={() => settled() && void finish({ ...a, revisionTime: t.value })}>
                   <span className="text-[14px] font-medium">{t.label}</span>
                   {busy && a.revisionTime === t.value && <Loader2 size={14} className="ml-auto animate-spin" />}
                 </button>

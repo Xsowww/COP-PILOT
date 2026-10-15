@@ -35,6 +35,17 @@ function shuffle<T>(arr: T[]) {
   return a;
 }
 
+/**
+ * The text of each paragraph or list item, one by one (textContent would glue « Chapitres :Type : »),
+ * without the blanks of a template (« Chapitres à revoir : » with nothing after, empty checkboxes).
+ */
+function blocksOf(el: Element): string[] {
+  const leaves = [el, ...el.querySelectorAll('p, li, td, th, pre, blockquote')].filter(b => !b.querySelector('p, li, td, th, pre, blockquote'));
+  return leaves
+    .map(b => (b.textContent ?? '').replace(/\s+/g, ' ').trim())
+    .filter(t => t && !/^[^:]{1,60}:$/.test(t) && !/^(\[ ?\]|-)$/.test(t));
+}
+
 /** Builds up to `max` questions from a note's HTML. */
 export function buildQuiz(note: Note, max = 6): Quiz | null {
   const doc = new DOMParser().parseFromString(note.content || '', 'text/html');
@@ -51,7 +62,7 @@ export function buildQuiz(note: Note, max = 6): Quiz | null {
   // 1. Headings → "Que sais-tu sur … ?", answer = what follows until the next heading.
   for (const h of doc.body.querySelectorAll('h1, h2, h3')) {
     const parts: string[] = [];
-    for (let el = h.nextElementSibling; el && !/^H[1-3]$/.test(el.tagName); el = el.nextElementSibling) parts.push(el.textContent ?? '');
+    for (let el = h.nextElementSibling; el && !/^H[1-3]$/.test(el.tagName); el = el.nextElementSibling) parts.push(...blocksOf(el));
     const body = parts.join(' ').replace(/\s+/g, ' ').trim();
     const title = (h.textContent ?? '').trim();
     if (title && keywords(body).length >= 2) add({ q: `Que sais-tu sur « ${title} » ?`, answer: clip(body), mode: 'keywords' });

@@ -142,11 +142,24 @@ export function trimHistory(messages, { budget, toolChars }) {
   const starts = messages.flatMap((m, i) => (isQuestion(m) ? [i] : []));
   if (!starts.length) return [];
   const last = starts.at(-1);
+  // A pasted course can make the question itself huge: cut it like a tool result.
+  const QUESTION_NOTE = "\n[… message coupé : trop long, seul le début a été lu. Dis-le à l'étudiant.]";
+  const cutText = t => (t.length > toolChars ? t.slice(0, toolChars) + QUESTION_NOTE : t);
   const out = messages.map((m, i) => {
-    if (m.role !== 'user' || typeof m.content === 'string') return m;
+    if (m.role !== 'user') return m;
+    if (typeof m.content === 'string') return { ...m, content: cutText(m.content) };
     const max = i < last ? 300 : toolChars;
     const note = i < last ? ' […]' : "\n[… coupé : trop long pour l'IA, seul le début a été lu. Dis-le à l'étudiant.]";
-    return { ...m, content: m.content.map(b => (b.type === 'tool_result' && typeof b.content === 'string' && b.content.length > max ? { ...b, content: b.content.slice(0, max) + note } : b)) };
+    return {
+      ...m,
+      content: m.content.map(b =>
+        b.type === 'tool_result' && typeof b.content === 'string' && b.content.length > max
+          ? { ...b, content: b.content.slice(0, max) + note }
+          : b.type === 'text' && typeof b.text === 'string'
+            ? { ...b, text: cutText(b.text) }
+            : b,
+      ),
+    };
   });
   let from = last;
   let size = JSON.stringify(out.slice(last)).length;

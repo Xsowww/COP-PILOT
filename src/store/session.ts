@@ -10,7 +10,7 @@ import { pullAll, pushLeftovers, startSync, stopSync, updateCloudProfile } from 
 import { useAuth } from './auth';
 import { toast } from './ui';
 import { useTodos } from './todos';
-import { TOUR_TODO } from './tour';
+import { TOUR_TODO, isTourTodo } from './tour';
 import { useFocusLog } from './focusLog';
 import { useFocus, settleFocus } from './focus';
 import { renameToKompa } from '../lib/renameToKompa';
@@ -122,12 +122,17 @@ export async function finishWelcome(answers: WelcomeAnswers) {
   const user = useAuth.getState().user;
   seedNewAccount();
   // Saved before leaving the page: switching to the home page first let a closed tab lose it (questionnaire again).
-  if (cloudEnabled && user) await updateCloudProfile(user.id, { onboarded: true }).catch(() => undefined);
+  if (cloudEnabled && user) {
+    // Once more after a network hiccup: otherwise the questionnaire comes back at the next sign-in.
+    await updateCloudProfile(user.id, { onboarded: true })
+      .catch(() => new Promise(r => setTimeout(r, 1500)).then(() => updateCloudProfile(user.id, { onboarded: true })))
+      .catch(() => undefined);
+  }
   if (!cloudEnabled && user) localStorage.removeItem(welcomeKey(user.id));
   useWelcome.setState({ pending: false });
 }
 
 /** A brand-new account starts empty: only the task that launches the guided tour. */
 export function seedNewAccount() {
-  useTodos.getState().add(TOUR_TODO, toKey(new Date()));
+  if (!useTodos.getState().todos.some(t => isTourTodo(t.title))) useTodos.getState().add(TOUR_TODO, toKey(new Date()));
 }

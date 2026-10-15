@@ -1,7 +1,8 @@
-import { useDrive } from '../store/drive';
-import { useNotes } from '../store/notes';
-import { useCalendar, catOf, type CalendarEvent } from '../store/calendar';
-import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
+import { useDrive, type DriveItem } from '../store/drive';
+import { useNotes, type Note, type NoteFolder } from '../store/notes';
+import { useCalendar, catOf, type CalendarEvent, type CustomCategory } from '../store/calendar';
+import { useSettings, DEFAULT_SETTINGS, applyAppearance, type Settings } from '../store/settings';
+import { applyUsage } from './usage';
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
 import { blobKey, getStorageUser } from './userStorage';
@@ -46,28 +47,48 @@ function missing<T extends { id: string }>(incoming: unknown, ...current: T[][])
   return (Array.isArray(incoming) ? incoming : []).filter((x): x is T => typeof x?.id === 'string' && !have.has(x.id));
 }
 
+const KEEP_CURRENT = new Set<keyof Settings>(['focusSessions', 'focusTotalMinutes', 'badgesSeen', 'groupsSeen', 'renamedToKompa', 'customCategories']);
+
 /**
  * Brings back from an exported file the notes, events, tasks and Drive folders that are no longer
  * here (deleted for good, or another device). Current items are kept as they are, so restoring an
  * old file never erases recent work. Settings are replaced.
  */
 export async function importBackup(file: File): Promise<{ notes: number; events: number; todos: number; folders: number }> {
-  const data = JSON.parse(await file.text());
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch {
+    throw new Error('Ce fichier n’est pas une sauvegarde Kompaly.');
+  }
   if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error('Ce fichier n’est pas une sauvegarde Kompaly.');
   const cal = useCalendar.getState();
   const events = missing(data.calendar, cal.events, cal.trash);
   useCalendar.setState(s => ({ events: [...s.events, ...events] }));
   const nb = useNotes.getState();
-  const folders = missing(data.notes.folders, nb.folders, nb.trashFolders);
-  const notes = missing(data.notes.notes, nb.notes, nb.trashNotes);
-  useNotes.setState(s => ({ folders: [...s.folders, ...folders], notes: [...s.notes, ...notes] }));
+  const folders = missing<NoteFolder>(data.notes.folders, nb.folders, nb.trashFolders);
+  const notes = missing<Note>(data.notes.notes, nb.notes, nb.trashNotes);
+  // Into a folder that is in the trash, they would be invisible: root instead.
+  const live = new Set([...nb.folders, ...folders].map(f => f.id));
+  useNotes.setState(s => ({
+    folders: [...s.folders, ...folders.map(f => (f.parentId && !live.has(f.parentId) ? { ...f, parentId: null } : f))],
+    notes: [...s.notes, ...notes.map(n => (n.folderId && !live.has(n.folderId) ? { ...n, folderId: null } : n))],
+  }));
   if (data.settings) {
-    const known = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];
-    useSettings.getState().set(Object.fromEntries(known.filter(k => k in data.settings).map(k => [k, data.settings[k]])) as Partial<Settings>);
+    // Preferences come back; counters and « already seen » marks never go backwards, and
+    // categories created since the export stay (the file's are added).
+    const known = (Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]).filter(k => !KEEP_CURRENT.has(k));
+    const restored = Object.fromEntries(known.filter(k => k in data.settings).map(k => [k, data.settings[k]])) as Partial<Settings>;
+    const current = useSettings.getState();
+    if (Array.isArray(data.settings.customCategories)) restored.customCategories = [...current.customCategories, ...missing<CustomCategory>(data.settings.customCategories, current.customCategories)];
+    useSettings.getState().set(restored);
+    applyAppearance(useSettings.getState());
+    applyUsage(useSettings.getState().usage);
   }
   const drive = useDrive.getState();
-  const driveFolders = missing(data.driveFolders, drive.items, drive.trash);
-  if (driveFolders.length) useDrive.setState(s => ({ items: [...s.items, ...driveFolders] }));
+  const driveFolders = missing<DriveItem>(data.driveFolders, drive.items, drive.trash);
+  const liveDrive = new Set([...drive.items, ...driveFolders].map(i => i.id));
+  if (driveFolders.length) useDrive.setState(s => ({ items: [...s.items, ...driveFolders.map(f => (f.parentId && !liveDrive.has(f.parentId) ? { ...f, parentId: null } : f))] }));
   const todos = missing(data.todos, useTodos.getState().todos);
   if (todos.length) useTodos.setState(s => ({ todos: [...s.todos, ...todos] }));
   return { notes: notes.length, events: events.length, todos: todos.length, folders: folders.length + driveFolders.length };
@@ -94,7 +115,7 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
     } else {
       lines.push(`DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(nextDay(e.date))}`);
     }
-    lines.push(`SUMMARY:${icsText(e.title)}`, `CATEGORIES:${catOf(e.category).label}`);
+    lines.push(`SUMMARY:${icsText(e.title)}`, `CATEGORIES:${icsText(catOf(e.category).label)}`);
     if (e.details) lines.push(`DESCRIPTION:${icsText(e.details)}`);
     lines.push('END:VEVENT');
   }

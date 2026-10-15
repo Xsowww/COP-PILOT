@@ -303,8 +303,8 @@ export const useDrive = create<DriveState>()(
         const clip = get().clipboard;
         if (!clip || clip.ids.length === 0) return;
         if (clip.mode === 'cut') {
-          get().move(clip.ids, targetId);
-          set({ clipboard: null });
+          // Refused (a folder into itself): the cut stays, to paste elsewhere.
+          if (get().move(clip.ids, targetId)) set({ clipboard: null });
           return;
         }
         const { created, blobCopies } = cloneTree(get().items, clip.ids, targetId, true);

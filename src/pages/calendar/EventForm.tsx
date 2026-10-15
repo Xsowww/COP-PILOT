@@ -28,7 +28,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [details, setDetails] = useState(event?.details ?? '');
   const custom = useSettings(s => s.customCategories);
   const [creating, setCreating] = useState(false);
-  const effective = category ?? guessCategory(title);
+  const effective = category ?? guessCategory(title, !!start);
   const notes = useNotes(s => s.notes);
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
 

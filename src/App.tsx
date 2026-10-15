@@ -1,14 +1,15 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './store/auth';
 import { loadUserData, useWelcome } from './store/session';
 import { toast } from './store/ui';
 import AuthPage from './pages/AuthPage';
 import MfaPage from './pages/MfaPage';
-import AppShell from './layout/AppShell';
-import Dashboard from './pages/Dashboard';
 import { DialogHost, Toasts } from './components/Overlays';
 
+// The app itself loads after the sign-in page: someone on /connexion doesn't wait for Kompaly and the editor.
+const AppShell = lazy(() => import('./layout/AppShell'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
 const DrivePage = lazy(() => import('./pages/drive/DrivePage'));
 const LegalPage = lazy(() => import('./pages/legal/LegalPage'));
 const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
@@ -19,6 +20,37 @@ const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
 const GroupsPage = lazy(() => import('./pages/groups/GroupsPage'));
 const TrashPage = lazy(() => import('./pages/trash/TrashPage'));
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
+
+const TITLES: Record<string, string> = {
+  '/': 'Accueil',
+  '/drive': 'Drive',
+  '/calendrier': 'Calendrier',
+  '/notes': 'Notes',
+  '/taches': 'Tâches',
+  '/groupes': 'Groupes',
+  '/corbeille': 'Corbeille',
+  '/profil': 'Profil',
+  '/admin': 'Administration',
+  '/connexion': 'Connexion',
+  '/inscription': 'Inscription',
+  '/mot-de-passe-oublie': 'Mot de passe oublié',
+  '/reinitialisation': 'Nouveau mot de passe',
+  '/securite': 'Sécurité',
+  '/bienvenue': 'Bienvenue',
+  '/mentions-legales': 'Mentions légales',
+  '/confidentialite': 'Confidentialité',
+  '/conditions': 'Conditions d’utilisation',
+};
+
+/** The tab says where you are (history, several tabs open). */
+function PageTitle() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const page = TITLES[pathname];
+    document.title = page ? `${page} · Kompaly` : 'Kompaly';
+  }, [pathname]);
+  return null;
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
@@ -72,6 +104,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <PageTitle />
       <Routes>
         <Route path="/connexion" element={<GuestOnly><AuthPage mode="login" /></GuestOnly>} />
         <Route path="/inscription" element={<GuestOnly><AuthPage mode="register" /></GuestOnly>} />
@@ -82,8 +115,8 @@ export default function App() {
         <Route path="/mentions-legales" element={<Suspense fallback={null}><LegalPage doc="mentions" /></Suspense>} />
         <Route path="/confidentialite" element={<Suspense fallback={null}><LegalPage doc="confidentialite" /></Suspense>} />
         <Route path="/conditions" element={<Suspense fallback={null}><LegalPage doc="conditions" /></Suspense>} />
-        <Route element={<RequireAuth><AppShell /></RequireAuth>}>
-          <Route index element={<Dashboard />} />
+        <Route element={<RequireAuth><Suspense fallback={null}><AppShell /></Suspense></RequireAuth>}>
+          <Route index element={<Suspense fallback={null}><Dashboard /></Suspense>} />
           <Route path="drive" element={<Suspense fallback={null}><DrivePage /></Suspense>} />
           <Route path="calendrier" element={<Suspense fallback={null}><CalendarPage /></Suspense>} />
           <Route path="notes" element={<Suspense fallback={null}><NotesPage /></Suspense>} />

@@ -1,12 +1,14 @@
+import { useToday } from '../../lib/useToday';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { trashEvent } from '../../lib/trash';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
 import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown } from 'lucide-react';
-import { useCalendar, catOf, allCategories, guessCategory, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
-import { parseQuickAdd, toKey, fromKey, todayKey, fmt, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes } from '../../lib/dates';
+import { useCalendar, catOf, allCategories, guessCategory, isDeliverable, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { parseQuickAdd, toKey, fromKey, todayKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
+import { WORDS } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
@@ -66,7 +68,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
         <button
           onClick={() => toggleDone(ev.id)}
-          className={cx('mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', ev.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
+          className={cx('hit mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', ev.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
           title={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'} aria-label={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
         >
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
@@ -105,6 +107,7 @@ export default function CalendarPage() {
   const [quick, setQuick] = useState('');
   const [hidden, setHidden] = useState<Set<EventCategory>>(new Set());
   const custom = useSettings(s => s.customCategories);
+  const words = WORDS[useSettings(s => s.usage)];
   const [managing, setManaging] = useState(false);
   const [form, setForm] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string } | null>(null);
   const [importing, setImporting] = useState<{ initial?: IcsSource } | null>(null);
@@ -148,21 +151,28 @@ export default function CalendarPage() {
   }, [visible]);
 
   const selDate = fromKey(selected);
-  const today = todayKey();
+  const today = useToday();
   const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart(selDate), i));
   const dayEvents = byDay.get(selected) ?? [];
 
   const parsed = quick.trim() ? parseQuickAdd(quick) : null;
-  const parsedCat = parsed ? guessCategory(parsed.title || quick) : null;
+  const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start) : null;
+
+  // The form, with what the sentence already gives (« demain 14h » has a day and an hour but no title).
+  const openForm = () => setForm({ date: parsed?.date ?? selected, start: parsed?.start ?? undefined, end: parsed?.end ?? undefined });
 
   const submitQuick = (e: FormEvent) => {
     e.preventDefault();
-    if (!parsed?.title) return;
+    if (!parsed) return;
+    if (!parsed.title) return openForm();
     const date = parsed.date ?? selected;
     useCalendar.getState().add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat! });
     setQuick('');
     setSelected(date);
-    toast(`Ajouté : ${parsed.title}`, 'success');
+    toast(
+      parsed.weekly ? `Ajouté pour ${fmt(fromKey(date), 'EEEE d MMMM')}, seulement celui-ci : la répétition chaque semaine n’existe pas encore.` : `Ajouté : ${parsed.title}`,
+      'success',
+    );
   };
 
   const shift = (dir: 1 | -1) => selectDay(toKey(mode === 'day' ? addDays(selDate, dir) : mode === 'week' ? addDays(selDate, 7 * dir) : addMonths(selDate, dir)));
@@ -222,7 +232,7 @@ export default function CalendarPage() {
   };
 
   const upcomingExams = events.filter(e => e.category === 'examen' && e.date >= today && !e.done).sort(sortEvents).slice(0, 4);
-  const homework = events.filter(e => e.category === 'devoir' && !e.done && daysUntil(e.date) <= 14).sort(sortEvents).slice(0, 6);
+  const homework = events.filter(e => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14).sort(sortEvents).slice(0, 6);
 
   const monthDays = useMemo(() => {
     const ref = fromKey(selected);
@@ -282,7 +292,7 @@ export default function CalendarPage() {
               ref={quickRef}
               value={quick}
               onChange={e => setQuick(e.target.value)}
-              placeholder="Ajouter un événement, par exemple « Partiel de maths vendredi 14h »"
+              placeholder={`Ajouter un événement, par exemple «\u00a0${words.quickExample}\u00a0»`}
               aria-label="Ajouter un événement en une phrase"
               className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-stone-400"
             />
@@ -291,7 +301,7 @@ export default function CalendarPage() {
                 Ajouter <CornerDownLeft size={13} />
               </button>
             ) : (
-              <button type="button" className="btn-ghost h-8 px-2.5 text-[12px]" onClick={() => setForm({ date: selected })}>
+              <button type="button" className="btn-ghost h-8 px-2.5 text-[12px]" onClick={openForm}>
                 Formulaire
               </button>
             )}
@@ -301,7 +311,7 @@ export default function CalendarPage() {
               <Dot color={catOf(parsedCat).color} />
               <span className="font-medium text-ink">{parsed.title}</span>
               <span>·</span>
-              <span>{fmt(fromKey(parsed.date ?? selected), 'EEEE d MMMM')}</span>
+              <span>{fmtDay(fromKey(parsed.date ?? selected), 'EEEE d MMMM')}</span>
               {parsed.start && (
                 <>
                   <span>·</span>
@@ -330,6 +340,8 @@ export default function CalendarPage() {
                     <button
                       key={key}
                       data-drop-day={key}
+                      aria-pressed={isSel}
+                      aria-label={`${fmt(d, 'EEEE d MMMM')}${isToday ? ", aujourd'hui" : ''}${evs.length ? `, ${evs.length} événement${evs.length > 1 ? 's' : ''}` : ''}`}
                       onClick={() => selectDay(key)}
                       onDoubleClick={() => setForm({ date: key })}
                       className={cx(
@@ -449,7 +461,7 @@ export default function CalendarPage() {
               À venir
             </h2>
             {upcomingExams.length === 0 && homework.length === 0 ? (
-              <p className="py-1 text-[13px] text-stone-500">Aucun examen ni rendu prévu.</p>
+              <p className="py-1 text-[13px] text-stone-500">{words.noUpcoming}</p>
             ) : (
               <ul className="-mx-1.5">
                 {upcomingExams.map(e => {
@@ -461,7 +473,7 @@ export default function CalendarPage() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium">{e.title}</span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">
-                            {fmt(fromKey(e.date), 'EEE d MMM')}
+                            {fmtDay(fromKey(e.date), 'EEE d MMM')}
                             {e.start && ` · ${e.start}`}
                           </span>
                         </span>
@@ -474,9 +486,9 @@ export default function CalendarPage() {
                     <span className="flex w-9 shrink-0">
                       <button
                         onClick={() => useCalendar.getState().toggleDone(e.id)}
-                        className="h-4 w-4 rounded border-[1.5px] border-stone-300 transition-colors hover:border-stone-500"
-                        title="Marquer comme rendu"
-                        aria-label={`Marquer « ${e.title} » comme rendu`}
+                        className="hit h-4 w-4 rounded border-[1.5px] border-stone-300 transition-colors hover:border-stone-500"
+                        title={`Marquer comme ${words.markDone}`}
+                        aria-label={`Marquer « ${e.title} » comme ${words.markDone}`}
                       />
                     </span>
                     <button onClick={() => selectDay(e.date)} className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline">

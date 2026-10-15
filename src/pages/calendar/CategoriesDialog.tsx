@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Check, Plus, Tags, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
-import { confirmAction } from '../../store/ui';
+import { confirmAction, toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
-import { useCalendar, CATEGORIES, CATEGORY_COLORS, createCategory, deleteCategory, updateCategory, type CustomCategory } from '../../store/calendar';
+import { useCalendar, CATEGORIES, CATEGORY_COLORS, createCategory, deleteCategory, labelTaken, updateCategory, type CustomCategory } from '../../store/calendar';
 import { cx } from '../../lib/utils';
 
 export function ColorChoice({ value, onChange }: { value: string; onChange: (color: string) => void }) {
@@ -34,8 +34,12 @@ export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCat
   const [color, setColor] = useState(CATEGORY_COLORS[(used + 5) % CATEGORY_COLORS.length]);
   const submit = () => {
     if (!label.trim()) return;
+    if (Object.values(CATEGORIES).some(c => c.label.toLowerCase() === label.trim().toLowerCase())) {
+      return toast(`« ${label.trim()} » existe déjà dans les catégories de base.`, 'error');
+    }
     onCreated(createCategory(label, color));
     setLabel('');
+    setColor(CATEGORY_COLORS[(used + 6) % CATEGORY_COLORS.length]); // the next one gets another colour
   };
   return (
     <div className="space-y-2.5">
@@ -79,7 +83,11 @@ function Row({ cat }: { cat: CustomCategory }) {
         <input
           value={label}
           onChange={e => setLabel(e.target.value)}
-          onBlur={() => (label.trim() ? updateCategory(cat.id, { label }) : setLabel(cat.label))}
+          onBlur={() => {
+            if (label.trim() && !labelTaken(label, cat.id)) return updateCategory(cat.id, { label });
+            if (label.trim() && label.trim() !== cat.label) toast(`Une catégorie s’appelle déjà « ${label.trim()} ».`, 'error');
+            setLabel(cat.label);
+          }}
           onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           aria-label={`Nom de la catégorie « ${cat.label} »`}
           maxLength={24}

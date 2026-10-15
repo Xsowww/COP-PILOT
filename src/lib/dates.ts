@@ -6,6 +6,8 @@ export const fromKey = (k: string) => parseISO(k);
 export const todayKey = () => toKey(new Date());
 export const weekStart = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
 export const fmt = (d: Date, pattern: string) => format(d, pattern, { locale: fr });
+/** Like fmt, with the year when it isn't this one (a deadline next year doesn't look close). */
+export const fmtDay = (d: Date, pattern: string) => fmt(d, d.getFullYear() === new Date().getFullYear() ? pattern : `${pattern} yyyy`);
 export const daysUntil = (key: string) => differenceInCalendarDays(fromKey(key), new Date());
 
 export function countdownLabel(key: string): string {
@@ -19,12 +21,28 @@ export function countdownLabel(key: string): string {
 
 const WEEKDAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 const MONTHS = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+// Full names and the usual short forms (« 3 nov », « 12 sept. »), longest first so the regex takes the whole word.
+const MONTH_WORDS = [...MONTHS, 'janv', 'fevr', 'fev', 'avr', 'juil', 'sept', 'oct', 'nov', 'dec'].sort((a, b) => b.length - a.length);
+const monthIndex = (word: string) => MONTHS.findIndex(m => m.startsWith(word));
+const DAY = `(?:${WEEKDAYS.join('|')})`;
+// « vendredi soir », « demain matin »: the moment of the day is not part of the title.
+const PERIOD = `(?:\\s(?:soir|matin|aprem|apres-midi))?`;
 
 export interface ParsedQuickAdd {
   title: string;
   date: string | null;
   start: string | null;
   end: string | null;
+  /** « tous les mardis », « chaque lundi »: only the next one is created (no repeating events yet). */
+  weekly?: boolean;
+}
+
+const hm = (h: string | number, m?: string) => (Number(h) < 24 && Number(m ?? 0) < 60 ? `${String(h).padStart(2, '0')}:${m ?? '00'}` : null);
+
+/** The date, or null when it doesn't exist (31/02, month 16…). */
+function realDate(y: number, month: number, day: number) {
+  const d = new Date(y, month, day);
+  return month >= 0 && month < 12 && d.getMonth() === month && d.getDate() === day ? d : null;
 }
 
 /**
@@ -36,58 +54,83 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
   let date: Date | null = null;
   let start: string | null = null;
   let end: string | null = null;
+  let weekly = false;
   // Same length as `text` (accents stripped, no trim) so match indices map back.
-  const n = () => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const n = () => text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+  const find = (re: RegExp) => n().match(re);
+  const remove = (m: RegExpMatchArray) => {
+    text = text.slice(0, m.index) + ' ' + text.slice(m.index! + m[0].length);
+  };
   const cut = (re: RegExp) => {
-    const m = n().match(re);
-    if (!m || m.index === undefined) return null;
-    text = text.slice(0, m.index) + ' ' + text.slice(m.index + m[0].length);
+    const m = find(re);
+    if (m) remove(m);
     return m;
   };
+  /** Same year, or next year when the date is more than a month ago. */
+  const ahead = (d: Date | null, yearGiven: boolean) => {
+    if (d && !yearGiven && differenceInCalendarDays(d, base) < -30) d.setFullYear(d.getFullYear() + 1);
+    return d;
+  };
 
-  // Times: "14h", "14h30", "14:30", "de 14h à 16h", "14h-16h"
-  const range = cut(/\s(?:de\s)?(\d{1,2})\s?(?:h|:)\s?(\d{2})?\s?(?:-|a|à|jusqu'a)\s?(\d{1,2})\s?(?:h|:)\s?(\d{2})?(?=\s)/);
+  // Times: "14h", "14h30", "14:30", "de 14h à 16h", "14h-16h", "midi"
+  const range = find(/\s(?:de\s)?(\d{1,2})\s?(?:h|:)\s?(\d{2})?\s?(?:-|a|à|jusqu'a)\s?(\d{1,2})\s?(?:h|:)\s?(\d{2})?(?=\s)/);
   if (range) {
-    start = `${range[1].padStart(2, '0')}:${range[2] ?? '00'}`;
-    end = `${range[3].padStart(2, '0')}:${range[4] ?? '00'}`;
-  } else {
-    const t = cut(/\s(?:a\s|vers\s)?(\d{1,2})\s?(?:h|:)\s?(\d{2})?(?=\s)/);
-    if (t && Number(t[1]) < 24) start = `${t[1].padStart(2, '0')}:${t[2] ?? '00'}`;
+    start = hm(range[1], range[2]);
+    end = hm(range[3], range[4]);
+    if (start) remove(range);
+    if (!start || !end || end <= start) end = null; // « de 18h à 9h »: only the start makes sense
+  }
+  if (!start) {
+    const t = find(/\s(?:a\s|vers\s)?(\d{1,2})\s?(?:h|:)\s?(\d{2})?(?=\s)/);
+    if (t && (start = hm(t[1], t[2]))) remove(t);
+  }
+  if (!start) {
+    const t = cut(/\s(?:a\s|vers\s)?(midi|minuit)(?=\s)/);
+    if (t) start = t[1] === 'midi' ? '12:00' : '00:00';
   }
 
-  // Relative days: "dans 5 jours", "dans une semaine", "demain"…
-  const rel = cut(/\sdans\s(\d{1,3}|une|deux|trois)\s(jours?|semaines?)(?=\s)/);
-  if (rel) {
-    const n = ({ une: 1, deux: 2, trois: 3 } as Record<string, number>)[rel[1]] ?? Number(rel[1]);
-    date = addDays(base, rel[2].startsWith('semaine') ? n * 7 : n);
-  } else if (cut(/\s(?:apres-demain|apres demain)(?=\s)/)) date = addDays(base, 2);
-  else if (cut(/\sdemain(?=\s)/)) date = addDays(base, 1);
-  else if (cut(/\s(?:aujourd'hui|aujourdhui|ce soir|ce matin|cet aprem)(?=\s)/)) date = base;
+  // Every week: the next one.
+  const every = cut(new RegExp(`\\s(?:tous\\sles|chaque)\\s(${DAY})s?${PERIOD}(?=\\s)`));
+  if (every) {
+    weekly = true;
+    date = addDays(base, (WEEKDAYS.indexOf(every[1]) - base.getDay() + 7) % 7);
+  }
 
-  // dd/mm(/yyyy)
+  // Relative days: "dans 5 jours", "dans une semaine", "demain", "la semaine prochaine"…
+  const rel = !date && cut(/\sdans\s(\d{1,3}|une|deux|trois)\s(jours?|semaines?)(?=\s)/);
+  if (rel) {
+    const k = ({ une: 1, deux: 2, trois: 3 } as Record<string, number>)[rel[1]] ?? Number(rel[1]);
+    date = addDays(base, rel[2].startsWith('semaine') ? k * 7 : k);
+  } else if (date) {
+    /* already found */
+  } else if (cut(new RegExp(`\\s(?:apres-demain|apres demain)${PERIOD}(?=\\s)`))) date = addDays(base, 2);
+  else if (cut(new RegExp(`\\sdemain${PERIOD}(?=\\s)`))) date = addDays(base, 1);
+  else if (cut(/\s(?:aujourd'hui|aujourdhui|ce soir|ce matin|cet aprem|cet apres-midi)(?=\s)/)) date = base;
+  else if (cut(/\s(?:la\s)?semaine\sprochaine(?=\s)/)) date = addDays(weekStart(base), 7);
+
+  // dd/mm(/yyyy), with the day name that may come before: "mardi 3/11"
   if (!date) {
-    const m = cut(/\s(?:le\s)?(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?(?=\s)/);
+    const m = find(new RegExp(`\\s(?:(?:le\\s)?${DAY}\\s)?(?:le\\s)?(\\d{1,2})[/.-](\\d{1,2})(?:[/.-](\\d{2,4}))?${PERIOD}(?=\\s)`));
     if (m) {
       const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : base.getFullYear();
-      date = new Date(y, Number(m[2]) - 1, Number(m[1]));
-      if (!m[3] && differenceInCalendarDays(date, base) < -30) date.setFullYear(y + 1);
+      date = ahead(realDate(y, Number(m[2]) - 1, Number(m[1])), !!m[3]);
+      if (date) remove(m);
     }
   }
 
-  // "12 novembre"
+  // "12 novembre", "1er nov", "mardi 3 novembre 2026"
   if (!date) {
-    const m = cut(new RegExp(`\\s(?:le\\s)?(\\d{1,2})\\s(${MONTHS.join('|')})(?:\\s(\\d{4}))?(?=\\s)`));
+    const m = find(new RegExp(`\\s(?:(?:le\\s)?${DAY}\\s)?(?:le\\s)?(\\d{1,2})(?:er)?\\s(${MONTH_WORDS.join('|')})\\.?(?:\\s(\\d{4}))?${PERIOD}(?=\\s)`));
     if (m) {
-      const y = m[3] ? Number(m[3]) : base.getFullYear();
-      date = new Date(y, MONTHS.indexOf(m[2]), Number(m[1]));
-      if (!m[3] && differenceInCalendarDays(date, base) < -30) date.setFullYear(y + 1);
+      date = ahead(realDate(m[3] ? Number(m[3]) : base.getFullYear(), monthIndex(m[2]), Number(m[1])), !!m[3]);
+      if (date) remove(m);
     }
   }
 
-  // Weekday names: "vendredi", "lundi prochain"
+  // Weekday names: "vendredi", "lundi prochain", "vendredi soir"
   if (!date) {
-    const m = cut(new RegExp(`\\s(?:ce\\s|le\\s)?(${WEEKDAYS.join('|')})(?:\\sprochain)?(?=\\s)`));
+    const m = cut(new RegExp(`\\s(?:ce\\s|le\\s)?(${DAY})(?:\\sprochain)?${PERIOD}(?=\\s)`));
     if (m) {
       const target = WEEKDAYS.indexOf(m[1]);
       let delta = (target - base.getDay() + 7) % 7;
@@ -106,6 +149,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
     date: date && isValid(date) ? toKey(date) : null,
     start,
     end,
+    ...(weekly && { weekly }),
   };
 }
 

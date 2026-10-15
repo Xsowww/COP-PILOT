@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cancelledBy, parseIcs } from '../src/lib/ics';
+import { cancelledBy, parseIcs, parseStamp } from '../src/lib/ics';
 
 const now = new Date(2026, 9, 12);
 const cal = (...events: string[]) => ['BEGIN:VCALENDAR', 'VERSION:2.0', ...events, 'END:VCALENDAR'].join('\r\n');
@@ -47,5 +47,17 @@ describe('cancelledBy', () => {
     );
     expect(['td_20261020', 'td_20261027', 'cm_20261110', 'solo'].every(cancelled)).toBe(true);
     expect(cancelled('td_20261013')).toBe(false);
+  });
+});
+
+describe('parseStamp', () => {
+  it('convertit une heure avec TZID connu, quel que soit le fuseau de l’appareil', () => {
+    expect(parseStamp('20261012T080000', { TZID: 'Europe/Paris' })!.date.getTime()).toBe(Date.UTC(2026, 9, 12, 6)); // heure d'été
+    expect(parseStamp('20261212T080000', { TZID: 'Europe/Paris' })!.date.getTime()).toBe(Date.UTC(2026, 11, 12, 7));
+    expect(parseStamp('20261012T080000', { TZID: 'America/Martinique' })!.date.getTime()).toBe(Date.UTC(2026, 9, 12, 12));
+  });
+
+  it('garde l’heure telle quelle pour un TZID inconnu', () => {
+    expect(parseStamp('20261012T080000', { TZID: 'Romance Standard Time' })!.date.getHours()).toBe(8);
   });
 });

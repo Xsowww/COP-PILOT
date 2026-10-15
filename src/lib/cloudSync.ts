@@ -450,9 +450,9 @@ export async function pullAll(userId: string): Promise<CloudProfile> {
   apply(data);
   useDrive.setState({ clipboard: null });
   lastPull = Date.now();
-  const { events, folders, notes, items, profile } = data;
+  const { events, folders, notes, items, profile, todos } = data;
   // Databases created before the "onboarded" column existed: onboarded as soon as there is any data.
-  const hasData = !!(events.data?.length || notes.data?.length || items.data?.length || folders.data?.length);
+  const hasData = !!(events.data?.length || notes.data?.length || items.data?.length || folders.data?.length || todos.data?.length);
   const onboarded = typeof profile.data?.onboarded === 'boolean' ? profile.data.onboarded || hasData : hasData;
   return { name: profile.data?.name ?? '', onboarded };
 }
@@ -547,9 +547,11 @@ export async function flushNow() {
   return !hasPending();
 }
 
+/** Throws when the change didn't reach the server (network), so the caller can try again. */
 export async function updateCloudProfile(userId: string, patch: { name?: string; onboarded?: boolean }) {
   if (!supabase) return;
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
   // Older schema without the "onboarded" column: keep the name update at least.
   if (error && 'onboarded' in patch && patch.name) await supabase.from('profiles').update({ name: patch.name }).eq('id', userId);
+  if (error && !permanent(error)) throw error;
 }

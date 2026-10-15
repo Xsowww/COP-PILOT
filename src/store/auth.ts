@@ -142,6 +142,7 @@ function authMessage(e: AuthError | Error): string {
   if (code === 'weak_password' || msg.includes('password should')) return 'Mot de passe trop faible : au moins 8 caractères, avec lettres et chiffres.';
   if (code.startsWith('over_') || msg.includes('rate limit')) return 'Trop de tentatives, réessaie dans quelques minutes.';
   if (code === 'same_password') return "Le nouveau mot de passe doit être différent de l'ancien.";
+  if (code === 'session_not_found' || msg.includes('session missing') || code === 'insufficient_aal') return 'Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.';
   if (msg.includes('fetch') || msg.includes('network')) return 'Connexion impossible, vérifie ton accès à internet.';
   return "Une erreur est survenue, réessaie dans un instant.";
 }
@@ -365,7 +366,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   async setNewPassword(password) {
-    if (!supabase) return;
+    if (!supabase) throw new Error("La réinitialisation par e-mail n'est disponible qu'avec la version en ligne.");
     await cloud(supabase.auth.updateUser({ password }));
   },
 
@@ -428,8 +429,9 @@ export const useAuth = create<AuthState>((set, get) => ({
       throw new Error(msg.includes('ip address') ? 'Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.' : msg.includes('expired') ? 'Ce code a expiré, tape le nouveau code affiché.' : msg.includes('rate') || msg.includes('too many') ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Vérifie que tu tapes le code Kompaly affiché en ce moment.');
     }
     if (factorId) {
-      // Setup done: the QR codes that weren't used are dropped.
-      for (const f of all) if (f.status !== 'verified' && f.id !== verified) await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => undefined);
+      // Setup done: the QR codes that weren't used are dropped, and so is the previous phone
+      // (changing phones: it is only removed once the new one works).
+      for (const f of all) if (f.id !== verified) await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => undefined);
       sessionStorage.removeItem(`cop-mfa-setup:${get().user?.id}`);
     }
     const user = get().user;
@@ -439,11 +441,8 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   async resetMfa() {
     if (!supabase) return;
-    const { data } = await supabase.auth.mfa.listFactors();
-    for (const f of data?.all ?? []) {
-      const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
-      if (error) throw new Error("Impossible de retirer l'appareil actuel.");
-    }
+    // The current phone stays until the new one is confirmed (submitMfaCode): giving up halfway
+    // must not leave the account without its second factor.
     setStorageUser(null);
     set({ mfaStep: 'setup' });
   },

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
-import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness, type PersonaKey } from '../../store/settings';
+import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { useNotes } from '../../store/notes';
@@ -26,6 +26,10 @@ import { currentStreak, useBadges } from '../../lib/badges';
 import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
 import BadgeGrid from './BadgeGrid';
 import { USAGES, WORDS, applyUsage, type Usage } from '../../lib/usage';
+import { PERSONAS } from '../../lib/personas';
+
+/** « 1 note », « 0 note », « 2 notes ». */
+const plural = (n: number, one: string, many: string) => (n > 1 ? many : one);
 
 const TABS = [
   { key: 'profil', label: 'Profil', icon: User },
@@ -138,8 +142,8 @@ function ProfileTab() {
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { void pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[18px] font-semibold tracking-tight">{user.name}</p>
-            <p className="text-[13px] text-stone-500">
+            <p className="break-words text-[18px] font-semibold tracking-tight">{user.name}</p>
+            <p className="text-[13px] text-stone-500 [overflow-wrap:anywhere]">
               {user.email} · inscrit le {fmt(new Date(user.createdAt), 'd MMMM yyyy')}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -210,11 +214,15 @@ function ProfileTab() {
       <Section title="Statistiques" description="Depuis ton inscription.">
         <div className="grid grid-cols-2 md:grid-cols-3">
           <Stat value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d'affilée`} />
-          <Stat value={stats.done} label="éléments cochés" />
-          <Stat value={stats.exams} label="examens passés" />
-          <Stat value={stats.focusSessions} label="sessions focus" sub={stats.focusHours ? `${stats.focusHours.toFixed(1)} h` : undefined} />
-          <Stat value={stats.notes} label="notes" sub={stats.words ? `${stats.words} mots` : undefined} />
-          <Stat value={stats.files} label="fichiers" sub={stats.files ? formatBytes(stats.size) : undefined} />
+          <Stat value={stats.done} label={plural(stats.done, 'élément coché', 'éléments cochés')} />
+          <Stat value={stats.exams} label={plural(stats.exams, 'examen passé', 'examens passés')} />
+          <Stat
+            value={stats.focusSessions}
+            label={plural(stats.focusSessions, 'session focus', 'sessions focus')}
+            sub={stats.focusHours ? `${stats.focusHours.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} h` : undefined}
+          />
+          <Stat value={stats.notes} label={plural(stats.notes, 'note', 'notes')} sub={stats.words ? `${stats.words.toLocaleString('fr-FR')} ${plural(stats.words, 'mot', 'mots')}` : undefined} />
+          <Stat value={stats.files} label={plural(stats.files, 'fichier', 'fichiers')} sub={stats.files ? formatBytes(stats.size) : undefined} />
         </div>
       </Section>
 
@@ -292,13 +300,6 @@ function AppearanceTab() {
 
 // ── Kompaly ─────────────────────────────────────────────────────────────────
 
-const PERSONAS: { key: PersonaKey; label: string; description: string; example: string }[] = [
-  { key: 'pote', label: 'Meilleur pote', description: 'Drôle et détendu, sérieux quand il le faut.', example: '« Partiel jeudi ? On cale trois séances et tu gères. »' },
-  { key: 'coach', label: 'Coach motivant', description: 'Te pousse à passer à l’action, fête chaque progrès.', example: '« 25 minutes, une seule tâche. Go, je chronomètre. »' },
-  { key: 'prof', label: 'Prof patient', description: 'Explique pas à pas et vérifie que c’est compris.', example: '« Reprenons depuis la définition, avec un exemple. »' },
-  { key: 'zen', label: 'Zen', description: 'Calme, aide à prendre du recul quand ça déborde.', example: '« Une chose à la fois. Laquelle est la plus simple ? »' },
-  { key: 'taquin', label: 'Taquin', description: 'Te charrie gentiment, jamais méchant.', example: '« Douze onglets ouverts et zéro fiche. Audacieux. »' },
-];
 
 function CopilotTab() {
   const s = useSettings();
@@ -733,11 +734,11 @@ function AccountTab() {
               <ShieldCheck size={15} /> Protégé
             </span>
           </Row>
-          <Row label="Changer de téléphone" hint="Retire l'appareil actuel et affiche un nouveau QR code à scanner, avec une nouvelle clé de secours à garder.">
+          <Row label="Changer de téléphone" hint="Affiche un nouveau QR code à scanner, avec une nouvelle clé de secours à garder. L'ancien téléphone est retiré dès que le nouveau marche.">
             <button
               className="btn-secondary h-8"
               onClick={async () => {
-                if (!(await confirmAction('Changer de téléphone ?', "L'ancien appareil ne pourra plus générer de codes. Tu scanneras un nouveau QR code juste après.", 'Continuer', false))) return;
+                if (!(await confirmAction('Changer de téléphone ?', "Tu scanneras un nouveau QR code juste après. Dès que le nouveau téléphone donne un bon code, l'ancien ne sert plus.", 'Continuer', false))) return;
                 try {
                   await useAuth.getState().resetMfa();
                   navigate('/securite');
@@ -813,10 +814,11 @@ export default function ProfilePage() {
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Profil et réglages</h1>
         </div>
         <div className="flex flex-col gap-6 md:flex-row">
-          <nav className="-mx-1 flex shrink-0 gap-0.5 overflow-x-auto md:mx-0 md:w-48 md:flex-col">
+          <nav aria-label="Sections du profil" className="-mx-1 flex shrink-0 gap-0.5 overflow-x-auto md:mx-0 md:w-48 md:flex-col">
             {TABS.map(t => (
               <button
                 key={t.key}
+                aria-current={tab === t.key ? 'page' : undefined}
                 onClick={() => setParams(t.key === 'profil' ? {} : { onglet: t.key })}
                 className={cx(
                   'flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors',

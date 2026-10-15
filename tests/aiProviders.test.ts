@@ -68,4 +68,10 @@ describe('trimHistory', () => {
     expect(out[2].content[0].content.length).toBeLessThan(400);
     expect(out[5].content[0].content).toMatch(/^x{6000}\n\[… coupé/);
   });
+
+  it('coupe aussi une question géante (cours collé dans la discussion)', () => {
+    const out = trimHistory([q('y'.repeat(50_000))], { budget: 100_000, toolChars: 6000 });
+    expect(out[0].content[0].text).toMatch(/^y{6000}\n\[… message coupé/);
+    expect(trimHistory([{ role: 'user', content: 'z'.repeat(9000) }], { budget: 100_000, toolChars: 6000 })[0].content.length).toBeLessThan(6200);
+  });
 });

@@ -5,7 +5,7 @@ import { addDays } from 'date-fns';
 import { useDrive, pathOf, childrenOf, categoryOf, FOLDER_COLORS, type DriveItem } from '../store/drive';
 import { collectTrash, restoreTrash } from '../lib/trash';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
-import { useCalendar, catOf, guessCategory, customCategoryIn, sortEvents, type EventCategory } from '../store/calendar';
+import { useCalendar, catOf, guessCategory, customCategoryIn, isDeliverable, sortEvents, type EventCategory } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useFocus, focusLeft } from '../store/focus';
 import { normalize, stripHtml, formatBytes } from '../lib/utils';
@@ -97,7 +97,7 @@ export function analyzeCalendar() {
   const week = eventsBetween(toKey(ws), weekEnd);
   const upcoming = eventsBetween(today, toKey(addDays(new Date(), 30)));
   const exams = upcoming.filter(e => e.category === 'examen');
-  const late = useCalendar.getState().events.filter(e => e.category === 'devoir' && !e.done && e.date < today);
+  const late = useCalendar.getState().events.filter(e => isDeliverable(e) && !e.done && e.date < today);
   const todayEvents = eventsBetween(today, today);
 
   const perDay = new Map<string, number>();
@@ -112,7 +112,7 @@ export function analyzeCalendar() {
     busiestDay: busiest ? { date: busiest[0], count: busiest[1] } : null,
     exams,
     lateHomework: late,
-    nextDeadlines: upcoming.filter(e => e.category === 'devoir' && !e.done).slice(0, 5),
+    nextDeadlines: upcoming.filter(e => isDeliverable(e) && !e.done).slice(0, 5),
   };
 }
 
@@ -170,7 +170,7 @@ export function addEvent(input: { title: string; date: string; start?: string; e
     start: input.start || undefined,
     end: input.end || undefined,
     // The student's own category named in the title wins over the AI's pick among the built-in ones.
-    category: customCategoryIn(input.title) ?? input.category ?? guessCategory(input.title),
+    category: customCategoryIn(input.title) ?? input.category ?? guessCategory(input.title, !!input.start),
   });
 }
 

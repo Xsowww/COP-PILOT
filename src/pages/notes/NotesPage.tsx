@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ChevronRight, ChevronDown, FilePlus2, FolderPlus, Folder, FolderOpen, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
+  ChevronRight, ChevronDown, FilePlus2, FolderPlus, Folder, FolderOpen, FolderInput, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
   Paperclip, Printer, FileDown, BookOpenCheck, FlaskConical, ScrollText, GraduationCap, Presentation,
 } from 'lucide-react';
 import { useNotes, type Note, type NoteFolder } from '../../store/notes';
@@ -15,6 +15,7 @@ import { downloadMarkdown, printNote } from './exportNote';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
 import { flushNoteEditor } from './noteUtils';
 import { isTrashedNote } from '../../lib/trash';
+import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
 
 const DRAG_NOTE = 'application/x-cop-note';
 const DRAG_FOLDER = 'application/x-cop-note-folder';
@@ -51,6 +52,7 @@ export default function NotesPage() {
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
+  const [moving, setMoving] = useState<NoteMoveTarget | null>(null);
 
   const openNote = (id: string | null) => setParams(id ? { note: id } : {});
 
@@ -90,15 +92,13 @@ export default function NotesPage() {
   };
 
   const activeId = active?.id;
-  useEffect(() => {
+  // Before paint (no timer): the first letters typed right after the click must land in the title.
+  useLayoutEffect(() => {
     if (!activeId || focusTitleFor.current !== activeId) return;
-    const t = setTimeout(() => {
-      focusTitleFor.current = null;
-      const el = document.getElementById('note-title') as HTMLInputElement | null;
-      el?.focus();
-      el?.select();
-    }, 30);
-    return () => clearTimeout(t);
+    focusTitleFor.current = null;
+    const el = document.getElementById('note-title') as HTMLInputElement | null;
+    el?.focus();
+    el?.select();
   }, [activeId]);
 
   const templateMenu = (folderId: string | null = targetFolder): MenuItem[] =>
@@ -177,6 +177,7 @@ export default function NotesPage() {
     { label: 'Renommer', icon: <Pencil size={15} />, onClick: () => void renameNote(n) },
     { label: 'Dupliquer', icon: <CopyPlus size={15} />, onClick: () => { const c = store.duplicateNote(n.id); if (c) openNote(c.id); } },
     { label: n.pinned ? 'Désépingler' : 'Épingler en haut', icon: n.pinned ? <PinOff size={15} /> : <Pin size={15} />, onClick: () => store.updateNote(n.id, { pinned: !n.pinned }) },
+    { label: 'Déplacer vers…', icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'note', id: n.id, name: n.title, from: n.folderId }) },
     ...(n.folderId ? [{ label: 'Sortir du dossier', icon: <FolderOpen size={15} />, onClick: () => store.updateNote(n.id, { folderId: null }) }] : []),
     { label: '', divider: true, onClick: () => {} },
     ...exportItems(n),
@@ -188,6 +189,7 @@ export default function NotesPage() {
     { label: 'Nouvelle note ici', icon: <FilePlus2 size={15} />, onClick: () => newNote(f.id) },
     { label: 'Nouveau sous-dossier', icon: <FolderPlus size={15} />, onClick: () => void newFolder(f.id) },
     { label: 'Renommer', icon: <Pencil size={15} />, onClick: () => void renameFolder(f) },
+    { label: 'Déplacer vers…', icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'folder', id: f.id, name: f.name, from: f.parentId }) },
     ...(f.parentId ? [{ label: 'Remonter à la racine', icon: <FolderOpen size={15} />, onClick: () => store.moveFolder(f.id, null) }] : []),
     { label: '', divider: true, onClick: () => {} },
     { label: 'Supprimer', icon: <Trash2 size={15} />, danger: true, onClick: () => deleteFolder(f) },
@@ -432,6 +434,7 @@ export default function NotesPage() {
       </section>
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+      {moving && <NoteMoveDialog target={moving} onClose={() => setMoving(null)} />}
     </div>
   );
 }

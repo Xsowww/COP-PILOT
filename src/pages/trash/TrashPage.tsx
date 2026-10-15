@@ -447,7 +447,20 @@ export default function TrashPage() {
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.ids)} onClose={() => setMenu(null)} />}
       {preview &&
         (preview.kind === 'drive' && preview.item.kind === 'file' ? (
-          <PreviewModal item={preview.item} onClose={() => openPreview(null)} />
+          <PreviewModal
+            item={preview.item}
+            onClose={() => openPreview(null)}
+            actions={
+              <>
+                <button onClick={() => restore([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-white/20" aria-label="Restaurer">
+                  <RotateCcw size={15} /> <span className="hidden sm:inline">Restaurer</span>
+                </button>
+                <button onClick={() => void purge([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-red-500/80" aria-label="Supprimer définitivement">
+                  <Trash2 size={15} /> <span className="hidden sm:inline">Supprimer</span>
+                </button>
+              </>
+            }
+          />
         ) : (
           <PreviewDialog entry={preview} onClose={() => openPreview(null)} onRestore={() => restore([preview.id])} onPurge={() => void purge([preview.id])} />
         ))}

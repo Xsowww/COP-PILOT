@@ -1,12 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../store/settings';
+import { useCopilot } from '../store/copilot';
 import { useTour, endTour } from '../store/tour';
 import type { Usage } from '../lib/usage';
 
 interface Step {
   /** Element pointed at (the first visible match); none = a card in the middle of the screen. */
   target?: string;
+  /** Prepares the page before measuring the target (Kompaly leans out for its step). */
+  enter?: () => void;
   title: string;
   text: (usage: Usage) => string;
 }
@@ -57,7 +60,9 @@ const STEPS: Step[] = [
     text: () => 'Retrouve n’importe quel fichier, note ou événement. Raccourci : Ctrl K.',
   },
   {
-    target: '[role="button"][aria-label="Parler à Kompaly"]',
+    // His head, not the whole box: hidden at the edge, it is mostly empty.
+    target: '[aria-controls="copilot-panel"] svg rect',
+    enter: () => useCopilot.getState().pose === 'hidden' && useCopilot.getState().setPose('peek'),
     title: 'Kompaly, ton ami',
     text: () => 'Clique sur lui pour discuter : il répond, ajoute des événements et t’aide à t’organiser.',
   },
@@ -93,9 +98,14 @@ export default function Tour() {
   useLayoutEffect(() => {
     if (!current) return;
     const place = () => setRect(current.target ? (visible(current.target)?.getBoundingClientRect() ?? null) : null);
+    current.enter?.();
     place();
+    const settled = current.enter ? setTimeout(place, 520) : undefined; // after the lean-out animation
     window.addEventListener('resize', place);
-    return () => window.removeEventListener('resize', place);
+    return () => {
+      clearTimeout(settled);
+      window.removeEventListener('resize', place);
+    };
   }, [current]);
 
   useEffect(() => {

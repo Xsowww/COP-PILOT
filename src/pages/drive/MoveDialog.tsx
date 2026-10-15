@@ -25,27 +25,31 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
         const expanded = open.has(f.id);
         return (
           <div key={f.id}>
-            <div
-              className={cx('flex h-8 cursor-pointer items-center gap-1.5 rounded-md pr-2 text-[13px]', target === f.id ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-stone-100')}
-              style={{ paddingLeft: 8 + depth * 18 }}
-              onClick={() => setTarget(f.id)}
-            >
-              <button
-                className={cx('rounded p-0.5 text-stone-500 transition', !hasKids && 'invisible', expanded && 'rotate-90')}
-                onClick={e => {
-                  e.stopPropagation();
-                  setOpen(s => {
-                    const n = new Set(s);
-                    if (n.has(f.id)) n.delete(f.id);
-                    else n.add(f.id);
-                    return n;
-                  });
-                }}
-              >
-                <ChevronRight size={14} />
+            <div className={cx('flex h-8 items-center gap-1.5 rounded-md pr-2 text-[13px]', target === f.id ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-stone-100')} style={{ paddingLeft: 8 + depth * 18 }}>
+              {hasKids ? (
+                <button
+                  type="button"
+                  className={cx('rounded p-0.5 text-stone-500 transition', expanded && 'rotate-90')}
+                  aria-label={expanded ? `Replier « ${f.name} »` : `Déplier « ${f.name} »`}
+                  aria-expanded={expanded}
+                  onClick={() =>
+                    setOpen(s => {
+                      const n = new Set(s);
+                      if (n.has(f.id)) n.delete(f.id);
+                      else n.add(f.id);
+                      return n;
+                    })
+                  }
+                >
+                  <ChevronRight size={14} />
+                </button>
+              ) : (
+                <span className="w-[18px] shrink-0" />
+              )}
+              <button type="button" className="flex h-full min-w-0 flex-1 items-center gap-1.5 text-left" aria-pressed={target === f.id} onClick={() => setTarget(f.id)}>
+                <FileIcon category="folder" size={20} color={f.color ? FOLDER_COLORS[f.color]?.color : undefined} />
+                <span className="truncate">{f.name}</span>
               </button>
-              <FileIcon category="folder" size={20} color={f.color ? FOLDER_COLORS[f.color]?.color : undefined} />
-              <span className="truncate">{f.name}</span>
             </div>
             {expanded && renderLevel(f.id, depth + 1)}
           </div>
@@ -56,12 +60,14 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
     <Modal open onClose={onClose} width={440}>
       <h3 className="text-[15px] font-semibold">Déplacer vers…</h3>
       <div className="mt-4 max-h-80 overflow-y-auto rounded-lg border border-stone-200 p-1">
-        <div
-          className={cx('flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-[13px] font-medium', target === null ? 'bg-brand-50 text-brand-700' : 'hover:bg-stone-100')}
+        <button
+          type="button"
+          className={cx('flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium', target === null ? 'bg-brand-50 text-brand-700' : 'hover:bg-stone-100')}
+          aria-pressed={target === null}
           onClick={() => setTarget(null)}
         >
           <HardDrive size={16} /> Mon Drive
-        </div>
+        </button>
         {renderLevel(null, 1)}
       </div>
       <div className="mt-5 flex justify-end gap-2">

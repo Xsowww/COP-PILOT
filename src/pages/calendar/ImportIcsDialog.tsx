@@ -5,6 +5,8 @@ import { catOf, guessCategory, useCalendar, type EventCategory, type NewEvent } 
 import { cancelledBy, isIcsFile, parseIcs, type IcsEvent } from '../../lib/ics';
 import { fmt, fromKey, todayKey } from '../../lib/dates';
 import { toast } from '../../store/ui';
+import { useSettings } from '../../store/settings';
+import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
 
 export interface IcsSource {
@@ -13,10 +15,7 @@ export interface IcsSource {
 }
 
 /** In a timetable, a TD or TP slot is a class, not homework. */
-function categoryOf(e: IcsEvent): EventCategory {
-  const c = guessCategory(e.title);
-  return c === 'devoir' && e.start && /\b(td|tp|cm)\b/i.test(e.title) ? 'cours' : c;
-}
+const categoryOf = (e: IcsEvent): EventCategory => guessCategory(e.title, !!e.start);
 
 interface Props {
   initial?: IcsSource;
@@ -26,6 +25,7 @@ interface Props {
 }
 
 export default function ImportIcsDialog({ initial, onClose, onImported }: Props) {
+  const words = WORDS[useSettings(s => s.usage)];
   const [source, setSource] = useState<IcsSource | undefined>(initial);
   const [skipPast, setSkipPast] = useState(true);
   const [over, setOver] = useState(false);
@@ -208,8 +208,8 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                   <p className="mt-2 text-[12px] text-stone-600">
                     Emploi du temps mis à jour :{' '}
                     {[
-                      plan.updates.length && `${plan.updates.length} cours modifié${plan.updates.length > 1 ? 's' : ''} (horaire, salle…)`,
-                      plan.removals.length && `${plan.removals.length} cours annulé${plan.removals.length > 1 ? 's' : ''}, mis à la corbeille`,
+                      plan.updates.length && `${plan.updates.length} ${plan.updates.length > 1 ? words.slots : words.slot} modifié${plan.updates.length > 1 ? 's' : ''} (horaire, salle…)`,
+                      plan.removals.length && `${plan.removals.length} ${plan.removals.length > 1 ? words.slots : words.slot} annulé${plan.removals.length > 1 ? 's' : ''}, mis à la corbeille`,
                     ]
                       .filter(Boolean)
                       .join(', ')}

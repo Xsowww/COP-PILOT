@@ -73,7 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
   year: '',
   accent: 'bleu',
   reduceMotion: false,
-  theme: 'clair',
+  theme: 'auto', // follows the device until the student picks one
   language: 'fr',
   copilotVisible: true,
   proactive: true,

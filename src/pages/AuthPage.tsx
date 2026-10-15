@@ -70,10 +70,10 @@ function Showcase() {
         </div>
       </div>
 
-      {/* Kompaly peeking from the edge */}
-      <div className="absolute right-0 top-[58%]">
-        <div className="pop absolute right-[96px] top-2 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop" style={{ animationDelay: '600ms' }}>
-          Psst. Ton partiel est dans 4 jours, on cale des révisions ?
+      {/* Kompaly peeking from the edge, under the preview (never over it) */}
+      <div className="-mr-14 mt-6 flex items-center justify-end gap-1">
+        <div className="pop mb-6 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop" style={{ animationDelay: '600ms' }}>
+          Psst. Ton partiel est dans 4 jours, on cale des révisions&nbsp;?
         </div>
         <Character pose="peek" look={{ x: -0.9, y: -0.2 }} mood="happy" size={104} />
       </div>

@@ -1,8 +1,9 @@
+import { useToday } from '../../lib/useToday';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarPlus, Check, ChevronRight, Trash2, X } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
-import { countdownLabel, daysUntil, fmt, fromKey, todayKey } from '../../lib/dates';
+import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { isTourTodo, startTour } from '../../store/tour';
 import { toast } from '../../store/ui';
@@ -14,7 +15,7 @@ const sortOpen = (a: Todo, b: Todo) =>
 
 function DueLabel({ due }: { due: string }) {
   const n = daysUntil(due);
-  const label = n < 0 ? (n === -1 ? 'Hier' : `En retard · ${fmt(fromKey(due), 'd MMM')}`) : n > 6 ? fmt(fromKey(due), 'd MMM') : n > 1 ? fmt(fromKey(due), 'EEE d') : countdownLabel(due);
+  const label = n < 0 ? (n === -1 ? 'Hier' : `En retard · ${fmtDay(fromKey(due), 'd MMM')}`) : n > 6 ? fmtDay(fromKey(due), 'd MMM') : n > 1 ? fmt(fromKey(due), 'EEE d') : countdownLabel(due);
   return (
     <span className={cx('tabular shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-500')} style={n < 0 ? { color: OVERDUE } : undefined}>
       {label}
@@ -53,7 +54,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
       <button
         onClick={() => toggle(t.id)}
         className={cx(
-          'flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
+          'hit flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
           t.done ? 'border-ink bg-ink' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
         )}
         title={t.done ? 'Remettre à faire' : 'Marquer comme faite'}
@@ -181,6 +182,7 @@ function QuickAdd() {
 /** Simple to-do list, independent from the calendar. `limit` gives the compact dashboard version. */
 export default function TodoList({ limit, grouped }: { limit?: number; grouped?: boolean }) {
   const todos = useTodos(s => s.todos);
+  useToday(); // re-render the next day (overdue, « Aujourd'hui »)
   const clearDone = useTodos(s => s.clearDone);
   const [showDone, setShowDone] = useState(false);
   const open = todos.filter(t => !t.done).sort(sortOpen);

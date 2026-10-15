@@ -90,17 +90,43 @@ function parseLine(line: string): Prop | null {
   return { name: name.toUpperCase(), params, value: line.slice(colon + 1) };
 }
 
+const zoneFormats = new Map<string, Intl.DateTimeFormat | null>();
+
+/** How far ahead of UTC a time zone is at that moment (ms); null for a name the browser doesn't know. */
+function zoneOffset(zone: string, at: number): number | null {
+  if (!zoneFormats.has(zone)) {
+    try {
+      zoneFormats.set(zone, new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }));
+    } catch {
+      zoneFormats.set(zone, null); // « Romance Standard Time » (Outlook) and the like
+    }
+  }
+  const f = zoneFormats.get(zone);
+  if (!f) return null;
+  const p = Object.fromEntries(f.formatToParts(at).map(x => [x.type, Number(x.value)]));
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(at / 1000) * 1000;
+}
+
 /**
- * 20261012 → all-day; 20261012T080000Z → UTC converted to local time;
- * 20261012T080000 (floating or with TZID) → taken as local wall-clock time.
+ * 20261012 → all-day; 20261012T080000Z → UTC converted to local time; with a TZID the browser
+ * knows (Europe/Paris…) → converted from that zone (someone abroad sees their own hours);
+ * floating or unknown TZID → taken as local wall-clock time.
  */
 export function parseStamp(value: string, params: Record<string, string> = {}): Stamp | null {
   const m = value.trim().match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
   if (!m) return null;
   const [, y, mo, d, h, mi, s, z] = m;
   if (h === undefined || params.VALUE === 'DATE') return { date: new Date(+y, +mo - 1, +d), allDay: true };
-  const date = z ? new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s ?? 0))) : new Date(+y, +mo - 1, +d, +h, +mi, +(s ?? 0));
-  return { date, allDay: false, utc: !!z };
+  const wall = Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s ?? 0));
+  if (z) return { date: new Date(wall), allDay: false, utc: true };
+  const local = new Date(+y, +mo - 1, +d, +h, +mi, +(s ?? 0));
+  const first = params.TZID ? zoneOffset(params.TZID, wall) : null;
+  if (first === null) return { date: local, allDay: false, utc: false };
+  // Twice: the offset at the guessed instant can differ around a clock change.
+  const date = new Date(wall - (zoneOffset(params.TZID, wall - first) ?? first));
+  // Same hours here (a French timetable opened in France): local time, so weekly repeats keep
+  // their hour across the clock change.
+  return date.getTime() === local.getTime() ? { date: local, allDay: false, utc: false } : { date, allDay: false, utc: true };
 }
 
 /** PT1H30M, P1D, -PT15M… → milliseconds. */

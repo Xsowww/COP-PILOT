@@ -18,8 +18,21 @@ const PAGE =
 
 const extOf = (name: string) => name.split('.').pop()?.toLowerCase() ?? '';
 
-/** `getUrl` : d'où vient le contenu (par défaut le Drive personnel ; les groupes donnent le leur). */
-export default function PreviewModal({ item, onClose, getUrl = getFileUrl }: { item: DriveItem; onClose: () => void; getUrl?: (id: string) => Promise<string | null> }) {
+/**
+ * `getUrl` : d'où vient le contenu (par défaut le Drive personnel ; les groupes donnent le leur).
+ * `actions` : boutons en plus dans l'en-tête (la corbeille y met Restaurer / Supprimer).
+ */
+export default function PreviewModal({
+  item,
+  onClose,
+  getUrl = getFileUrl,
+  actions,
+}: {
+  item: DriveItem;
+  onClose: () => void;
+  getUrl?: (id: string) => Promise<string | null>;
+  actions?: React.ReactNode;
+}) {
   const [url, setUrl] = useState<string | null>(null);
   const [text, setText] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
@@ -74,10 +87,15 @@ export default function PreviewModal({ item, onClose, getUrl = getFileUrl }: { i
     };
   }, [item.id, cat, office, getUrl]);
 
+  // Captured and stopped, like Modal: Échap closes the preview only, not Kompaly behind it.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      onClose();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
   // Modal for keyboard users too: focus inside, Tab kept inside, focus back to the file afterwards.
@@ -96,7 +114,7 @@ export default function PreviewModal({ item, onClose, getUrl = getFileUrl }: { i
 
   return (
     <div ref={rootRef} role="dialog" aria-modal="true" aria-label={`Aperçu de ${item.name}`} className="fixed inset-0 z-[60] flex flex-col bg-[#0c0a09]/85" onMouseDown={onClose}>
-      <header className="flex items-center gap-3 px-5 py-3 text-white" onMouseDown={e => e.stopPropagation()}>
+      <header className="flex items-center gap-3 bg-[#0c0a09] px-5 py-3 text-white" onMouseDown={e => e.stopPropagation()}>
         <FileIcon category={cat} size={30} ext={item.name.split('.').pop()} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium">{item.name}</p>
@@ -104,8 +122,9 @@ export default function PreviewModal({ item, onClose, getUrl = getFileUrl }: { i
             {formatBytes(item.size)} · modifié {relativeTime(item.updatedAt)}
           </p>
         </div>
-        <button onClick={() => downloadItem(item, getUrl)} className="btn h-8 bg-white/10 text-white hover:bg-white/20">
-          <Download size={15} /> Télécharger
+        {actions}
+        <button onClick={() => downloadItem(item, getUrl)} className="btn h-8 bg-white/10 text-white hover:bg-white/20" aria-label="Télécharger">
+          <Download size={15} /> <span className="hidden sm:inline">Télécharger</span>
         </button>
         <button data-autofocus onClick={onClose} className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white" title="Fermer (Échap)" aria-label="Fermer (Échap)">
           <X size={18} />
@@ -114,7 +133,7 @@ export default function PreviewModal({ item, onClose, getUrl = getFileUrl }: { i
       <div className="flex min-h-0 flex-1 items-center justify-center p-4 md:p-8">
         <div className="flex max-h-full max-w-full items-center justify-center" onMouseDown={e => e.stopPropagation()}>
           {missing ? (
-            <p className="text-white/70">Le contenu de ce fichier est introuvable dans ce navigateur.</p>
+            <p className="max-w-sm text-center text-white/70">Impossible d'afficher ce fichier pour le moment. Vérifie ta connexion internet, puis réessaie.</p>
           ) : !url ? (
             <Loader2 className="animate-spin text-white/70" />
           ) : cat === 'image' ? (
@@ -169,7 +188,7 @@ export default function PreviewModal({ item, onClose, getUrl = getFileUrl }: { i
             <pre className="max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md bg-white p-5 font-mono text-[12px] text-stone-800">{text}</pre>
           ) : (
             <div className="rounded-xl bg-white p-10 text-center">
-              <FileIcon category={cat} size={64} />
+              <FileIcon category={cat} size={64} ext={item.name.split('.').pop()} />
               <p className="mt-4 text-[14px] font-medium">{failed ? "Ce fichier n'a pas pu être lu" : "Pas d'aperçu pour ce type de fichier"}</p>
               {(cat === 'doc' || cat === 'slides') && !failed && <p className="mt-1 text-[13px] text-stone-500">L'aperçu fonctionne avec les formats .docx et .pptx.</p>}
               <button onClick={() => downloadItem(item, getUrl)} className="btn-primary mt-4">

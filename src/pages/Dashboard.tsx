@@ -1,10 +1,11 @@
+import { useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
 import { ArrowUpRight, CalendarDays, Check, Plus } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
 import { useCalendar, catOf, sortEvents, type CalendarEvent } from '../store/calendar';
-import { fmt, toKey, todayKey, fromKey, weekStart, daysUntil } from '../lib/dates';
+import { fmt, toKey, fromKey, weekStart, daysUntil } from '../lib/dates';
 import { relativeTime, stripHtml, cx } from '../lib/utils';
 import { hasRevisionPlan, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
@@ -36,7 +37,7 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
     <li className="group flex items-center gap-3 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50">
       <button
         onClick={() => toggleDone(e.id)}
-        className={cx('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', e.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
+        className={cx('hit flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', e.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
         title={e.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
         aria-label={e.done ? `Remettre « ${e.title} » à faire` : `Marquer « ${e.title} » comme fait`}
       >
@@ -61,8 +62,8 @@ export default function Dashboard() {
   const { notes, folders } = useNotes();
   const events = useCalendar(s => s.events);
 
+  const today = useToday();
   const now = new Date();
-  const today = todayKey();
   const hour = now.getHours();
   const hello = hour < 5 ? 'Bonne nuit' : hour < 18 ? 'Bonjour' : 'Bonsoir';
 

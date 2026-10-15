@@ -20,24 +20,29 @@ export const WORDS: Record<Usage, {
   nextBig: string; noBig: string; plan: string; planned: string;
   school: string; schoolHint: string; program: string; programHint: string; level: string; levels: string[];
   groups: string; profileTab: string;
+  /** Calendar: example in the quick add, empty « À venir », the box that ticks a deliverable, timetable slots. */
+  quickExample: string; noUpcoming: string; markDone: string; slot: string; slots: string;
 }> = {
   etudes: {
     nextBig: 'Prochain examen', noBig: 'Aucun examen à venir.', plan: 'Planifier les révisions', planned: 'Révisions planifiées',
     school: 'Établissement', schoolHint: 'Université, école…', program: 'Filière', programHint: 'Droit, info, médecine…',
     level: 'Année', levels: ['', 'Lycée', 'L1', 'L2', 'L3', 'M1', 'M2', 'BTS / BUT', 'Prépa', 'École', 'Doctorat', 'Autre'],
     groups: 'Groupes', profileTab: 'Études',
+    quickExample: 'Partiel de maths vendredi 14h', noUpcoming: 'Aucun examen ni rendu prévu.', markDone: 'rendu', slot: 'cours', slots: 'cours',
   },
   travail: {
     nextBig: 'Prochaine échéance', noBig: 'Aucune échéance à venir.', plan: 'Bloquer du temps pour préparer', planned: 'Préparation planifiée',
     school: 'Entreprise', schoolHint: 'Nom de l’entreprise', program: 'Métier', programHint: 'Graphiste, commercial…',
     level: 'Statut', levels: ['', 'Indépendant·e / freelance', 'Salarié·e', 'Dirigeant·e', 'Association', 'Autre'],
     groups: 'Équipes', profileTab: 'Travail',
+    quickExample: 'Réunion client jeudi 10h', noUpcoming: 'Aucune échéance ni devis prévu.', markDone: 'fait', slot: 'créneau', slots: 'créneaux',
   },
   perso: {
     nextBig: 'Prochain grand jour', noBig: 'Rien d’important à venir.', plan: 'Bloquer du temps pour préparer', planned: 'Préparation planifiée',
     school: 'Ville', schoolHint: 'Lyon, Lille…', program: 'Centres d’intérêt', programHint: 'Cuisine, sport, voyages…',
     level: 'Situation', levels: ['', 'Étudiant·e', 'En activité', 'En recherche', 'Parent', 'Retraité·e', 'Autre'],
     groups: 'Groupes', profileTab: 'Organisation',
+    quickExample: 'Dentiste mardi 17h30', noUpcoming: 'Rien d’important ni à faire de prévu.', markDone: 'fait', slot: 'rendez-vous', slots: 'rendez-vous',
   },
 };
 

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import {
   useDrive, childrenOf, pathOf, categoryOf, folderSize, FOLDER_COLORS, type DriveItem,
+  withDescendants,
 } from '../../store/drive';
 import { askText, toast, useUi } from '../../store/ui';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
@@ -243,7 +244,7 @@ export default function DrivePage() {
     async (target: string | null) => {
       const clip = useDrive.getState().clipboard;
       if (!clip?.ids.length) return;
-      if (clip.mode === 'cut' && target && useDrive.getState().items.some(i => i.id === target) && clip.ids.includes(target)) {
+      if (clip.mode === 'cut' && target && withDescendants(useDrive.getState().items, clip.ids).includes(target)) {
         return toast('Impossible de déplacer un dossier dans lui-même', 'error');
       }
       const before = useDrive.getState().items.length;
@@ -542,6 +543,8 @@ export default function DrivePage() {
           ] as const).map(([k, label, Icon]) => (
             <button
               key={k}
+              aria-label={label}
+              aria-pressed={tab === k}
               onClick={() => { setTab(k); setSelected(new Set()); }}
               className={cx('flex h-7 items-center gap-1.5 rounded-md px-2.5 font-medium transition-colors', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
@@ -611,7 +614,10 @@ export default function DrivePage() {
             <button className="rounded-md p-1.5 hover:bg-on-inverse/10" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)" aria-label="Désélectionner (Échap)">
               <X size={15} />
             </button>
-            <span className="mr-2 whitespace-nowrap px-1 font-medium">{selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
+            <span className="mr-2 whitespace-nowrap px-1 font-medium">
+              {selectedIds.length}
+              <span className="max-sm:sr-only"> sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
+            </span>
             <span className="mr-1 h-4 w-px bg-on-inverse/20" />
             {[
               { icon: Copy, label: 'Copier', fn: () => copy(selectedIds) },
@@ -623,7 +629,7 @@ export default function DrivePage() {
               { icon: Tag, label: 'Étiquettes', fn: () => setTagIds(selectedIds) },
               { icon: Trash2, label: 'Corbeille', fn: () => remove(selectedIds) },
             ].map(a => (
-              <button key={a.label} onClick={a.fn} className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse" title={a.label}>
+              <button key={a.label} onClick={a.fn} className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse" title={a.label} aria-label={a.label}>
                 <a.icon size={14} /> <span className="hidden lg:inline">{a.label}</span>
               </button>
             ))}
@@ -753,10 +759,10 @@ export default function DrivePage() {
           </div>
         ) : (
           <div className="card overflow-hidden">
-            <div className="grid grid-cols-[1fr_110px_80px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-500 md:grid-cols-[1fr_200px_130px_90px]">
+            <div className="grid grid-cols-[minmax(0,1fr)_64px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-500 sm:grid-cols-[minmax(0,1fr)_110px_80px] md:grid-cols-[minmax(0,1fr)_200px_130px_90px]">
               {sortBtn('name', 'Nom')}
               <span className="hidden md:block">Emplacement</span>
-              {sortBtn('date', 'Modifié')}
+              <span className="hidden sm:block">{sortBtn('date', 'Modifié')}</span>
               {sortBtn('size', 'Taille')}
             </div>
             <div role="listbox" aria-label="Contenu du dossier" aria-multiselectable="true">
@@ -767,7 +773,7 @@ export default function DrivePage() {
                   key={item.id}
                   {...itemProps(item)}
                   className={cx(
-                    'grid min-h-11 cursor-default select-none grid-cols-[1fr_110px_80px] items-center gap-3 border-b border-stone-100 px-4 text-[13px] transition-colors last:border-0 md:grid-cols-[1fr_200px_130px_90px]',
+                    'grid min-h-11 cursor-default select-none grid-cols-[minmax(0,1fr)_64px] items-center gap-3 border-b border-stone-100 px-4 text-[13px] transition-colors last:border-0 sm:grid-cols-[minmax(0,1fr)_110px_80px] md:grid-cols-[minmax(0,1fr)_200px_130px_90px]',
                     snippetOf(item) && 'py-2',
                     sel ? 'bg-brand-50' : 'hover:bg-stone-50',
                     dropTarget === item.id && 'bg-brand-50 ring-2 ring-inset ring-brand-500',
@@ -790,7 +796,7 @@ export default function DrivePage() {
                     </span>
                   </span>
                   <span className="hidden truncate text-[12px] text-stone-500 md:block">{['Drive', ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}</span>
-                  <span className="text-[12px] text-stone-500">{relativeTime(item.updatedAt)}</span>
+                  <span className="hidden text-[12px] text-stone-500 sm:block">{relativeTime(item.updatedAt)}</span>
                   <span className="tabular text-[12px] text-stone-500">{item.kind === 'folder' ? (folderSize(items, item.id) ? formatBytes(folderSize(items, item.id)) : '') : formatBytes(item.size)}</span>
                 </div>
               );

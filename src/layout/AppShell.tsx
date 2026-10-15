@@ -47,9 +47,10 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () 
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      // Only the copy on screen (the desktop one is hidden below 1024 px: AppShell opens the other).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && inputRef.current?.offsetParent) {
         e.preventDefault();
-        inputRef.current?.focus();
+        inputRef.current.focus();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -135,6 +136,17 @@ export default function AppShell() {
   const user = useAuth(s => s.user)!;
   const trashCount = useTrashCount();
   const [searchOpen, setSearchOpen] = useState(false);
+  // Ctrl+K on a narrow window: no search field in the header, open the one under it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && !window.matchMedia('(min-width: 1024px)').matches) {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const trashLabel = trashCount ? `Corbeille, ${trashCount} élément${trashCount > 1 ? 's' : ''}` : 'Corbeille';
 
   useEffect(() => registerNavigate(navigate), [navigate]);
