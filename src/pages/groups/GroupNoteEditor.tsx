@@ -63,10 +63,13 @@ function Toolbar({ editor }: { editor: Editor }) {
 type Status = 'saved' | 'pending' | 'saving' | 'error';
 
 /** Charge la note, puis affiche l'éditeur. */
-export default function GroupNoteEditor({ noteId, onClose, readOnly = false }: { noteId: string; onClose: () => void; readOnly?: boolean }) {
+/** `fresh` : la note qu'on vient de créer (pas de rechargement) et le titre déjà tapé pendant sa création. */
+export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fresh }: { noteId: string; onClose: () => void; readOnly?: boolean; fresh?: { note: GroupNote; title: string } }) {
   const w = useGroupWords();
-  const [note, setNote] = useState<GroupNote | null | undefined>(undefined);
+  const preset = fresh?.note.id === noteId ? fresh : undefined;
+  const [note, setNote] = useState<GroupNote | null | undefined>(preset?.note);
   useEffect(() => {
+    if (preset) return;
     let alive = true;
     fetchNote(noteId).then(
       n => alive && setNote(n),
@@ -75,6 +78,7 @@ export default function GroupNoteEditor({ noteId, onClose, readOnly = false }: {
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la note fraîche ne sert qu'au premier affichage
   }, [noteId]);
 
   if (note === undefined) return <div className="flex-1 p-8 text-[13px] text-stone-500">Chargement de la note…</div>;
@@ -86,16 +90,17 @@ export default function GroupNoteEditor({ noteId, onClose, readOnly = false }: {
         <button className="btn-secondary mt-4" onClick={onClose}>Retour à la liste</button>
       </div>
     );
-  return <LoadedEditor initial={note} onClose={onClose} readOnly={readOnly} />;
+  return <LoadedEditor initial={note} onClose={onClose} readOnly={readOnly} startTitle={preset?.title} />;
 }
 
 /** `readOnly` : lecteur du groupe (la base refuserait de toute façon l'enregistrement). */
-function LoadedEditor({ initial, onClose, readOnly }: { initial: GroupNote; onClose: () => void; readOnly: boolean }) {
+function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: GroupNote; onClose: () => void; readOnly: boolean; startTitle?: string }) {
   const w = useGroupWords();
   const id = initial.id;
   const nameOf = useMemberName(initial.groupId);
   const [meta, setMeta] = useState({ updatedAt: initial.updatedAt, updatedBy: initial.updatedBy });
-  const [title, setTitle] = useState(initial.title === 'Sans titre' ? '' : initial.title);
+  const [title, setTitle] = useState(startTitle ?? (initial.title === 'Sans titre' ? '' : initial.title));
+  const titleInput = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>('saved');
   const [conflict, setConflict] = useState<GroupNote | null>(null);
   const [deleted, setDeleted] = useState(false);
@@ -166,6 +171,16 @@ function LoadedEditor({ initial, onClose, readOnly }: { initial: GroupNote; onCl
     clearTimeout(timer.current);
     timer.current = setTimeout(() => void save(), 800);
   }, [save]);
+
+  // Note neuve : on continue le titre commencé pendant sa création (curseur à la fin), et on l'enregistre.
+  useEffect(() => {
+    if (startTitle === undefined || readOnly) return;
+    const el = titleInput.current;
+    el?.focus();
+    el?.setSelectionRange(el.value.length, el.value.length);
+    if (startTitle.trim()) changed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- une seule fois, à l'ouverture
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -265,10 +280,11 @@ function LoadedEditor({ initial, onClose, readOnly }: { initial: GroupNote; onCl
         </button>
         <div className="min-w-0 flex-1">
           <input
+            ref={titleInput}
             value={title}
             readOnly={readOnly}
             // A note just created: its title is the first thing to type.
-            autoFocus={!readOnly && !title && !initial.content}
+            autoFocus={!readOnly && startTitle === undefined && !title && !initial.content}
             placeholder="Sans titre"
             aria-label="Titre de la note"
             maxLength={200}

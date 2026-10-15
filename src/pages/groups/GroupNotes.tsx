@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FilePlus2, FileText } from 'lucide-react';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
-import { createNote, groupError, summary, type Group } from '../../lib/groups';
+import { createNote, groupError, summary, type Group, type GroupNote } from '../../lib/groups';
 import { cx, relativeTime } from '../../lib/utils';
 import { useGroupWords, useMemberName, useRights } from './util';
 import GroupNoteEditor from './GroupNoteEditor';
@@ -15,15 +15,22 @@ export default function GroupNotes({ group }: { group: Group }) {
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
   const [creating, setCreating] = useState(false);
+  // Pendant la création (aller-retour réseau), le titre se tape déjà : il est repris par l'éditeur.
+  const [draft, setDraft] = useState('');
+  const draftRef = useRef('');
+  const [fresh, setFresh] = useState<{ note: GroupNote; title: string }>();
   const openId = params.get('note');
 
   const open = (id: string | null) => setParams(id ? { g: group.id, note: id } : { g: group.id });
 
   const newNote = async () => {
     setCreating(true);
+    setDraft('');
+    draftRef.current = '';
     try {
       const n = await createNote(group.id);
       useGroups.getState().upsertNote(summary(n));
+      setFresh({ note: n, title: draftRef.current });
       open(n.id);
     } catch (e) {
       toast(groupError(e), 'error');
@@ -35,7 +42,28 @@ export default function GroupNotes({ group }: { group: Group }) {
   if (openId) {
     return (
       <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
-        <GroupNoteEditor key={openId} noteId={openId} readOnly={!canEdit} onClose={() => open(null)} />
+        <GroupNoteEditor key={openId} noteId={openId} readOnly={!canEdit} onClose={() => open(null)} fresh={fresh} />
+      </div>
+    );
+  }
+
+  if (creating) {
+    return (
+      <div className="card flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-5 md:px-10" aria-busy="true">
+        <input
+          autoFocus
+          value={draft}
+          onChange={e => {
+            setDraft(e.target.value);
+            draftRef.current = e.target.value;
+          }}
+          onKeyDown={e => e.key === 'Enter' && e.preventDefault()}
+          placeholder="Sans titre"
+          aria-label="Titre de la note"
+          maxLength={200}
+          className="ml-9 w-[calc(100%-36px)] bg-transparent text-[24px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-400"
+        />
+        <p className="ml-9 mt-0.5 text-[12px] text-stone-500">Création de la note…</p>
       </div>
     );
   }
