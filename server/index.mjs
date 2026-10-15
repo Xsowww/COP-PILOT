@@ -153,7 +153,16 @@ async function serveErrorReport(req, res) {
   return true;
 }
 
+// The app's former address: everything moves to the new one, same path (old links and e-mails keep working).
+const OLD_HOSTS = new Set(['kompa-app.com', 'www.kompa-app.com']);
+const NEW_ORIGIN = 'https://kompaly.com';
+
 const server = createServer(async (req, res) => {
+  if (OLD_HOSTS.has((req.headers.host ?? '').toLowerCase())) {
+    res.writeHead(301, { Location: NEW_ORIGIN + (req.url ?? '/') });
+    res.end();
+    return;
+  }
   for (const [k, v] of Object.entries(SECURITY)) res.setHeader(k, v);
   try {
     if (serveSeo(req, res)) return;
