@@ -381,11 +381,20 @@ export const useAuth = create<AuthState>((set, get) => ({
       const { data } = await supabase.auth.mfa.listFactors();
       const factor = data?.totp.find(f => f.status === 'verified');
       if (factor) {
-        const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.replace(/\s/g, '') });
+        // Our own verification: the auth listener must not take it for a code typed in another tab (it reloads the page).
+        ownSignIn = true;
+        const { error } = await supabase.auth.mfa
+          .challengeAndVerify({ factorId: factor.id, code: code.replace(/\s/g, '') })
+          .finally(() => setTimeout(() => (ownSignIn = false), 1500));
         if (error) throw new Error(/rate|too many/i.test(error.message) ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Tape le code Kompaly affiché en ce moment sur ton téléphone.');
       }
     }
     await cloud(supabase.auth.updateUser({ password }));
+    // Signed in for good now (the link plus, when needed, the phone's code).
+    const mfaStep = await nextMfaStep();
+    const user = get().user;
+    if (user && !mfaStep) setStorageUser(user.id);
+    set({ mfaStep });
   },
 
   async resetNeedsCode() {

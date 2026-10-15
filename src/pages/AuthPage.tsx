@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
+import { toast } from '../store/ui';
 import { loadUserData, markLocalWelcome } from '../store/session';
 import { cloudEnabled, linkError, setRememberMe } from '../lib/supabase';
 import Character from '../copilot/Character';
@@ -149,6 +150,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         await setNewPassword(password, needsCode ? code : undefined);
         await loadUserData();
         navigate('/');
+        toast('Mot de passe modifié', 'success');
         return;
       }
       if (isRegister) {
