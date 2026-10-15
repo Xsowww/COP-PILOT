@@ -8,11 +8,13 @@ import { createEvent, deleteEvent, groupError, setAttendance, type Group, type G
 import { countdownLabel, fmt, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { MemberDot } from './shared';
-import { groupColor, useMemberName, useRights } from './util';
+import { groupColor, useGroupWords, useMemberName, useRights } from './util';
+import { useSettings } from '../../store/settings';
 
 const isUrl = (s: string) => /^https?:\/\/\S+$/i.test(s.trim());
 
 function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
+  const w = useGroupWords();
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayKey());
   const [start, setStart] = useState('');
@@ -28,7 +30,7 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
     try {
       await createEvent(group.id, { title: title.trim(), date, start: start || null, end: end || null, place: place.trim() || null });
       await useGroups.getState().refresh(group.id, ['events']);
-      toast('Révision proposée au groupe', 'success');
+      toast(`${w.meet.proposed} à ${w.the}`, 'success');
       onDone();
     } catch (err) {
       toast(groupError(err), 'error');
@@ -38,8 +40,8 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
 
   return (
     <form onSubmit={submit} className="card enter mb-4 p-4">
-      <p className="text-[14px] font-semibold">Proposer une révision</p>
-      <input autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)} placeholder="Ex. Révision partiel d’anatomie" className="field mt-3 w-full" />
+      <p className="text-[14px] font-semibold">Proposer {w.meet.a}</p>
+      <input autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)} placeholder={w.meet.placeholder} className="field mt-3 w-full" />
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1.4fr_1fr_1fr]">
         <label className="col-span-2 sm:col-span-1">
           <span className="eyebrow">Date</span>
@@ -68,6 +70,7 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
 }
 
 function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
+  const w = useGroupWords();
   const me = useAuth(s => s.user?.id ?? '');
   const nameOf = useMemberName(group.id);
   const attendance = useGroups(s => s.attendance[group.id]);
@@ -99,15 +102,16 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
       date: ev.date,
       start: ev.start ?? undefined,
       end: ev.end ?? undefined,
-      category: c === 'cours' ? 'cours' : 'devoir',
-      details: [`Révision du groupe « ${group.name} »`, ev.place].filter(Boolean).join('\n'),
+      // Studies: a revision session (homework colour); work and personal: a meeting / get-together.
+      category: useSettings.getState().usage !== 'etudes' || c === 'cours' ? 'cours' : 'devoir',
+      details: [`${w.meet.One} ${w.of} « ${group.name} »`, ev.place].filter(Boolean).join('\n'),
       externalId: `groupe:${ev.id}`,
     });
     toast('Ajouté à ton calendrier', 'success');
   };
 
   const remove = async () => {
-    if (!(await confirmAction(`Annuler « ${ev.title} » ?`, 'La révision disparaît pour tous les membres du groupe.', 'Annuler la révision'))) return;
+    if (!(await confirmAction(`Annuler « ${ev.title} » ?`, `${w.meet.The} disparaît pour tous les membres ${w.of}.`, `Annuler ${w.meet.the}`))) return;
     try {
       await deleteEvent(ev.id);
       await useGroups.getState().refresh(group.id, ['events']);
@@ -179,7 +183,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
           {inCalendar ? <Check size={15} className="text-emerald-600" /> : <CalendarPlus size={15} />}
         </button>
         {canDelete && (
-          <button className="icon-btn hover:text-red-600" title="Annuler la révision" aria-label="Annuler la révision" onClick={() => void remove()}>
+          <button className="icon-btn hover:text-red-600" title={`Annuler ${w.meet.the}`} aria-label={`Annuler ${w.meet.the}`} onClick={() => void remove()}>
             <Trash2 size={15} />
           </button>
         )}
@@ -189,6 +193,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
 }
 
 export default function GroupEvents({ group }: { group: Group }) {
+  const w = useGroupWords();
   const events = useGroups(s => s.events[group.id]);
   const [adding, setAdding] = useState(false);
   const { canEdit } = useRights(group);
@@ -196,10 +201,10 @@ export default function GroupEvents({ group }: { group: Group }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 pb-3">
-        <p className="eyebrow mr-auto">Révisions à venir</p>
+        <p className="eyebrow mr-auto">{w.meet.Tab} à venir</p>
         {!adding && canEdit && (
           <button className="btn-primary h-8 px-3" onClick={() => setAdding(true)}>
-            <Plus size={14} /> Proposer une révision
+            <Plus size={14} /> Proposer {w.meet.a}
           </button>
         )}
       </div>
@@ -209,11 +214,11 @@ export default function GroupEvents({ group }: { group: Group }) {
         {events && events.length === 0 && !adding && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <CalendarPlus size={26} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">Aucune révision prévue</p>
+            <p className="mt-3 text-[14px] font-medium">{w.meet.none}</p>
             <p className="mt-1 max-w-[380px] text-[13px] text-stone-500">
               {canEdit
-                ? 'Propose une séance à la BU ou en visio : chaque membre indique s’il vient et peut l’ajouter à son calendrier.'
-                : 'Les séances proposées par les éditeurs du groupe apparaîtront ici.'}
+                ? w.meet.hint
+                : `Les ${w.meet.many} ${w.meet.proposedMany} par les éditeurs ${w.of} apparaîtront ici.`}
             </p>
           </div>
         )}

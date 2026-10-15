@@ -1,7 +1,13 @@
 import { useAuth } from '../../store/auth';
+import { getSettings, useSettings } from '../../store/settings';
+import { groupWords } from '../../lib/usage';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { GROUP_COLORS, MAX_GROUP_FILE, groupError, uploadFile, type Group } from '../../lib/groups';
+
+/** « groupe » / « équipe », « révisions » / « réunions » / « rendez-vous », selon l'usage du compte. */
+export const useGroupWords = () => groupWords(useSettings(s => s.usage));
+export const groupWordsNow = () => groupWords(getSettings().usage);
 
 export const groupColor = (g: Pick<Group, 'color'>) => g.color ?? GROUP_COLORS[0];
 
@@ -45,6 +51,6 @@ export async function shareFiles(group: Group, files: { blob: Blob | (() => Prom
   }
   if (ok) void useGroups.getState().refresh(group.id, ['files']);
   if (error) toast(ok ? `${ok} fichier${ok > 1 ? 's' : ''} partagé${ok > 1 ? 's' : ''}. ${error}` : error, 'error');
-  else if (ok) toast(ok > 1 ? `${ok} fichiers partagés avec le groupe` : 'Fichier partagé avec le groupe', 'success');
+  else if (ok) toast(ok > 1 ? `${ok} fichiers partagés avec ${groupWordsNow().the}` : `Fichier partagé avec ${groupWordsNow().the}`, 'success');
   return ok;
 }

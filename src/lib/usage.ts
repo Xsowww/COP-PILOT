@@ -53,3 +53,54 @@ export const WORDS: Record<Usage, {
 export function applyUsage(usage: Usage) {
   for (const [key, label] of Object.entries(CATEGORY_LABELS[usage] ?? CATEGORY_LABELS.etudes)) CATEGORIES[key as BuiltinCategory].label = label;
 }
+
+/** Shared spaces (« Groupes »): what the space and its meetings are called, with French agreement baked in. */
+export interface GroupWords {
+  Groups: string; groups: string; a: string; the: string; The: string; of: string; this: string; all: string; none: string; yours: string;
+  created: string; deleted: string; namePlaceholder: string; mates: string; others: string; introTitle: string; introText: string; notesHint: string;
+  /** The meetings planned together (study sessions, work meetings, get-togethers). */
+  meet: {
+    Tab: string; One: string; many: string; a: string; the: string; The: string; proposed: string; proposedMany: string; none: string; placeholder: string; hint: string;
+  };
+}
+
+export const GROUP_WORDS: Record<Usage, GroupWords> = {
+  etudes: {
+    Groups: 'Groupes', groups: 'groupes', a: 'un groupe', the: 'le groupe', The: 'Le groupe', of: 'du groupe', this: 'ce groupe', all: 'tout le groupe',
+    none: 'Aucun groupe', yours: 'un de tes groupes', created: 'Groupe créé', deleted: 'Groupe supprimé',
+    namePlaceholder: 'Ex. L2 Bio — TD 3', mates: 'tes camarades', others: 'd’autres étudiants',
+    introTitle: 'Travaille avec ta promo', introText: 'Notes partagées et séances de révision en commun, avec ceux qui ont le code du groupe.',
+    notesHint: 'Commence une fiche de révision que tout le monde peut compléter, ou partage une note que tu as déjà écrite.',
+    meet: {
+      Tab: 'Révisions', One: 'Révision', many: 'révisions', a: 'une révision', the: 'la révision', The: 'La révision', proposed: 'Révision proposée', proposedMany: 'proposées',
+      none: 'Aucune révision prévue', placeholder: 'Ex. Révision partiel d’anatomie',
+      hint: 'Propose une séance à la BU ou en visio : chaque membre indique s’il vient et peut l’ajouter à son calendrier.',
+    },
+  },
+  travail: {
+    Groups: 'Équipes', groups: 'équipes', a: 'une équipe', the: 'l’équipe', The: 'L’équipe', of: 'de l’équipe', this: 'cette équipe', all: 'toute l’équipe',
+    none: 'Aucune équipe', yours: 'une de tes équipes', created: 'Équipe créée', deleted: 'Équipe supprimée',
+    namePlaceholder: 'Ex. Équipe marketing, Projet Dupont', mates: 'tes collègues', others: 'tes collègues',
+    introTitle: 'Travaille avec ton équipe', introText: 'Notes, fichiers et réunions partagés, avec ceux qui ont le code de l’équipe.',
+    notesHint: 'Commence une note que toute l’équipe peut compléter (compte rendu, procédure…), ou partage une note que tu as déjà écrite.',
+    meet: {
+      Tab: 'Réunions', One: 'Réunion', many: 'réunions', a: 'une réunion', the: 'la réunion', The: 'La réunion', proposed: 'Réunion proposée', proposedMany: 'proposées',
+      none: 'Aucune réunion prévue', placeholder: 'Ex. Point hebdo projet',
+      hint: 'Propose une réunion en salle ou en visio : chaque membre indique s’il vient et peut l’ajouter à son calendrier.',
+    },
+  },
+  perso: {
+    Groups: 'Groupes', groups: 'groupes', a: 'un groupe', the: 'le groupe', The: 'Le groupe', of: 'du groupe', this: 'ce groupe', all: 'tout le groupe',
+    none: 'Aucun groupe', yours: 'un de tes groupes', created: 'Groupe créé', deleted: 'Groupe supprimé',
+    namePlaceholder: 'Ex. Famille, Coloc, Asso du quartier', mates: 'tes proches', others: 'tes proches',
+    introTitle: 'Organise-toi à plusieurs', introText: 'Notes, fichiers et rendez-vous partagés, avec ceux qui ont le code du groupe.',
+    notesHint: 'Commence une note que tout le monde peut compléter (courses, organisation d’un week-end…), ou partage une note que tu as déjà écrite.',
+    meet: {
+      Tab: 'Rendez-vous', One: 'Rendez-vous', many: 'rendez-vous', a: 'un rendez-vous', the: 'le rendez-vous', The: 'Le rendez-vous', proposed: 'Rendez-vous proposé', proposedMany: 'proposés',
+      none: 'Aucun rendez-vous prévu', placeholder: 'Ex. Repas de famille',
+      hint: 'Propose un rendez-vous : chaque membre indique s’il vient et peut l’ajouter à son calendrier.',
+    },
+  },
+};
+
+export const groupWords = (usage: Usage | undefined) => GROUP_WORDS[usage ?? 'etudes'] ?? GROUP_WORDS.etudes;

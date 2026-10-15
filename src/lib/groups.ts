@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { toast } from '../store/ui';
+import { getSettings } from '../store/settings';
+import { groupWords } from './usage';
+
+const words = () => groupWords(getSettings().usage);
 import { QUOTA, StorageError, quotaLabel } from './blobStore';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
@@ -109,7 +113,7 @@ export const toEvent = (r: Row): GroupEvent => ({
 });
 
 function db(): SupabaseClient {
-  if (!supabase) throw new Error('Les groupes nécessitent la version en ligne.');
+  if (!supabase) throw new Error(`Les ${words().groups} nécessitent la version en ligne.`);
   return supabase;
 }
 
@@ -118,11 +122,11 @@ export function groupError(e: unknown): string {
   if (e instanceof StorageError) return e.message;
   const msg = String((e as { message?: string })?.message ?? e ?? '');
   if (/too many attempts/i.test(msg)) return 'Trop de codes essayés. Réessaie dans un quart d’heure.';
-  if (/group full/i.test(msg)) return 'Ce groupe est complet (50 membres).';
-  if (/too many groups/i.test(msg)) return 'Tu fais déjà partie de 30 groupes, c’est le maximum.';
+  if (/group full/i.test(msg)) return `Plus de place : 50 membres au maximum dans ${words().this}.`;
+  if (/too many groups/i.test(msg)) return `Tu fais déjà partie de 30 ${words().groups}, c’est le maximum.`;
   if (/too large|exceeded the maximum|payload too large|413/i.test(msg)) return 'Fichier trop lourd : 50 Mo au maximum.';
   if (/mfa required/i.test(msg)) return 'Confirme d’abord ta connexion avec le code de ton téléphone.';
-  if (/forbidden|row-level security|permission denied/i.test(msg)) return 'Tu n’as pas le droit de faire ça dans ce groupe.';
+  if (/forbidden|row-level security|permission denied/i.test(msg)) return `Tu n’as pas le droit de faire ça dans ${words().this}.`;
   if (/fetch|network/i.test(msg)) return 'Pas de connexion. Réessaie dans un instant.';
   return 'Une erreur est survenue. Réessaie.';
 }
@@ -165,14 +169,14 @@ export async function joinGroup(code: string): Promise<string | null> {
 }
 
 export async function updateGroup(id: string, patch: { name?: string; color?: string | null }) {
-  changed(await db().from('groups').update(patch).eq('id', id).select('id'), 'Seul le propriétaire peut modifier ce groupe.');
+  changed(await db().from('groups').update(patch).eq('id', id).select('id'), `Seul le propriétaire peut modifier ${words().this}.`);
 }
 
 export async function deleteGroup(id: string) {
   // Les fichiers d'abord (ensuite plus personne n'y a accès), seulement si l'on est bien le propriétaire.
   const [me, owner] = await Promise.all([sessionUserId(), db().from('groups').select('owner_id').eq('id', id).maybeSingle()]);
   if (owner.data && (owner.data as Row).owner_id === me) await purgeFiles(id);
-  changed(await db().from('groups').delete().eq('id', id).select('id'), 'Seul le propriétaire peut supprimer ce groupe.');
+  changed(await db().from('groups').delete().eq('id', id).select('id'), `Seul le propriétaire peut supprimer ${words().this}.`);
 }
 
 /** Le code d'invitation, ou null si l'on n'a pas le droit d'inviter. */
@@ -214,7 +218,7 @@ export async function removeMember(groupId: string, userId: string) {
 export async function leaveGroup(groupId: string, last = false) {
   const me = await sessionUserId();
   if (last) await purgeFiles(groupId);
-  changed(await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', me).select('user_id'), 'Tu ne fais plus partie de ce groupe.');
+  changed(await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', me).select('user_id'), `Tu ne fais plus partie de ${words().this}.`);
 }
 
 // ── Notes partagées ───────────────────────────────────────────────────────
@@ -349,7 +353,7 @@ export async function downloadFile(f: GroupFile): Promise<Blob> {
 }
 
 export async function deleteFile(f: GroupFile) {
-  changed(await db().from('group_files').delete().eq('id', f.id).select('id'), 'Tu ne peux pas supprimer de fichier dans ce groupe.');
+  changed(await db().from('group_files').delete().eq('id', f.id).select('id'), `Tu ne peux pas supprimer de fichier dans ${words().this}.`);
   await db().storage.from(FILES).remove([filePath(f)]);
 }
 

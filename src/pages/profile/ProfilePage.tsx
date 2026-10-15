@@ -26,7 +26,7 @@ import { getStorageUser } from '../../lib/userStorage';
 import { currentStreak, useBadges } from '../../lib/badges';
 import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
 import BadgeGrid from './BadgeGrid';
-import { USAGES, WORDS, applyUsage, type Usage } from '../../lib/usage';
+import { USAGES, WORDS, applyUsage, groupWords, type Usage } from '../../lib/usage';
 import { PERSONAS } from '../../lib/personas';
 
 /** « 1 note », « 0 note », « 2 notes ». */
@@ -678,7 +678,7 @@ function DataTab() {
       )}
 
       <Section title="Zone sensible" danger>
-        <Row label="Effacer toutes mes données" hint="Fichiers du Drive, notes, événements, tâches, historique et conversation avec Kompaly, corbeilles comprises. Ton compte, tes réglages et tes groupes restent.">
+        <Row label="Effacer toutes mes données" hint={`Fichiers du Drive, notes, événements, tâches, historique et conversation avec Kompaly, corbeilles comprises. Ton compte, tes réglages et tes ${groupWords(useSettings.getState().usage).groups} restent.`}>
           <button
             className="btn-danger h-8"
             onClick={async () => {

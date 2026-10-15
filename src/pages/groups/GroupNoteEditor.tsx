@@ -12,7 +12,7 @@ import { useGroups } from '../../store/groups';
 import { askText, confirmAction, toast } from '../../store/ui';
 import { deleteNote, fetchNote, groupError, saveNote, summary, type GroupNote } from '../../lib/groups';
 import { cx, relativeTime } from '../../lib/utils';
-import { useMemberName } from './util';
+import { groupWordsNow, useGroupWords, useMemberName } from './util';
 
 function Toolbar({ editor }: { editor: Editor }) {
   const btn = (label: string, Icon: typeof Bold, active: boolean, run: () => void) => (
@@ -64,6 +64,7 @@ type Status = 'saved' | 'pending' | 'saving' | 'error';
 
 /** Charge la note, puis affiche l'éditeur. */
 export default function GroupNoteEditor({ noteId, onClose, readOnly = false }: { noteId: string; onClose: () => void; readOnly?: boolean }) {
+  const w = useGroupWords();
   const [note, setNote] = useState<GroupNote | null | undefined>(undefined);
   useEffect(() => {
     let alive = true;
@@ -81,7 +82,7 @@ export default function GroupNoteEditor({ noteId, onClose, readOnly = false }: {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
         <p className="text-[14px] font-medium">Cette note n’existe plus</p>
-        <p className="mt-1 text-[13px] text-stone-500">Un membre du groupe l’a peut-être supprimée.</p>
+        <p className="mt-1 text-[13px] text-stone-500">Un membre {w.of} l’a peut-être supprimée.</p>
         <button className="btn-secondary mt-4" onClick={onClose}>Retour à la liste</button>
       </div>
     );
@@ -90,6 +91,7 @@ export default function GroupNoteEditor({ noteId, onClose, readOnly = false }: {
 
 /** `readOnly` : lecteur du groupe (la base refuserait de toute façon l'enregistrement). */
 function LoadedEditor({ initial, onClose, readOnly }: { initial: GroupNote; onClose: () => void; readOnly: boolean }) {
+  const w = useGroupWords();
   const id = initial.id;
   const nameOf = useMemberName(initial.groupId);
   const [meta, setMeta] = useState({ updatedAt: initial.updatedAt, updatedBy: initial.updatedBy });
@@ -137,7 +139,7 @@ function LoadedEditor({ initial, onClose, readOnly }: { initial: GroupNote; onCl
           // (passé lecteur entre-temps) : la version en ligne n'a alors pas bougé.
           blocked.current = true;
           const remote = await fetchNote(id);
-          if (remote && (force || remote.updatedAt === base.current)) toast('Tu ne peux plus modifier cette note : tu es lecteur dans ce groupe.', 'error');
+          if (remote && (force || remote.updatedAt === base.current)) toast(`Tu ne peux plus modifier cette note : tu es lecteur dans ${groupWordsNow().this}.`, 'error');
           else if (remote) setConflict(remote);
           else setDeleted(true);
           setStatus('error');
@@ -238,7 +240,7 @@ function LoadedEditor({ initial, onClose, readOnly }: { initial: GroupNote; onCl
   }, [save]);
 
   const remove = async () => {
-    if (!(await confirmAction('Supprimer cette note pour tout le groupe ?', 'Tous les membres la perdront. Cette action est définitive.'))) return;
+    if (!(await confirmAction(`Supprimer cette note pour ${w.all} ?`, 'Tous les membres la perdront. Cette action est définitive.'))) return;
     try {
       blocked.current = true;
       await deleteNote(id);

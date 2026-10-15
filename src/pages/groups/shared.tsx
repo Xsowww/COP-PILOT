@@ -35,7 +35,7 @@ export function MemberDot({ userId, name, size = 24, className }: { userId: stri
 
 export function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
-    <div className="flex gap-2" role="radiogroup" aria-label="Couleur du groupe">
+    <div className="flex gap-2" role="radiogroup" aria-label="Couleur">
       {GROUP_COLORS.map(c => (
         <button
           key={c}

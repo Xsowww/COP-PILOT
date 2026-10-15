@@ -9,7 +9,7 @@ import FileIcon from '../../components/FileIcon';
 import { blobStore } from '../../lib/blobStore';
 import { blobKey } from '../../lib/userStorage';
 import { MAX_GROUP_FILE, createNote, groupError, summary, type Group } from '../../lib/groups';
-import { shareFiles } from './util';
+import { groupWordsNow, shareFiles } from './util';
 import { cx, formatBytes, normalize, stripHtml } from '../../lib/utils';
 
 /** « Une de mes notes » : copie une note personnelle dans le groupe. */
@@ -29,7 +29,7 @@ function NotePicker({ group, onPicked, onClose }: { group: Group; onPicked: (id:
     try {
       const copy = await createNote(group.id, n.title, n.content);
       useGroups.getState().upsertNote(summary(copy));
-      toast('Note partagée avec le groupe', 'success');
+      toast(`Note partagée avec ${groupWordsNow().the}`, 'success');
       onPicked(copy.id);
     } catch (e) {
       toast(groupError(e), 'error');

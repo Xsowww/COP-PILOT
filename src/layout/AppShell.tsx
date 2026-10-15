@@ -199,7 +199,7 @@ export default function AppShell() {
                   <n.icon size={18} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
                   {label(n)}
                   {n.to === '/groupes' && groupNews > 0 && (
-                    <span className="ml-auto rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={`${groupNews} nouveautés dans tes groupes`}>
+                    <span className="ml-auto rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={`${groupNews} nouveautés dans tes ${groupsLabel.toLowerCase()}`}>
                       {groupNews}
                     </span>
                   )}

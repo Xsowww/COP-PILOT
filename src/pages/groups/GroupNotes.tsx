@@ -5,10 +5,11 @@ import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { createNote, groupError, summary, type Group } from '../../lib/groups';
 import { cx, relativeTime } from '../../lib/utils';
-import { useMemberName, useRights } from './util';
+import { useGroupWords, useMemberName, useRights } from './util';
 import GroupNoteEditor from './GroupNoteEditor';
 
 export default function GroupNotes({ group }: { group: Group }) {
+  const w = useGroupWords();
   const [params, setParams] = useSearchParams();
   const notes = useGroups(s => s.notes[group.id]);
   const nameOf = useMemberName(group.id);
@@ -54,11 +55,11 @@ export default function GroupNotes({ group }: { group: Group }) {
         {notes && notes.length === 0 && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <FileText size={26} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">Pas encore de note dans ce groupe</p>
+            <p className="mt-3 text-[14px] font-medium">Pas encore de note dans {w.this}</p>
             <p className="mt-1 max-w-[380px] text-[13px] text-stone-500">
               {canEdit
-                ? 'Commence une fiche de révision que tout le monde peut compléter, ou partage une note que tu as déjà écrite.'
-                : 'Les notes écrites par les éditeurs du groupe apparaîtront ici.'}
+                ? w.notesHint
+                : `Les notes écrites par les éditeurs ${w.of} apparaîtront ici.`}
             </p>
           </div>
         )}

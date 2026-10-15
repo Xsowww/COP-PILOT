@@ -6,8 +6,10 @@ import { confirmAction, toast } from '../../store/ui';
 import { copyCode, deleteGroup, groupError, leaveGroup, regenerateCode, removeMember, setMemberRights, type Group, type GroupMember, type GroupRole } from '../../lib/groups';
 import { fmt } from '../../lib/dates';
 import { MemberDot } from './shared';
+import { useGroupWords } from './util';
 
 export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: () => void }) {
+  const w = useGroupWords();
   const me = useAuth(s => s.user?.id);
   const members = useGroups(s => s.members[group.id]);
   const code = useGroups(s => s.codes[group.id]);
@@ -27,7 +29,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   };
 
   const newCode = async () => {
-    if (!(await confirmAction('Créer un nouveau code ?', 'L’ancien code ne fonctionnera plus. Les membres actuels restent dans le groupe.', 'Nouveau code', false))) return;
+    if (!(await confirmAction('Créer un nouveau code ?', `L’ancien code ne fonctionnera plus. Les membres actuels restent dans ${w.the}.`, 'Nouveau code', false))) return;
     await run(async () => {
       await regenerateCode(group.id);
       await useGroups.getState().refresh(group.id, ['members']);
@@ -36,7 +38,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   };
 
   const kick = async (m: GroupMember) => {
-    if (!(await confirmAction(`Retirer ${m.name} du groupe ?`, 'Ses notes partagées restent dans le groupe. Il pourra revenir seulement avec le code.', 'Retirer'))) return;
+    if (!(await confirmAction(`Retirer ${m.name} ${w.of} ?`, `Ses notes partagées restent dans ${w.the}. Il pourra revenir seulement avec le code.`, 'Retirer'))) return;
     await run(async () => {
       await removeMember(group.id, m.userId);
       await useGroups.getState().refresh(group.id, ['members']);
@@ -52,25 +54,25 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   const leave = async () => {
     const alone = (members?.length ?? 1) <= 1;
     const message = alone
-      ? 'Tu es le seul membre : le groupe, ses notes et ses révisions seront supprimés.'
+      ? `Tu es le seul membre, donc tout sera supprimé : ${w.the}, ses notes et ses ${w.meet.many}.`
       : isOwner
         ? 'Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec le code.'
-        : 'Tes notes partagées restent dans le groupe. Tu pourras revenir avec le code.';
+        : `Tes notes partagées restent dans ${w.the}. Tu pourras revenir avec le code.`;
     if (!(await confirmAction(`Quitter « ${group.name} » ?`, message, 'Quitter'))) return;
     await run(async () => {
       await leaveGroup(group.id, alone);
       await useGroups.getState().loadGroups();
-      toast('Tu as quitté le groupe', 'success');
+      toast(`Tu as quitté ${w.the}`, 'success');
       onLeft();
     });
   };
 
   const destroy = async () => {
-    if (!(await confirmAction(`Supprimer « ${group.name} » ?`, 'Le groupe, toutes ses notes partagées et ses révisions seront supprimés pour tous les membres. Action définitive.', 'Supprimer le groupe'))) return;
+    if (!(await confirmAction(`Supprimer « ${group.name} » ?`, `${w.The}, ses notes partagées et ses ${w.meet.many} : tout sera supprimé pour tous les membres. Action définitive.`, `Supprimer ${w.the}`))) return;
     await run(async () => {
       await deleteGroup(group.id);
       await useGroups.getState().loadGroups();
-      toast('Groupe supprimé', 'success');
+      toast(w.deleted, 'success');
       onLeft();
     });
   };
@@ -81,7 +83,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
         <div className="card flex flex-wrap items-center gap-4 p-4">
           <div className="min-w-[220px] flex-1">
             <p className="text-[14px] font-medium">Inviter quelqu’un</p>
-            <p className="mt-0.5 text-[13px] text-stone-500">Donne ce code : il suffit de le saisir dans « Rejoindre un groupe ».</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">Donne ce code : il suffit de le saisir dans «&nbsp;Rejoindre {w.a}&nbsp;».</p>
           </div>
           <span className="rounded-lg border border-dashed border-stone-300 bg-stone-50 px-3 py-1.5 font-mono text-[20px] font-semibold tracking-[0.25em]">{code}</span>
           <div className="flex gap-1.5">
@@ -96,11 +98,11 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
           </div>
         </div>
       ) : (
-        code === null && <p className="card px-4 py-3 text-[13px] text-stone-500">Seul le propriétaire peut inviter dans ce groupe.</p>
+        code === null && <p className="card px-4 py-3 text-[13px] text-stone-500">Seul le propriétaire peut inviter dans {w.this}.</p>
       )}
       {!isOwner && mine && (
         <p className="mt-3 text-[13px] text-stone-500">
-          Tu es {mine.role === 'lecteur' ? 'lecteur dans ce groupe : tu peux tout lire et dire si tu viens aux révisions' : 'éditeur dans ce groupe : tu peux ajouter, modifier et supprimer notes, fichiers et révisions'}.
+          Tu es {mine.role === 'lecteur' ? `lecteur dans ${w.this} : tu peux tout lire et dire si tu viens aux ${w.meet.many}` : `éditeur dans ${w.this} : tu peux ajouter, modifier et supprimer notes, fichiers et ${w.meet.many}`}.
         </p>
       )}
 
@@ -148,11 +150,11 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
 
       <div className="mt-6 flex flex-wrap gap-2">
         <button className="btn-secondary" disabled={busy} onClick={() => void leave()}>
-          <LogOut size={14} /> Quitter le groupe
+          <LogOut size={14} /> Quitter {w.the}
         </button>
         {isOwner && (
           <button className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700" disabled={busy} onClick={() => void destroy()}>
-            <Trash2 size={14} /> Supprimer le groupe
+            <Trash2 size={14} /> Supprimer {w.the}
           </button>
         )}
       </div>

@@ -10,7 +10,7 @@ import { cloudEnabled } from '../../lib/supabase';
 import { GROUP_COLORS, copyCode, createGroup, groupError, joinGroup, updateGroup, type Group } from '../../lib/groups';
 import { cx } from '../../lib/utils';
 import { ColorPicker, GroupBadge } from './shared';
-import { groupColor, useRights } from './util';
+import { groupColor, useGroupWords, useRights } from './util';
 import GroupNotes from './GroupNotes';
 import GroupEvents from './GroupEvents';
 import GroupMembers from './GroupMembers';
@@ -26,6 +26,7 @@ const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
 ];
 
 function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group) => void }) {
+  const w = useGroupWords();
   const [name, setName] = useState(group?.name ?? '');
   const [color, setColor] = useState<string>(group?.color ?? GROUP_COLORS[0]);
   const [busy, setBusy] = useState(false);
@@ -41,7 +42,7 @@ function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group) => vo
       } else {
         const g = await createGroup(name.trim(), color);
         await useGroups.getState().loadGroups();
-        toast('Groupe créé', 'success');
+        toast(w.created, 'success');
         onDone(g);
       }
     } catch (err) {
@@ -51,23 +52,24 @@ function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group) => vo
   };
   return (
     <form onSubmit={submit}>
-      <h3 className="text-[15px] font-semibold">{group ? 'Paramètres du groupe' : 'Créer un groupe'}</h3>
-      {!group && <p className="mt-1 text-[13px] text-stone-500">Tu recevras un code à donner à tes camarades pour qu’ils te rejoignent.</p>}
+      <h3 className="text-[15px] font-semibold">{group ? `Paramètres ${w.of}` : `Créer ${w.a}`}</h3>
+      {!group && <p className="mt-1 text-[13px] text-stone-500">Tu recevras un code à donner à {w.mates} pour qu’ils te rejoignent.</p>}
       <label className="eyebrow mt-4 block" htmlFor="group-name">Nom</label>
-      <input id="group-name" autoFocus value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder="Ex. L2 Bio — TD 3" className="field mt-1.5 w-full" />
+      <input id="group-name" autoFocus value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder={w.namePlaceholder} className="field mt-1.5 w-full" />
       <p className="eyebrow mt-4">Couleur</p>
       <div className="mt-2">
         <ColorPicker value={color} onChange={setColor} />
       </div>
       <div className="mt-6 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={() => onDone()}>Annuler</button>
-        <button type="submit" className="btn-primary" disabled={!name.trim() || busy}>{group ? 'Enregistrer' : 'Créer le groupe'}</button>
+        <button type="submit" className="btn-primary" disabled={!name.trim() || busy}>{group ? 'Enregistrer' : `Créer ${w.the}`}</button>
       </div>
     </form>
   );
 }
 
 function JoinForm({ onDone }: { onDone: (id?: string) => void }) {
+  const w = useGroupWords();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -79,12 +81,12 @@ function JoinForm({ onDone }: { onDone: (id?: string) => void }) {
     try {
       const id = await joinGroup(clean);
       if (!id) {
-        setError('Aucun groupe avec ce code. Vérifie-le auprès de la personne qui te l’a donné.');
+        setError(`${w.none} avec ce code. Vérifie-le auprès de la personne qui te l’a donné.`);
         setBusy(false);
         return;
       }
       await useGroups.getState().loadGroups();
-      toast('Tu as rejoint le groupe', 'success');
+      toast(`Tu as rejoint ${w.the}`, 'success');
       onDone(id);
     } catch (err) {
       setError(groupError(err));
@@ -93,8 +95,8 @@ function JoinForm({ onDone }: { onDone: (id?: string) => void }) {
   };
   return (
     <form onSubmit={submit}>
-      <h3 className="text-[15px] font-semibold">Rejoindre un groupe</h3>
-      <p className="mt-1 text-[13px] text-stone-500">Saisis le code à 6 caractères qu’un membre du groupe t’a donné.</p>
+      <h3 className="text-[15px] font-semibold">Rejoindre {w.a}</h3>
+      <p className="mt-1 text-[13px] text-stone-500">Saisis le code à 6 caractères qu’un membre {w.of} t’a donné.</p>
       <input
         autoFocus
         value={code}
@@ -116,12 +118,13 @@ function JoinForm({ onDone }: { onDone: (id?: string) => void }) {
 }
 
 function Intro({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
+  const w = useGroupWords();
   return (
     <div className="mx-auto flex max-w-[480px] flex-col py-10 md:py-16">
-      <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Travaille avec ta promo</h2>
-      <p className="mt-1.5 text-[13px] text-stone-500">Notes partagées et séances de révision en commun, avec ceux qui ont le code du groupe.</p>
+      <h2 className="text-[18px] font-semibold tracking-[-0.01em]">{w.introTitle}</h2>
+      <p className="mt-1.5 text-[13px] text-stone-500">{w.introText}</p>
       <div className="mt-6 flex flex-wrap gap-2">
-        <button className="btn-primary" onClick={onCreate}><Plus size={15} /> Créer un groupe</button>
+        <button className="btn-primary" onClick={onCreate}><Plus size={15} /> Créer {w.a}</button>
         <button className="btn-secondary" onClick={onJoin}><LogIn size={15} /> J’ai un code</button>
       </div>
       <p className="mt-6 text-[12px] text-stone-500">Les membres voient ton prénom, jamais ton adresse e-mail.</p>
@@ -130,13 +133,14 @@ function Intro({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void 
 }
 
 function OfflineNotice() {
+  const w = useGroupWords();
   return (
     <div className="flex h-full flex-col px-4 pb-10 md:px-8">
-      <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">Groupes</h1>
+      <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
         <p className="mt-3 text-[14px] font-medium">Disponible dans la version en ligne</p>
-        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur. Connecte-toi en ligne pour partager des notes avec d’autres étudiants.</p>
+        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur. Connecte-toi en ligne pour partager des notes avec {w.others}.</p>
       </div>
     </div>
   );
@@ -148,6 +152,7 @@ export default function GroupsPage() {
 }
 
 function Groups() {
+  const w = useGroupWords();
   const [params, setParams] = useSearchParams();
   const userId = useAuth(s => s.user?.id);
   const { groups, loaded, failed } = useGroups();
@@ -191,7 +196,7 @@ function Groups() {
       {/* Liste des groupes */}
       <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[248px]', active ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
-          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Groupes</h1>
+          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
           <button className="icon-btn ml-auto" title="Rejoindre avec un code" aria-label="Rejoindre avec un code" onClick={() => setDialog('join')}>
             <LogIn size={16} />
           </button>
@@ -203,7 +208,7 @@ function Groups() {
           {!loaded && <p className="p-4 text-[13px] text-stone-500">Chargement…</p>}
           {loaded && failed && (
             <div className="p-4 text-[13px] text-stone-500">
-              Impossible de charger tes groupes.{' '}
+              Impossible de charger tes {w.groups}.{' '}
               <button className="font-medium text-ink underline underline-offset-2" onClick={() => void useGroups.getState().loadGroups()}>Réessayer</button>
             </div>
           )}
@@ -230,7 +235,7 @@ function Groups() {
           ))}
           {loaded && !failed && groups.length === 0 && (
             <>
-              <p className="hidden px-2 py-3 text-[13px] text-stone-500 md:block">Aucun groupe pour l’instant.</p>
+              <p className="hidden px-2 py-3 text-[13px] text-stone-500 md:block">{w.none} pour l’instant.</p>
               <div className="card px-5 md:hidden">
                 <Intro onCreate={() => setDialog('create')} onJoin={() => setDialog('join')} />
               </div>
@@ -269,7 +274,7 @@ function Groups() {
                 />
               )}
               {active.ownerId === userId && (
-                <button className="icon-btn" title="Paramètres du groupe" aria-label="Paramètres du groupe" onClick={() => setDialog('settings')}>
+                <button className="icon-btn" title={`Paramètres ${w.of}`} aria-label={`Paramètres ${w.of}`} onClick={() => setDialog('settings')}>
                   <Settings2 size={16} />
                 </button>
               )}
@@ -288,7 +293,7 @@ function Groups() {
                   style={tab === t.id ? { borderColor: groupColor(active) } : undefined}
                 >
                   <t.icon size={15} strokeWidth={1.9} />
-                  {t.label}
+                  {t.id === 'revisions' ? w.meet.Tab : t.label}
                   {tab !== t.id && (unread[active.id]?.[t.id as 'notes'] ?? 0) > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-solid" aria-label="nouveau" />}
                 </button>
               ))}
@@ -307,8 +312,8 @@ function Groups() {
         ) : (
           <div className="card flex flex-1 flex-col items-center justify-center p-8 text-center">
             <Users size={28} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">Choisis un groupe</p>
-            <p className="mt-1 text-[13px] text-stone-500">Ses notes partagées, ses révisions et ses membres s’affichent ici.</p>
+            <p className="mt-3 text-[14px] font-medium">Choisis {w.a}</p>
+            <p className="mt-1 text-[13px] text-stone-500">Ses notes partagées, ses {w.meet.many} et ses membres s’affichent ici.</p>
           </div>
         )}
       </section>

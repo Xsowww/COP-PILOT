@@ -6,6 +6,7 @@ import { notify } from '../lib/notify';
 import { getSettings, useSettings } from './settings';
 import { toast } from './ui';
 import { goTo } from '../copilot/actions';
+import { groupWords } from '../lib/usage';
 
 // Pastilles et notifications « du nouveau dans tes groupes » : ce que les AUTRES membres ont ajouté
 // ou modifié depuis ta dernière visite de l'onglet concerné. Tout passe par un recomptage depuis la
@@ -82,8 +83,11 @@ function watching(gid: string, tab: ActivityTab) {
 }
 
 function announce(gid: string, more: Counts) {
-  const name = names[gid] ?? 'un de tes groupes';
-  const parts = TABLES.filter(t => more[t.tab]).map(t => `${more[t.tab]} ${more[t.tab] === 1 ? t.one : t.many}`);
+  const w = groupWords(getSettings().usage);
+  const name = names[gid] ?? w.yours;
+  // The meetings are « révisions », « réunions » or « rendez-vous » depending on the account.
+  const label = (t: (typeof TABLES)[number], n: number) => (t.tab === 'revisions' ? (n === 1 ? w.meet.One.toLowerCase() : w.meet.many) : n === 1 ? t.one : t.many);
+  const parts = TABLES.filter(t => more[t.tab]).map(t => `${more[t.tab]} ${label(t, more[t.tab]!)}`);
   const first = TABLES.find(t => more[t.tab])!.tab;
   const to = `/groupes?g=${gid}${first === 'notes' ? '' : `&onglet=${first}`}`;
   toast(`Du nouveau dans « ${name} » : ${parts.join(', ')}`, 'info', { label: 'Voir', run: () => goTo(to) });
