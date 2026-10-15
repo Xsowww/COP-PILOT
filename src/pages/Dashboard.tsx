@@ -7,7 +7,7 @@ import { useNotes } from '../store/notes';
 import { useCalendar, catOf, sortEvents, type CalendarEvent } from '../store/calendar';
 import { fmt, toKey, fromKey, weekStart, daysUntil } from '../lib/dates';
 import { relativeTime, stripHtml, cx } from '../lib/utils';
-import { hasRevisionPlan, linkToDay, linkToNote } from '../copilot/actions';
+import { hasRevisionPlan, revisionNote, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
 import { toast } from '../store/ui';
 import TodoList from './tasks/TodoList';
@@ -102,7 +102,8 @@ export default function Dashboard() {
   };
 
   // The sheet made for the next exam (with its sessions, or alone when it was too late for one).
-  const examSheet = nextExam && notes.find(n => n.title === `Fiche · ${nextExam.title}` || n.title === `À préparer · ${nextExam.title}`);
+  // (`notes` is read so the card follows its changes; revisionNote tells two exams of the same title apart.)
+  const examSheet = nextExam && notes.length ? revisionNote(nextExam) : undefined;
 
   const examDays = nextExam ? daysUntil(nextExam.date) : 0;
 
