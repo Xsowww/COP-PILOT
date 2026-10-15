@@ -119,6 +119,14 @@ const rowToFocus = (r: Row): FocusSession => ({ id: r.id as string, subject: (r.
 
 const isTrashed = (r: Row) => r.deleted_at != null;
 
+// Tables whose rows carry the time of the local change (the server keeps the newest version).
+// Notes and Drive items have it in the app already.
+const STAMPED = new Set<Table>(['events', 'todos', 'note_folders']);
+/** Tables without the column yet (migration 2026-10-15b not applied): sent without it, as before. */
+const noStamp = new Set<Table>();
+const unstamped = (rows: Row[]) => rows.map(({ updated_at: _u, ...r }) => r);
+const missingStamp = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && !!e.message?.includes('updated_at');
+
 // ── Pending changes ─────────────────────────────────────────────────────────
 
 // Parents must exist before their children: folders first, Drive items by depth.
@@ -127,7 +135,8 @@ const pending = Object.fromEntries(ORDER.map(t => [t, { upserts: new Map<string,
   Table,
   { upserts: Map<string, Row>; deletes: Set<string> }
 >;
-let profileDirty = false;
+/** Settings changed here and not sent yet ('*': all of them, queue saved by an older version). */
+const profileKeys = new Set<string>();
 let pulling = false;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let warned = false;
@@ -138,7 +147,7 @@ let currentUser: string | null = null;
 let changes = 0;
 let lastPull = 0;
 
-const hasPending = () => profileDirty || ORDER.some(t => pending[t].upserts.size || pending[t].deletes.size);
+const hasPending = () => profileKeys.size > 0 || ORDER.some(t => pending[t].upserts.size || pending[t].deletes.size);
 
 // The queue is mirrored in localStorage, so a change made just before closing the tab
 // is sent on the next visit instead of being overwritten by the older cloud copy.
@@ -159,7 +168,10 @@ function saveQueue() {
       return;
     }
     const data = Object.fromEntries(ORDER.map(t => [t, { upserts: [...pending[t].upserts.values()], deletes: [...pending[t].deletes] }]));
-    localStorage.setItem(queueKey(currentUser), JSON.stringify({ tables: data, profileDirty }));
+    localStorage.setItem(queueKey(currentUser), JSON.stringify({ tables: data, profileKeys: [...profileKeys] }));
+    // Their content is in this tab's queue now: left behind, they would be sent again on a later visit.
+    adopted.filter(k => k !== queueKey(currentUser!)).forEach(k => localStorage.removeItem(k));
+    adopted = [];
   } catch {
     /* storage full or unavailable: the in-memory queue still works */
   }
@@ -170,12 +182,16 @@ function loadQueue(userId: string) {
     if (!key.startsWith(queuePrefix(userId))) continue; // this tab's own key too (loaded again after a sign-in step)
     adopted.push(key);
     try {
-      const saved = JSON.parse(localStorage.getItem(key) ?? '') as { tables: Record<Table, { upserts: Row[]; deletes: string[] }>; profileDirty: boolean };
+      const saved = JSON.parse(localStorage.getItem(key) ?? '') as {
+        tables: Record<Table, { upserts: Row[]; deletes: string[] }>;
+        profileKeys?: string[];
+        profileDirty?: boolean;
+      };
       for (const t of ORDER) {
         for (const r of saved.tables[t]?.upserts ?? []) pending[t].upserts.set(r.id as string, r);
         for (const id of saved.tables[t]?.deletes ?? []) pending[t].deletes.add(id);
       }
-      profileDirty ||= saved.profileDirty;
+      for (const k of saved.profileKeys ?? (saved.profileDirty ? ['*'] : [])) profileKeys.add(k);
     } catch {
       /* corrupted queue: ignore */
     }
@@ -226,7 +242,13 @@ const PARENT: Partial<Record<Table, string>> = { drive_items: 'parent_id', notes
 let warnedCategories = false;
 
 async function upsertRows(table: Table, rows: Row[]) {
-  const { error } = await supabase!.from(table).upsert(rows);
+  if (noStamp.has(table)) rows = unstamped(rows);
+  let { error } = await supabase!.from(table).upsert(rows);
+  if (STAMPED.has(table) && missingStamp(error)) {
+    noStamp.add(table);
+    rows = unstamped(rows);
+    ({ error } = await supabase!.from(table).upsert(rows));
+  }
   if (!error) return 0;
   if (!permanent(error)) throw error;
   let dropped = 0;
@@ -293,15 +315,7 @@ async function send() {
         ids.forEach(id => p.deletes.delete(id));
       }
     }
-    if (profileDirty) {
-      profileDirty = false;
-      const { set: _set, reset: _reset, ...settings } = useSettings.getState();
-      const { error } = await supabase.from('profiles').update({ settings }).eq('id', currentUser);
-      if (error) {
-        profileDirty = true;
-        throw error;
-      }
-    }
+    if (profileKeys.size) await sendSettings(currentUser);
     warned = false;
     saveQueue();
   } catch (e) {
@@ -316,16 +330,38 @@ async function send() {
   }
 }
 
+let noMerge = false; // server without merge_settings (migration 2026-10-15b): the whole object, as before
+
+/**
+ * Sends only the settings changed on this device, merged on the server with the others: a device
+ * that hasn't seen a category created on another one doesn't erase it by saving its theme.
+ */
+async function sendSettings(user: string) {
+  const { set: _set, reset: _reset, ...all } = useSettings.getState();
+  const keys = profileKeys.has('*') || noMerge ? Object.keys(all) : [...profileKeys];
+  const patch = Object.fromEntries(keys.filter(k => k in all).map(k => [k, all[k as keyof typeof all]]));
+  let { error } = noMerge ? { error: null } : await supabase!.rpc('merge_settings', { patch });
+  if (error?.code === 'PGRST202') noMerge = true;
+  if (noMerge) ({ error } = await supabase!.from('profiles').update({ settings: all }).eq('id', user));
+  if (error) throw error;
+  // A setting changed again during the send stays to send.
+  const now = useSettings.getState() as unknown as Record<string, unknown>;
+  for (const k of [...profileKeys]) if (k === '*' || now[k] === patch[k]) profileKeys.delete(k);
+}
+
 /** Records the difference between two versions of a list (immutable updates → reference check). */
 function diff<T extends { id: string }>(table: Table, cur: T[], prev: T[], toRow: (x: T) => Row) {
   if (pulling || cur === prev) return;
   changes++;
+  const stamp = new Date().toISOString();
   const before = new Map(prev.map(x => [x.id, x]));
   const now = new Set<string>();
   for (const x of cur) {
     now.add(x.id);
     if (before.get(x.id) !== x) {
-      pending[table].upserts.set(x.id, toRow(x));
+      const row = toRow(x);
+      if (STAMPED.has(table)) row.updated_at = stamp;
+      pending[table].upserts.set(x.id, row);
       pending[table].deletes.delete(x.id);
     }
   }
@@ -436,8 +472,11 @@ async function refresh() {
 
 /** Starts pushing every change of the stores to Supabase. */
 export function startSync(userId: string) {
-  stopSync();
+  // Same account (start after a failed first send): keep what waits and retry it shortly.
+  if (currentUser === userId) detach();
+  else stopSync();
   currentUser = userId;
+  if (hasPending()) schedule(8000);
   unsubscribers = [
     useCalendar.subscribe((s, p) => {
       if (s.events !== p.events || s.trash !== p.trash) diff('events', [...s.events, ...s.trash], [...p.events, ...p.trash], eventToRow);
@@ -452,10 +491,12 @@ export function startSync(userId: string) {
     }),
     useTodos.subscribe((s, p) => diff('todos', s.todos, p.todos, todoToRow)),
     useFocusLog.subscribe((s, p) => diff('focus_sessions', s.sessions, p.sessions, focusToRow)),
-    useSettings.subscribe(() => {
+    useSettings.subscribe((s, p) => {
       if (pulling) return;
+      const changed = Object.keys(s).filter(k => typeof s[k as keyof Settings] !== 'function' && s[k as keyof Settings] !== p[k as keyof Settings]);
+      if (!changed.length) return;
       changes++;
-      profileDirty = true;
+      changed.forEach(k => profileKeys.add(k));
       saveQueue();
       schedule(1200);
     }),
@@ -480,9 +521,13 @@ export function startSync(userId: string) {
   );
 }
 
-export function stopSync() {
+function detach() {
   unsubscribers.forEach(u => u());
   unsubscribers = [];
+}
+
+export function stopSync() {
+  detach();
   saveQueue(); // keep unsent changes for the next visit
   adopted = [];
   currentUser = null;
@@ -491,7 +536,7 @@ export function stopSync() {
     pending[t].upserts.clear();
     pending[t].deletes.clear();
   }
-  profileDirty = false;
+  profileKeys.clear();
 }
 
 /** Sends what is waiting (before signing out, for instance); true when nothing is left to send. */

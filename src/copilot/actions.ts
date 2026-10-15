@@ -295,7 +295,30 @@ export function createRevisionNote(examId: string) {
   );
 }
 
-/** Spreads revision sessions over the days before an exam, at 18:00, skipping days already taken. */
+const toHm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+const toMin = (hm: string) => {
+  const [h, m] = hm.split(':').map(Number);
+  return h * 60 + m;
+};
+
+/**
+ * Hours of a 1h30 revision session on `date`: the usual time, or, on the exam day, a slot that
+ * ends 30 min before the exam (null when there is no time left). Today after the usual time:
+ * no hours, the session stays in the day's list.
+ */
+function revisionSlot(date: string, at: string, examStart: string | undefined, now: Date): { start?: string; end?: string } | null {
+  const isToday = date === toKey(now);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  if (examStart) {
+    const end = toMin(examStart) - 30;
+    const start = Math.max(end - 90, isToday ? Math.ceil(nowMin / 15) * 15 : 0);
+    return end - start >= 30 ? { start: toHm(start), end: toHm(end) } : null;
+  }
+  if (isToday && nowMin > toMin(at)) return {};
+  return { start: at, end: toHm(Math.min(23 * 60 + 59, toMin(at) + 90)) };
+}
+
+/** Spreads revision sessions over the days before an exam, at the usual revision time. None for a past exam. */
 export function planRevisions(examId: string, sessions = getSettings().revisionSessions) {
   const exam = useCalendar.getState().events.find(e => e.id === examId);
   if (!exam) return null;
@@ -312,23 +335,21 @@ export function planRevisions(examId: string, sessions = getSettings().revisionS
     }
   }
   if (candidates.length === 0) candidates.push(todayKey());
-  const chosen = [...new Set(candidates)].slice(0, n).sort();
-  const nowHm = fmt(today, 'HH:mm');
+  const chosen = until < 0 ? [] : [...new Set(candidates)].slice(0, n).sort();
   const at = getSettings().revisionTime || '18:00';
-  const [h, m] = at.split(':').map(Number);
-  const endMin = Math.min(23 * 60 + 59, h * 60 + m + 90); // 1h30 sessions
-  const endAt = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`;
-  const later = (d: string) => d === todayKey() && nowHm > at;
-  const created = chosen.map(date =>
-    useCalendar.getState().add({
-      title: revisionTitle(exam.title),
-      date,
-      start: later(date) ? undefined : at,
-      end: later(date) ? undefined : endAt,
-      category: 'devoir',
-      details: `Préparation de l'examen du ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`,
-    }),
-  );
+  const created = chosen.flatMap(date => {
+    const slot = revisionSlot(date, at, exam.date === date ? exam.start : undefined, today);
+    if (!slot) return [];
+    return [
+      useCalendar.getState().add({
+        title: revisionTitle(exam.title),
+        date,
+        ...slot,
+        category: 'devoir',
+        details: `Préparation de l'examen du ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`,
+      }),
+    ];
+  });
   const note = createRevisionNote(exam.id);
   return { exam, created, note };
 }

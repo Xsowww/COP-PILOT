@@ -317,8 +317,8 @@ export default function CalendarPage() {
           )}
         </form>
 
-        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1fr_300px]">
-          <section className="card p-4 md:p-5">
+        <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <section className="card min-w-0 p-4 md:p-5">
             {mode !== 'month' ? (
               <div className="grid grid-cols-7 gap-1">
                 {week.map(d => {
@@ -444,7 +444,7 @@ export default function CalendarPage() {
             </div>
           </section>
 
-          <aside aria-labelledby="a-venir-titre" className="card self-start p-4">
+          <aside aria-labelledby="a-venir-titre" className="card min-w-0 self-start p-4">
             <h2 id="a-venir-titre" className="mb-2 text-[13px] font-medium text-stone-600">
               À venir
             </h2>

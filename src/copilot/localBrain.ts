@@ -286,6 +286,12 @@ export function localReply(raw: string): BotReply {
     const exam = findExam(subject.length > 2 ? subject : '') ?? findExam('');
     if (!exam) return { text: "Je ne vois aucun examen à venir dans ton calendrier. Ajoute-le et je m'occupe du reste." };
     const res = planRevisions(exam.id)!;
+    if (!res.created.length) {
+      return {
+        text: `Plus le temps de caler une séance avant « ${exam.title} ». Je t'ai quand même préparé une fiche pour une dernière relecture.`,
+        links: res.note ? [{ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) }] : [],
+      };
+    }
     return {
       text: `Pour « ${exam.title} », je t'ai calé ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision et une fiche pour t'organiser.`,
       links: [

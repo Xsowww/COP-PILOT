@@ -66,12 +66,16 @@ export default function NotesPage() {
     if (active?.folderId) setExpanded(s => (s.has(active.folderId!) ? s : new Set([...s, active.folderId!])));
   }, [active?.folderId]);
 
+  // Focus (and select) the title of a note we just created, once its editor is on screen.
+  const focusTitleFor = useRef<string | null>(null);
+
   // Dashboard "+ Note" shortcut (guarded: StrictMode runs effects twice in dev).
   const handledNew = useRef(false);
   useEffect(() => {
     if (params.get('nouvelle') && !handledNew.current) {
       handledNew.current = true;
       const n = useNotes.getState().createNote();
+      focusTitleFor.current = n.id;
       setParams({ note: n.id });
     }
   }, [params, setParams]);
@@ -85,8 +89,6 @@ export default function NotesPage() {
     openNote(n.id);
   };
 
-  // Focus (and select) the title of a note we just created, once its editor is on screen.
-  const focusTitleFor = useRef<string | null>(null);
   const activeId = active?.id;
   useEffect(() => {
     if (!activeId || focusTitleFor.current !== activeId) return;
@@ -395,16 +397,7 @@ export default function NotesPage() {
                 <ArrowLeft size={17} />
               </button>
               <div className="min-w-0 flex-1">
-                <input
-                  id="note-title"
-                  key={active.id}
-                  defaultValue={active.title === 'Sans titre' ? '' : active.title}
-                  placeholder="Sans titre"
-                  aria-label="Titre de la note"
-                  onChange={e => store.updateNote(active.id, { title: e.target.value.trim() || 'Sans titre' })}
-                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), document.querySelector<HTMLElement>('.prose-note')?.focus())}
-                  className="w-full bg-transparent text-[26px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-400"
-                />
+                <NoteTitle key={active.id} note={active} />
                 <p className="mt-1 text-[12px] text-stone-500">
                   {folders.find(f => f.id === active.folderId)?.name ?? 'Sans dossier'} · modifiée {relativeTime(active.updatedAt)}
                 </p>
@@ -440,5 +433,30 @@ export default function NotesPage() {
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </div>
+  );
+}
+
+/**
+ * The open note's title. Typed freely (not re-rendered at each key), but follows a rename made
+ * elsewhere (menu, list) when it doesn't have the focus, or the next key would bring the old name back.
+ */
+function NoteTitle({ note }: { note: Note }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const shown = note.title === 'Sans titre' ? '' : note.title;
+  useEffect(() => {
+    const el = ref.current;
+    if (el && document.activeElement !== el && el.value.trim() !== shown) el.value = shown;
+  }, [shown]);
+  return (
+    <input
+      ref={ref}
+      id="note-title"
+      defaultValue={shown}
+      placeholder="Sans titre"
+      aria-label="Titre de la note"
+      onChange={e => useNotes.getState().updateNote(note.id, { title: e.target.value.trim() || 'Sans titre' })}
+      onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), document.querySelector<HTMLElement>('.prose-note')?.focus())}
+      className="w-full text-ellipsis bg-transparent text-[26px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-400"
+    />
   );
 }

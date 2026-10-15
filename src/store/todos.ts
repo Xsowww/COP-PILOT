@@ -18,8 +18,12 @@ interface TodosState {
   add: (title: string, due?: string) => Todo;
   update: (id: string, patch: Partial<Pick<Todo, 'title' | 'due'>>) => void;
   toggle: (id: string) => void;
-  remove: (id: string) => void;
-  clearDone: () => void;
+  /** Returns the removed task, for « Annuler ». */
+  remove: (id: string) => Todo | undefined;
+  /** Returns the removed tasks, for « Annuler ». */
+  clearDone: () => Todo[];
+  /** Puts back removed tasks (undo). */
+  restore: (todos: Todo[]) => void;
 }
 
 export const useTodos = create<TodosState>()(
@@ -34,8 +38,17 @@ export const useTodos = create<TodosState>()(
       update: (id, patch) => set(s => ({ todos: s.todos.map(t => (t.id === id ? { ...t, ...patch } : t)) })),
       toggle: id =>
         set(s => ({ todos: s.todos.map(t => (t.id === id ? { ...t, done: !t.done, doneAt: t.done ? undefined : nowIso() } : t)) })),
-      remove: id => set(s => ({ todos: s.todos.filter(t => t.id !== id) })),
-      clearDone: () => set({ todos: get().todos.filter(t => !t.done) }),
+      remove(id) {
+        const gone = get().todos.find(t => t.id === id);
+        set(s => ({ todos: s.todos.filter(t => t.id !== id) }));
+        return gone;
+      },
+      clearDone() {
+        const gone = get().todos.filter(t => t.done);
+        set(s => ({ todos: s.todos.filter(t => !t.done) }));
+        return gone;
+      },
+      restore: back => set(s => ({ todos: [...s.todos, ...back.filter(b => !s.todos.some(t => t.id === b.id))] })),
     }),
     { name: 'todos', storage: userStorage, skipHydration: true },
   ),

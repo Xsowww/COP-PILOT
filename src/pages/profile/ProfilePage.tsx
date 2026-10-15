@@ -616,7 +616,16 @@ function DataTab() {
     if (!(await confirmAction('Restaurer cette sauvegarde ?', 'Les notes, événements, tâches et dossiers absents d’ici seront ajoutés. Rien d’actuel n’est remplacé (sauf les réglages).', 'Restaurer', false))) return;
     try {
       const r = await importBackup(f);
-      toast(r.notes + r.events ? `${r.notes} note${r.notes > 1 ? 's' : ''} et ${r.events} événement${r.events > 1 ? 's' : ''} récupérés` : 'Rien à récupérer : tout est déjà là', 'success');
+      const parts = [
+        [r.notes, 'note'],
+        [r.events, 'événement'],
+        [r.todos, 'tâche'],
+        [r.folders, 'dossier'],
+      ]
+        .filter(([n]) => n)
+        .map(([n, word]) => `${n} ${word}${(n as number) > 1 ? 's' : ''}`);
+      const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} et ${parts.at(-1)}` : parts[0];
+      toast(list ? `Récupéré : ${list}.` : 'Rien à récupérer : tout est déjà là.', 'success');
     } catch (e) {
       toast((e as Error).message, 'error');
     }
@@ -684,7 +693,7 @@ function DataTab() {
 
 function AccountTab() {
   const navigate = useNavigate();
-  const { changePassword, deleteAccount, verifyPassword, logout } = useAuth.getState();
+  const { changePassword, deleteAccount, logout } = useAuth.getState();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
@@ -773,9 +782,8 @@ function AccountTab() {
             onClick={async () => {
               if (!(await confirmAction('Supprimer ton compte ?', 'Cette action est irréversible.', 'Supprimer'))) return;
               try {
-                await verifyPassword(deletePw); // check first: never wipe data on a wrong password
-                await clearBeforeAccountDeletion();
-                await deleteAccount(deletePw);
+                // Password and server checks come first: never wipe the Drive for a refused deletion.
+                await deleteAccount(deletePw, clearBeforeAccountDeletion);
                 resetLocalData(); // only once the account is gone: a failed deletion keeps the data
                 await leave();
               } catch (err) {

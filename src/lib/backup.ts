@@ -51,7 +51,7 @@ function missing<T extends { id: string }>(incoming: unknown, ...current: T[][])
  * here (deleted for good, or another device). Current items are kept as they are, so restoring an
  * old file never erases recent work. Settings are replaced.
  */
-export async function importBackup(file: File): Promise<{ notes: number; events: number }> {
+export async function importBackup(file: File): Promise<{ notes: number; events: number; todos: number; folders: number }> {
   const data = JSON.parse(await file.text());
   if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error('Ce fichier n’est pas une sauvegarde Kompaly.');
   const cal = useCalendar.getState();
@@ -70,7 +70,7 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   if (driveFolders.length) useDrive.setState(s => ({ items: [...s.items, ...driveFolders] }));
   const todos = missing(data.todos, useTodos.getState().todos);
   if (todos.length) useTodos.setState(s => ({ todos: [...s.todos, ...todos] }));
-  return { notes: notes.length, events: events.length };
+  return { notes: notes.length, events: events.length, todos: todos.length, folders: folders.length + driveFolders.length };
 }
 
 const icsDate = (date: string, time?: string) => (time ? `${date.replace(/-/g, '')}T${time.replace(':', '')}00` : date.replace(/-/g, ''));

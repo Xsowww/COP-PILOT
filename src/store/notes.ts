@@ -60,12 +60,13 @@ export function folderDescendants(folders: NoteFolder[], id: string): string[] {
   return out;
 }
 
-/** Trashed folders / notes shown at the top level of the trash. */
+/** Trashed folders / notes shown at the top level of the trash (their folder wasn't deleted together with them). */
 export function notesTrashRoots(trashFolders: NoteFolder[], trashNotes: Note[]) {
-  const inTrash = new Set(trashFolders.map(f => f.id));
+  const deletedAt = new Map(trashFolders.map(f => [f.id, f.deletedAt]));
+  const withParent = (parent: string | null, at?: string) => !!parent && deletedAt.has(parent) && deletedAt.get(parent) === at;
   return {
-    folders: trashFolders.filter(f => !f.parentId || !inTrash.has(f.parentId)),
-    notes: trashNotes.filter(n => !n.folderId || !inTrash.has(n.folderId)),
+    folders: trashFolders.filter(f => !withParent(f.parentId, f.deletedAt)),
+    notes: trashNotes.filter(n => !withParent(n.folderId, n.deletedAt)),
   };
 }
 
@@ -155,12 +156,24 @@ export const useNotes = create<NotesState>()(
       },
 
       purge(ids) {
-        const { trashFolders } = get();
-        const doomedF = new Set(ids.filter(id => trashFolders.some(f => f.id === id)).flatMap(id => folderDescendants(trashFolders, id)));
+        // A folder goes with what was deleted together with it. What was deleted earlier on its own
+        // stays in the trash, moved to the root: the server deletes a folder's content with it.
+        const { trashFolders, trashNotes } = get();
+        const doomedF = new Set<string>();
+        for (const id of ids) {
+          const root = trashFolders.find(f => f.id === id);
+          if (!root) continue;
+          for (const fid of folderDescendants(trashFolders, id)) if (trashFolders.find(f => f.id === fid)?.deletedAt === root.deletedAt) doomedF.add(fid);
+        }
+        const at = new Map(trashFolders.map(f => [f.id, f.deletedAt]));
         const doomedN = new Set(ids);
+        for (const n of trashNotes) if (n.folderId && doomedF.has(n.folderId) && at.get(n.folderId) === n.deletedAt) doomedN.add(n.id);
+        const time = nowIso();
         set(s => ({
-          trashFolders: s.trashFolders.filter(f => !doomedF.has(f.id)),
-          trashNotes: s.trashNotes.filter(n => !doomedN.has(n.id) && !(n.folderId && doomedF.has(n.folderId))),
+          trashFolders: s.trashFolders.filter(f => !doomedF.has(f.id)).map(f => (f.parentId && doomedF.has(f.parentId) ? { ...f, parentId: null } : f)),
+          trashNotes: s.trashNotes
+            .filter(n => !doomedN.has(n.id))
+            .map(n => (n.folderId && doomedF.has(n.folderId) ? { ...n, folderId: null, updatedAt: time } : n)),
         }));
       },
 

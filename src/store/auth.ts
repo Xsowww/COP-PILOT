@@ -89,7 +89,8 @@ interface AuthState {
   updateName: (name: string) => Promise<void>;
   verifyPassword: (password: string) => Promise<void>;
   changePassword: (current: string, next: string) => Promise<void>;
-  deleteAccount: (password: string) => Promise<void>;
+  /** `beforeDelete` clears what the server keeps (files, groups) once every check has passed. */
+  deleteAccount: (password: string, beforeDelete?: () => Promise<void>) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resendConfirmation: (email: string) => Promise<void>;
   setNewPassword: (password: string) => Promise<void>;
@@ -321,10 +322,18 @@ export const useAuth = create<AuthState>((set, get) => ({
     writeUsers(users.map(u => (u.id === get().user?.id ? { ...u, salt, hash } : u)));
   },
 
-  async deleteAccount(password) {
+  async deleteAccount(password, beforeDelete) {
     const user = get().user;
     if (!user) return;
     await get().verifyPassword(password);
+    if (supabase) {
+      // The same checks as delete_my_account, made before any file is removed: a refusal
+      // afterwards would leave the account without its Drive.
+      if (await nextMfaStep()) throw new Error('Reconnecte-toi avec le code de ton téléphone, puis réessaie.');
+      const { error: offline } = await supabase.from('profiles').select('id').eq('id', user.id).limit(1);
+      if (offline) throw new Error('La suppression a échoué, réessaie plus tard.');
+    }
+    await beforeDelete?.();
     if (supabase) {
       const { error } = await supabase.rpc('delete_my_account');
       if (error) {

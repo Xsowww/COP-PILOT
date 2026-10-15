@@ -12,12 +12,32 @@ import { toast } from './ui';
 import { useTodos } from './todos';
 import { TOUR_TODO } from './tour';
 import { useFocusLog } from './focusLog';
+import { useFocus, settleFocus } from './focus';
 import { renameToKompa } from '../lib/renameToKompa';
 import { applyUsage } from '../lib/usage';
 import { create } from 'zustand';
 
 /** True while a brand-new account still has to answer the welcome questionnaire. */
 export const useWelcome = create<{ pending: boolean }>(() => ({ pending: false }));
+
+// Local mode has no profile row: a flag per account says the questionnaire is still to answer,
+// so a reload in the middle of it doesn't skip it.
+const welcomeKey = (userId: string) => `cop:${userId}:welcome`;
+export function markLocalWelcome(userId: string) {
+  try {
+    localStorage.setItem(welcomeKey(userId), '1');
+  } catch {
+    /* private mode: the questionnaire still shows now, only a reload skips it */
+  }
+  useWelcome.setState({ pending: true });
+}
+function localWelcomePending(userId: string) {
+  try {
+    return localStorage.getItem(welcomeKey(userId)) === '1';
+  } catch {
+    return false;
+  }
+}
 
 let loading: Promise<void> = Promise.resolve();
 
@@ -42,6 +62,7 @@ async function load() {
   useNotes.setState({ folders: [], notes: [], trashFolders: [], trashNotes: [] });
   useTodos.setState({ todos: [] });
   useFocusLog.setState({ sessions: [] });
+  useFocus.setState({ phase: null, pausedLeft: null, label: '' });
   useCopilot.getState().reset();
   useSettings.getState().reset();
   setStorageUser(userId);
@@ -58,6 +79,7 @@ async function load() {
     useSettings.persist.rehydrate(),
     useTodos.persist.rehydrate(),
     useFocusLog.persist.rehydrate(),
+    useFocus.persist.rehydrate(),
   ]);
 
   // Cloud mode: the local copy above is only a cache, the truth is in Supabase.
@@ -73,11 +95,14 @@ async function load() {
       startSync(userId);
       toast('Impossible de charger tes données en ligne. Tu vois la dernière version enregistrée sur cet appareil.', 'error');
     }
+  } else if (localWelcomePending(userId)) {
+    useWelcome.setState({ pending: true });
   }
   // Trash: what has been there for more than 30 days goes for good.
   useDrive.getState().purgeExpired();
   useNotes.getState().purgeExpired();
   useCalendar.getState().purgeExpired();
+  settleFocus();
   renameToKompa();
   applyUsage(useSettings.getState().usage);
   applyAppearance(useSettings.getState());
@@ -98,6 +123,7 @@ export async function finishWelcome(answers: WelcomeAnswers) {
   seedNewAccount();
   // Saved before leaving the page: switching to the home page first let a closed tab lose it (questionnaire again).
   if (cloudEnabled && user) await updateCloudProfile(user.id, { onboarded: true }).catch(() => undefined);
+  if (!cloudEnabled && user) localStorage.removeItem(welcomeKey(user.id));
   useWelcome.setState({ pending: false });
 }
 

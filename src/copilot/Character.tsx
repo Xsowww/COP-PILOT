@@ -87,14 +87,14 @@ export default function Character({ pose, look = { x: -1, y: 0 }, blink = false,
   const shadowId = `cop-shadow-${useId().replace(/[^\w-]/g, '')}`; // several Copilots can be on screen
 
   return (
-    <svg viewBox="0 0 124 140" width={size} height={(size * 140) / 124} className="overflow-visible select-none" aria-hidden>
+    <svg viewBox="0 0 124 140" width={size} height={(size * 140) / 124} className="pointer-events-none overflow-visible select-none" aria-hidden>
       <defs>
         <filter id={shadowId} x="-30%" y="-30%" width="160%" height="160%">
           <feDropShadow dx="-1.5" dy="3" stdDeviation="3" floodColor="#1c1b19" floodOpacity="0.16" />
         </filter>
       </defs>
 
-      <g style={{ transform: HEAD[pose], transformOrigin: '118px 72px', transition: 'transform 480ms cubic-bezier(.34,1.45,.64,1)' }}>
+      <g style={{ pointerEvents: 'visiblePainted', transform: HEAD[pose], transformOrigin: '118px 72px', transition: 'transform 480ms cubic-bezier(.34,1.45,.64,1)' }}>
         <g filter={`url(#${shadowId})`}className={mood === 'alert' ? 'cop-bounce' : 'cop-breathe'}>
           <g className={mood === 'alert' ? 'cop-wiggle' : undefined}>
             {/* headset band (behind the head) */}

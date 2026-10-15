@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarPlus, Check, ChevronRight, Trash2, X } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { isTourTodo, startTour } from '../../store/tour';
+import { toast } from '../../store/ui';
 
 const OVERDUE = 'var(--cat-examen-text)';
 
@@ -21,14 +22,28 @@ function DueLabel({ due }: { due: string }) {
   );
 }
 
+/** Removes tasks with a way back: a single tap on the bin must not lose one for good. */
+function removeWithUndo(gone: Todo[]) {
+  if (!gone.length) return;
+  const text = gone.length === 1 ? `Tâche « ${gone[0].title} » supprimée` : `${gone.length} tâches terminées effacées`;
+  toast(text, 'info', { label: 'Annuler', run: () => useTodos.getState().restore(gone) });
+}
+
 function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
   const { toggle, remove, update } = useTodos();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(t.title);
+  const titleRef = useRef<HTMLSpanElement>(null);
   const overdue = !t.done && !!t.due && t.due < todayKey();
+  const canEdit = editable && !t.done;
 
-  const save = () => {
+  // Back to the title once edited, or the keyboard focus would fall to the top of the page.
+  const stopEditing = () => {
     setEditing(false);
+    setTimeout(() => titleRef.current?.focus(), 0);
+  };
+  const save = () => {
+    stopEditing();
     if (title.trim() && title.trim() !== t.title) update(t.id, { title: title.trim() });
     else setTitle(t.title);
   };
@@ -56,16 +71,28 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
             if (e.key === 'Enter') save();
             if (e.key === 'Escape') {
               setTitle(t.title);
-              setEditing(false);
+              stopEditing();
             }
           }}
+          aria-label="Modifier la tâche"
           className="field h-7 min-w-0 flex-1 px-2"
         />
       ) : (
         <span
-          onDoubleClick={() => editable && !t.done && setEditing(true)}
-          className={cx('line-clamp-2 min-w-0 flex-1 break-words text-[13px]', t.done ? 'text-stone-500 line-through' : 'text-ink')}
-          title={editable && !t.done ? 'Double-clic pour modifier' : t.title}
+          ref={titleRef}
+          onDoubleClick={() => canEdit && setEditing(true)}
+          {...(canEdit && {
+            role: 'button',
+            tabIndex: 0,
+            'aria-label': `Modifier « ${t.title} »`,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key !== 'Enter' && e.key !== 'F2') return;
+              e.preventDefault();
+              setEditing(true);
+            },
+          })}
+          className={cx('line-clamp-2 min-w-0 flex-1 break-words rounded text-[13px]', t.done ? 'text-stone-500 line-through' : 'text-ink')}
+          title={canEdit ? 'Double-clic (ou Entrée) pour modifier' : t.title}
         >
           {t.title}
         </span>
@@ -92,7 +119,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
         </span>
       )}
       {t.done && t.doneAt && <span className="tabular shrink-0 text-[11px] text-stone-500">{fmt(new Date(t.doneAt), 'd MMM')}</span>}
-      <button onClick={() => remove(t.id)} className="icon-btn touch-show h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
+      <button onClick={() => removeWithUndo([remove(t.id)].filter(x => !!x))} className="icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
         <Trash2 size={13} />
       </button>
     </li>
@@ -205,7 +232,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
               <ChevronRight size={13} className={cx('transition-transform', showDone && 'rotate-90')} />
               Terminées <span className="tabular text-stone-500">{done.length}</span>
             </button>
-            <button onClick={clearDone} className="ml-auto rounded px-1 text-[12px] text-stone-500 hover:text-ink">
+            <button onClick={() => removeWithUndo(clearDone())} className="ml-auto rounded px-1 text-[12px] text-stone-500 hover:text-ink">
               Effacer les terminées
             </button>
           </div>

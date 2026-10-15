@@ -173,9 +173,14 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       const exam = findExam(str(input.exam));
       if (!exam) throw new Error('examen introuvable');
       const res = planRevisions(exam.id, typeof input.sessions === 'number' ? input.sessions : 3)!;
-      links.push({ label: 'Voir le planning', to: linkToDay(res.created[0].date) });
+      if (res.created.length) links.push({ label: 'Voir le planning', to: linkToDay(res.created[0].date) });
       if (res.note) links.push({ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) });
-      return { exam: describeEvent(exam), sessions: res.created.map(describeEvent), note: res.note?.title };
+      return {
+        exam: describeEvent(exam),
+        sessions: res.created.map(describeEvent),
+        note: res.note?.title,
+        ...(res.created.length ? {} : { warning: "aucune séance créée : l'examen est passé ou trop proche" }),
+      };
     }
     case 'create_note': {
       const n = createNote(str(input.title) || 'Note', typeof input.content === 'string' ? input.content : '', str(input.folder) || undefined);

@@ -434,8 +434,10 @@ export default function Copilot() {
         )}
 
         {/* The character */}
+        {/* Only the drawn shapes take clicks (Character): the empty corners of its
+            box sit over page buttons near the right edge. */}
         <div
-          className="pointer-events-auto cursor-pointer touch-none"
+          className="cursor-pointer touch-none"
           style={{ clipPath: 'inset(-80px 0 -80px -80px)' }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

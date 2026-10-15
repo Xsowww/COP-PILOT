@@ -3,6 +3,7 @@
 import { useCopilot, type CopilotOffer, type CopilotLink } from '../store/copilot';
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
+import type { Note } from '../store/notes';
 import { createRevisionNote, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems } from './actions';
 import { fmt, fromKey } from '../lib/dates';
 
@@ -18,12 +19,21 @@ export function runOffer(offer: CopilotOffer): OfferResult {
   return r;
 }
 
+/** No slot left before the exam: only the revision sheet. */
+function tooLate(note: Note | null): OfferResult {
+  return {
+    text: "Plus le temps de caler une séance avant l'examen. Je t'ai quand même préparé une fiche pour une dernière relecture.",
+    links: note ? [{ label: 'Ouvrir la fiche', to: linkToNote(note.id) }] : [],
+  };
+}
+
 function run(offer: CopilotOffer): OfferResult {
   const p = offer.payload ?? {};
   switch (offer.kind) {
     case 'plan_revisions': {
       const res = planRevisions(p.eventId, Number(p.sessions) || 3);
       if (!res) return { text: "Je ne retrouve plus cet examen, il a peut-être été supprimé." };
+      if (!res.created.length) return tooLate(res.note);
       const days = res.created.map(e => fmt(fromKey(e.date), 'EEEE d')).join(', ');
       return {
         text: `C'est calé : ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision (${days}) et une fiche « ${res.note?.title} » pour t'organiser. Tu me remercieras le jour J.`,
