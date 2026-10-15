@@ -9,12 +9,15 @@ import { downloadItem } from '../drive/download';
 import { deleteFile, downloadFile, groupError, type Group, type GroupFile } from '../../lib/groups';
 import { cx, formatBytes, relativeTime } from '../../lib/utils';
 import { shareFiles, useGroupWords, useMemberName, useRights } from './util';
+import { useSettings } from '../../store/settings';
+import { usageWords } from '../../lib/usage';
 
 /** Un fichier du groupe vu comme un élément du Drive (pour l'aperçu et le téléchargement). */
 const asItem = (f: GroupFile): DriveItem => ({ id: f.id, name: f.name, kind: 'file', parentId: null, mime: f.mime ?? undefined, size: f.size, createdAt: f.createdAt, updatedAt: f.createdAt });
 
 export default function GroupFiles({ group }: { group: Group }) {
   const w = useGroupWords();
+  const examples = usageWords(useSettings(s => s.usage)).sharedFiles;
   const files = useGroups(s => s.files[group.id]);
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
@@ -84,7 +87,7 @@ export default function GroupFiles({ group }: { group: Group }) {
             <p className="mt-3 text-[14px] font-medium">Aucun fichier partagé</p>
             {canEdit ? (
               <>
-                <p className="mt-1 text-[13px] text-stone-500">Cours, sujets, corrigés… dépose-les ici ou choisis-les dans ton Drive.</p>
+                <p className="mt-1 text-[13px] text-stone-500">{examples} dépose-les ici ou choisis-les dans ton Drive.</p>
                 <button className="btn-secondary mt-4 h-8 px-3" onClick={() => input.current?.click()}>
                   <Paperclip size={14} /> Ajouter un fichier
                 </button>

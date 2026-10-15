@@ -123,7 +123,8 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
   else if (cut(new RegExp(`\\sdemain${PERIOD}(?=\\s)`))) date = addDays(base, 1);
   else if (cut(new RegExp(`\\s(?:avant-hier|avant hier)${PERIOD}(?=\\s)`))) date = addDays(base, -2);
   else if (cut(new RegExp(`\\shier${PERIOD}(?=\\s)`))) date = addDays(base, -1);
-  else if (cut(/\s(?:aujourd'hui|aujourdhui|ce soir|ce matin|cet aprem|cet apres-midi)(?=\s)/) || thisNoon) date = base;
+  // « le contrôle d'aujourd'hui »: the « d' » goes with the day.
+  else if (cut(/\s(?:d')?(?:aujourd'hui|aujourdhui)(?=\s)|\s(?:ce soir|ce matin|cet aprem|cet apres-midi)(?=\s)/) || thisNoon) date = base;
   else if (cut(/\s(?:la\s)?semaine\sprochaine(?=\s)/)) date = addDays(weekStart(base), 7);
 
   // dd/mm(/yyyy), with the day name that may come before: "mardi 3/11"
@@ -145,14 +146,19 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
     }
   }
 
-  // Weekday names: "vendredi", "lundi prochain", "vendredi soir"
+  // Weekday names: "vendredi" (the next one), "vendredi soir", "lundi prochain".
+  // « Jeudi prochain » is the Thursday of next week (« ce jeudi » / « jeudi » is the coming one):
+  // said on a Wednesday it is in 8 days, said on a Saturday « mardi prochain » is in 3 days.
   if (!date) {
-    const m = cut(new RegExp(`\\s${BEFORE}(?:ce\\s|le\\s)?(${DAY})(?:\\sprochain)?${PERIOD}(?=\\s)`));
+    const m = cut(new RegExp(`\\s${BEFORE}(?:ce\\s|le\\s)?(${DAY})(\\sprochain)?${PERIOD}(?=\\s)`));
     if (m) {
       const target = WEEKDAYS.indexOf(m[1]);
-      let delta = (target - base.getDay() + 7) % 7;
-      if (delta === 0) delta = 7;
-      date = addDays(base, delta);
+      if (m[2]) date = addDays(weekStart(base), 7 + ((target + 6) % 7));
+      else {
+        let delta = (target - base.getDay() + 7) % 7;
+        if (delta === 0) delta = 7;
+        date = addDays(base, delta);
+      }
     }
   }
 

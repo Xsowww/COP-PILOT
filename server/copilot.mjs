@@ -148,13 +148,13 @@ export function trimHistory(messages, { budget, toolChars }) {
   if (!starts.length) return [];
   const last = starts.at(-1);
   // A pasted course can make the question itself huge: cut it like a tool result.
-  const QUESTION_NOTE = "\n[… message coupé : trop long, seul le début a été lu. Dis-le à l'étudiant.]";
+  const QUESTION_NOTE = "\n[… message coupé : trop long, seul le début a été lu. Dis-le à l'utilisateur.]";
   const cutText = t => (t.length > toolChars ? t.slice(0, toolChars) + QUESTION_NOTE : t);
   const out = messages.map((m, i) => {
     if (m.role !== 'user') return m;
     if (typeof m.content === 'string') return { ...m, content: cutText(m.content) };
     const max = i < last ? 300 : toolChars;
-    const note = i < last ? ' […]' : "\n[… coupé : trop long pour l'IA, seul le début a été lu. Dis-le à l'étudiant.]";
+    const note = i < last ? ' […]' : "\n[… coupé : trop long pour l'IA, seul le début a été lu. Dis-le à l'utilisateur.]";
     return {
       ...m,
       content: m.content.map(b =>

@@ -4,7 +4,7 @@ import { ArrowLeft, Briefcase, Check, GraduationCap, House, Loader2 } from 'luci
 import Logo from '../components/Logo';
 import { useAuth } from '../store/auth';
 import { finishWelcome, loadWelcomeDraft, saveWelcomeDraft, type WelcomeAnswers } from '../store/session';
-import { PERSONAS } from '../lib/personas';
+import { PERSONAS, personaLabel } from '../lib/personas';
 import { USAGES, WORDS, type Usage } from '../lib/usage';
 import { cx } from '../lib/utils';
 
@@ -173,7 +173,7 @@ export default function WelcomePage() {
               {PERSONAS.map(p => (
                 <button key={p.key} type="button" className={choice(a.persona === p.key)} onClick={() => set({ persona: p.key })}>
                   <span>
-                    <span className="block text-[14px] font-medium">{p.label}</span>
+                    <span className="block text-[14px] font-medium">{personaLabel(p, a.usage)}</span>
                     <span className="block text-[12px] text-stone-500">{p.description}</span>
                   </span>
                 </button>

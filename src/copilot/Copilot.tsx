@@ -10,7 +10,7 @@ import * as claudeBrain from './claudeBrain';
 import { normalize, cx } from '../lib/utils';
 import { useSettings } from '../store/settings';
 import Markdown from './Markdown';
-import { stripMarkdown } from './markdown';
+import { frenchSpacing, stripMarkdown } from './markdown';
 import { aiPausedUntil, aiPauseReason } from './aiPause';
 import { useDictation } from './voice';
 
@@ -36,7 +36,7 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
             i === 0 ? 'bg-ink text-paper hover:bg-stone-800' : 'border border-stone-200 bg-surface text-stone-700 hover:bg-stone-50',
           )}
         >
-          {o.label}
+          {frenchSpacing(o.label)}
         </button>
       ))}
       {links?.map(l => (
@@ -45,7 +45,7 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
           onClick={() => onGo(l.to)}
           className="h-7 max-w-full truncate rounded-md border border-stone-200 bg-surface px-2.5 text-[12px] font-medium text-stone-700 transition-colors hover:bg-stone-50 pointer-coarse:h-9"
         >
-          {l.label} →
+          {frenchSpacing(l.label)} →
         </button>
       ))}
     </div>

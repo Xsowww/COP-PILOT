@@ -19,6 +19,7 @@ import {
   ListChecks,
   CheckCheck,
   GraduationCap,
+  CalendarClock,
   Sunrise,
   Moon,
   Sprout,
@@ -36,6 +37,7 @@ import { useFocus } from '../store/focus';
 import { getStorageUser } from './userStorage';
 import { toKey, todayKey, fromKey, weekStart } from './dates';
 import { normalize } from './utils';
+import type { Usage } from './usage';
 
 export type BadgeFamily = 'regularite' | 'focus' | 'organisation' | 'contenu';
 
@@ -68,6 +70,8 @@ export interface BadgeData {
   sessions: FocusSession[];
   focusSessions: number; // settings counter (includes sessions older than the log)
   focusTotalMinutes: number;
+  /** What the account is for: the « Coup d'avance » badge speaks of revisions or of time to prepare. */
+  usage?: Usage;
 }
 
 /* ── Helpers ─────────────────────────────────────────────────── */
@@ -105,7 +109,8 @@ function streakHistory(events: CalendarEvent[]) {
 
 const nth = <T,>(sorted: T[], n: number) => (sorted.length >= n ? sorted[n - 1] : undefined);
 const byDate = (a: { createdAt: string }, b: { createdAt: string }) => a.createdAt.localeCompare(b.createdAt);
-const isRevision = (title: string) => normalize(title).startsWith('revision');
+/** A session to get ready: « Révision… » (studies, or typed by hand), « Préparation · … » (Kompaly outside studies). */
+const isRevision = (e: CalendarEvent) => e.externalId?.startsWith('revision:') || /^(?:revision|preparation)/.test(normalize(e.title));
 
 /** A week (Monday→Sunday) in which every calendar item and every dated to-do is done, with at least 3 of them. */
 function weekAllDone(events: CalendarEvent[], todos: Todo[]) {
@@ -132,9 +137,9 @@ function weekAllDone(events: CalendarEvent[], todos: Todo[]) {
   };
 }
 
-/** An exam with at least one « Révision… » session planned in the 30 days before it. */
+/** An exam (deadline, big day) with at least one « Révision… » or « Préparation… » session planned in the 30 days before it. */
 function examPrepared(events: CalendarEvent[]) {
-  const revisions = events.filter(e => isRevision(e.title));
+  const revisions = events.filter(isRevision);
   let at: string | undefined;
   for (const exam of events.filter(e => e.category === 'examen')) {
     const from = toKey(addDays(fromKey(exam.date), -30));
@@ -145,6 +150,12 @@ function examPrepared(events: CalendarEvent[]) {
 }
 
 /* ── Definitions ─────────────────────────────────────────────── */
+
+const PREPARED: Record<Usage, string> = {
+  etudes: 'Des révisions planifiées avant un examen.',
+  travail: 'Du temps bloqué pour préparer une échéance.',
+  perso: 'Du temps bloqué pour préparer un grand jour.',
+};
 
 export function computeBadges(d: BadgeData, seen: string[] = []): Badge[] {
   const streak = streakHistory(d.events);
@@ -209,7 +220,7 @@ export function computeBadges(d: BadgeData, seen: string[] = []): Badge[] {
       current: week.current, target: week.target, earnedAt: week.at,
     },
     {
-      id: 'examen-prepare', title: 'Coup d’avance', description: 'Des révisions planifiées avant un examen.', icon: GraduationCap, family: 'organisation',
+      id: 'examen-prepare', title: 'Coup d’avance', description: PREPARED[d.usage ?? 'etudes'] ?? PREPARED.etudes, icon: (d.usage ?? 'etudes') === 'etudes' ? GraduationCap : CalendarClock, family: 'organisation',
       current: prepared ? 1 : 0, target: 1, earnedAt: prepared,
     },
     {
@@ -253,9 +264,10 @@ export function useBadges() {
   const focusSessions = useSettings(s => s.focusSessions);
   const focusTotalMinutes = useSettings(s => s.focusTotalMinutes);
   const seen = useSettings(s => s.badgesSeen);
+  const usage = useSettings(s => s.usage);
   return useMemo(
-    () => computeBadges({ events, notes, items, todos, sessions, focusSessions, focusTotalMinutes }, seen),
-    [events, notes, items, todos, sessions, focusSessions, focusTotalMinutes, seen],
+    () => computeBadges({ events, notes, items, todos, sessions, focusSessions, focusTotalMinutes, usage }, seen),
+    [events, notes, items, todos, sessions, focusSessions, focusTotalMinutes, usage, seen],
   );
 }
 
@@ -275,6 +287,7 @@ function snapshot(): BadgeData {
     sessions: useFocusLog.getState().sessions,
     focusSessions: s.focusSessions,
     focusTotalMinutes: s.focusTotalMinutes,
+    usage: s.usage,
   };
 }
 

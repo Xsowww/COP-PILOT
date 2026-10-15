@@ -103,6 +103,17 @@ export function parseMarkdown(src: string): MdBlock[] {
   return blocks;
 }
 
+/**
+ * French spacing for Kompaly's words, applied when they are shown (plain text only, never code):
+ * a no-break space inside « » and before : ; ? !, so a quote mark or a colon never ends up alone on a line.
+ */
+export function frenchSpacing(text: string): string {
+  return text
+    .replace(/«[ \t\u00a0\u202f]*/g, '«\u00a0')
+    .replace(/[ \t\u00a0\u202f]*»/g, '\u00a0»')
+    .replace(/[ \t\u202f]+(?=[:;?!])/g, '\u00a0');
+}
+
 /** Plain text for speech synthesis and copying: no Markdown symbols left. */
 export function stripMarkdown(src: string): string {
   return src

@@ -408,9 +408,12 @@ export function describeApiError(e: unknown): string {
   const code = e instanceof CopilotApiError ? e.code : 'unknown';
   if (code === 'rate_limited') {
     const until = aiPausedUntil();
+    // The same length as the countdown in the header (« IA dans 1:59 » → two minutes).
+    const minutes = Math.max(1, Math.ceil((until - Date.now()) / 60_000));
+    const pause = minutes === 1 ? 'une minute' : minutes === 2 ? 'deux minutes' : minutes === 3 ? 'trois minutes' : `${minutes} minutes`;
     return until - Date.now() > 10 * 60_000
       ? `L'IA gratuite a atteint sa limite pour l'instant : je passe en mode simple jusqu'à ${fmt(new Date(until), "HH'h'mm")}.`
-      : "L'IA gratuite est très demandée : je passe en mode simple une minute.";
+      : `L'IA gratuite est très demandée : je passe en mode simple ${until ? pause : 'un instant'}.`;
   }
   if (code === 'daily_limit') return "Tu as utilisé toutes tes questions à l'IA pour aujourd'hui : je passe en mode simple jusqu'à minuit.";
   if (code === 'site_limit') return "L'IA gratuite a atteint sa limite du jour pour tout le site : je passe en mode simple jusqu'à minuit.";

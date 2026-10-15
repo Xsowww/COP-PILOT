@@ -3,6 +3,8 @@ import { Plus, Tag, X } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useDrive, FOLDER_COLORS } from '../../store/drive';
 import { cx } from '../../lib/utils';
+import { useSettings } from '../../store/settings';
+import { usageWords } from '../../lib/usage';
 
 const PALETTE = Object.values(FOLDER_COLORS).map(c => c.color);
 
@@ -50,6 +52,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
   const items = useDrive(s => s.items);
   const targets = items.filter(i => ids.includes(i.id));
   const [draft, setDraft] = useState('');
+  const usage = useSettings(s => s.usage);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const current = [...new Set(targets.flatMap(i => i.tags ?? []))].sort((a, b) => a.localeCompare(b, 'fr'));
@@ -99,7 +102,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
           add(draft);
         }}
       >
-        <input ref={inputRef} autoFocus value={draft} onChange={e => setDraft(e.target.value)} placeholder="Nouvelle étiquette, ex. Partiels" className="field min-w-0 flex-1" maxLength={32} />
+        <input ref={inputRef} autoFocus value={draft} onChange={e => setDraft(e.target.value)} placeholder={`Nouvelle étiquette, ex. ${usageWords(usage).tagExample}`} className="field min-w-0 flex-1" maxLength={32} />
         <button type="submit" className="btn-secondary" disabled={!draft.trim()}>
           <Plus size={15} /> Ajouter
         </button>

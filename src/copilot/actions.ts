@@ -13,7 +13,7 @@ import { toKey, todayKey, daysUntil, fromKey, fmt, weekStart, countdownLabel } f
 import type { CopilotLink } from '../store/copilot';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
 import { usageWords } from '../lib/usage';
-import { noteFor, noteTitle, pickExam, planTag, sessionsFor } from './revisionPlan';
+import { hasTwin, noteFor, noteTitle, pickExam, planTag, sessionsFor } from './revisionPlan';
 
 // Studies: revision sessions and a revision sheet; work and personal life: time to prepare and a checklist.
 const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
@@ -144,7 +144,7 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
   }
   const late = a.lateHomework;
   if (late.length) {
-    lines.push(studying() ? `Attention, ${late.length} devoir(s) en retard : ${late.map(e => e.title).join(', ')}.` : `Attention, en retard : ${late.map(e => e.title).join(', ')}.`);
+    lines.push(studying() ? `Attention, ${late.length} devoir${late.length > 1 ? 's' : ''} en retard : ${late.map(e => e.title).join(', ')}.` : `Attention, en retard : ${late.map(e => e.title).join(', ')}.`);
   } else if (a.nextDeadlines.length) {
     lines.push(`${studying() ? 'Prochain rendu' : 'À faire ensuite'} : ${a.nextDeadlines[0].title} (${inSentence(countdownLabel(a.nextDeadlines[0].date))}).`);
   }
@@ -302,14 +302,19 @@ export function revisionNote(exam: CalendarEvent) {
   return noteFor(exam, useNotes.getState().notes, useCalendar.getState().events);
 }
 
+/** « « Contrôle de maths » », with its day when another exam has the same title (« … » du 10 novembre). */
+export function examLabel(exam: CalendarEvent) {
+  return `« ${exam.title} »${hasTwin(exam, useCalendar.getState().events) ? ` du ${fmt(fromKey(exam.date), 'd MMMM')}` : ''}`;
+}
+
 /** Kompaly's answer when asked to plan an exam that already has its sessions (no duplicates). */
 export function alreadyPlanned(exam: CalendarEvent) {
   const first = revisionSessions(exam)[0];
   const note = revisionNote(exam);
   return {
     text: studying()
-      ? `C'est déjà planifié pour « ${exam.title} » : tes séances de révision sont dans le calendrier.`
-      : `C'est déjà planifié pour « ${exam.title} » : tes créneaux de préparation sont dans le calendrier.`,
+      ? `C'est déjà planifié pour ${examLabel(exam)} : tes séances de révision sont dans le calendrier.`
+      : `C'est déjà planifié pour ${examLabel(exam)} : tes créneaux de préparation sont dans le calendrier.`,
     links: [
       ...(first ? [{ label: 'Voir le planning', to: linkToDay(first.date) }] : []),
       ...(note ? [{ label: openNoteLabel(), to: linkToNote(note.id) }] : []),

@@ -105,23 +105,42 @@ export function customCategoryIn(title: string): EventCategory | undefined {
 }
 
 /** Something to hand in (« Marquer comme rendu »): a revision session is homework-coloured but not one. */
-export const isDeliverable = (e: Pick<CalendarEvent, 'category' | 'title'>) => e.category === 'devoir' && !/^(r[ée]vision|préparation)\b/i.test(e.title.trim());
+export const isDeliverable = (e: Pick<CalendarEvent, 'category' | 'title'>) => e.category === 'devoir' && !/^(r[ée]vis|pr[ée]paration)/i.test(e.title.trim()); // révision(s), réviser
+
+/** A work title: Réunion (cours), Devis (devoir), Échéance (examen), or the private life (perso). */
+function workCategory(t: string, timed: boolean): EventCategory | undefined {
+  // Private life seen from a work calendar: the dentist or a birthday is not a meeting nor a deadline.
+  if (/(m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?\b)/.test(t)) return 'perso';
+  if (/(r[ée]union|meeting|\bcall\b|visio(?!n)|point (d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|\brdv\b|\brevue\b|s[ée]minaire|atelier|comit[ée]|formation|conf[ée]rence|webinaire)/.test(t)) return 'cours';
+  if (/(devis|facture|relance|proposition|contrat|payer|paiement|imp[oô]ts?|d[ée]claration|urssaf|\btva\b)/.test(t)) return 'devoir';
+  if (/(deadline|[ée]ch[ée]ance|date limite|livraison|lancement|audit|salon|d[ée]m[ée]nagement|rendre|rendu|remise|soutenance|pr[ée]sentation|d[ée]mo\b|bouclage|cl[ôo]ture)/.test(t)) return 'examen';
+  // « Projet Dupont lundi 10h »: a work session on it; without an hour, a project milestone.
+  if (/\bprojet\b/.test(t)) return timed ? 'cours' : 'examen';
+  return undefined;
+}
 
 /**
  * Guess a category from the title so the student never has to think about it. `timed`: a TD or TP
- * with an hour is a class, not homework.
+ * with an hour is a class, not homework. Work and personal accounts use the same five categories under
+ * other names (see lib/usage): Réunion / Échéance / Devis at work, Rendez-vous / Important / À faire at home.
  */
 export function guessCategory(title: string, timed = false): EventCategory {
   const own = customCategoryIn(title);
   if (own) return own;
   const t = title.toLowerCase();
-  // Work and personal accounts use the same five categories under other names (see lib/usage).
-  if (getSettings().usage !== 'etudes') {
-    if (/(r[ée]union|meeting|\bcall\b|visio|point (d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|\brdv\b|m[ée]decin|dentiste|kin[ée])/.test(t)) return 'cours';
+  const usage = getSettings().usage ?? 'etudes';
+  if (usage === 'travail') {
+    const work = workCategory(t, timed);
+    if (work) return work;
+    return /(sport|foot|basket|gym|muscu|course|piscine|natation|yoga|tennis|danse)/.test(t) ? 'sport' : 'perso';
+  }
+  if (usage === 'perso') {
+    if (/(r[ée]union|meeting|\bcall\b|visio(?!n)|point (d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|\brdv\b|m[ée]decin|dentiste|kin[ée])/.test(t)) return 'cours';
     if (/(devis|facture|relance|proposition|contrat|payer|imp[oô]ts?|d[ée]claration)/.test(t)) return 'devoir';
     if (/(deadline|[ée]ch[ée]ance|livraison|lancement|audit|salon|anniversaire|mariage|d[ée]m[ée]nagement)/.test(t)) return 'examen';
   }
-  if (/(exam|partiel|contr[oô]le|\bds\b|\bqcm\b|interro|oral|soutenance|concours)/.test(t)) return 'examen';
+  // A revision session typed by hand (« Révision partiel de droit », « Réviser le contrôle de maths ») is not the exam itself.
+  if (/(exam|partiel|contr[oô]le|\bds\b|\bqcm\b|interro|oral|soutenance|concours)/.test(t)) return /(^|[^\p{L}])r[ée]vis/u.test(t) ? 'devoir' : 'examen';
   if (timed && /\b(td|tp|cm)\b/.test(t)) return 'cours';
   if (/(devoir|\btp\b|\btd\b|rendre|rendu|dm\b|projet|dossier|exo|exercice|r[ée]vis)/.test(t)) return 'devoir';
   if (/(sport|foot|basket|gym|muscu|course|piscine|natation|yoga|tennis|danse)/.test(t)) return 'sport';

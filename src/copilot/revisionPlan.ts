@@ -40,6 +40,9 @@ export function noteFor(exam: CalendarEvent, notes: Note[], events: CalendarEven
   return !owner || owner.id === exam.id ? old : undefined;
 }
 
+/** Another exam has the same title (« Contrôle de maths » twice): the day tells them apart. */
+export const hasTwin = (exam: CalendarEvent, events: CalendarEvent[]) => twinsOf(exam, events).length > 1;
+
 /** Title of a new note: the day is added when another exam has the same title. */
 export function noteTitle(prefix: string, exam: CalendarEvent, events: CalendarEvent[]) {
   return `${prefix}${exam.title}${twinsOf(exam, events).length > 1 ? ` (${fmt(fromKey(exam.date), 'd MMMM')})` : ''}`;
@@ -82,10 +85,8 @@ export function pickExam(subject: string, events: CalendarEvent[], today: string
   const needed = words.filter(w => !GENERIC.test(w));
   const kinds = words.filter(w => GENERIC.test(w)).map(w => w.replace(/s$/, ''));
   let hits = upcoming.filter(e => needed.every(w => normalize(e.title).includes(w)));
-  if (date) {
-    const sameDay = hits.filter(e => e.date === date);
-    if (sameDay.length || !needed.length) hits = sameDay;
-  }
+  // A day was given (« … du 12 novembre », « … d'aujourd'hui »): only that day, even when the title matches another one.
+  if (date) hits = hits.filter(e => e.date === date);
   // « le partiel » with no other word: the next partiel if there is one, else the next exam.
   return hits.find(e => kinds.some(k => normalize(e.title).includes(k))) ?? hits[0];
 }

@@ -26,9 +26,9 @@ import {
 import { useNotes } from '../store/notes';
 import { useCopilot } from '../store/copilot';
 import { runOffer } from './offers';
-import { alreadyPlanned, findExam, hasRevisionPlan, planRevisions, openNoteLabel } from './actions';
+import { alreadyPlanned, examLabel, findExam, hasRevisionPlan, planRevisions, openNoteLabel } from './actions';
 import { subjectStart } from './revisionPlan';
-import { askedDay } from './dayQuestion';
+import { askedDay, askedPeriod } from './dayQuestion';
 import { getSettings } from '../store/settings';
 import { WORDS, groupWords, type Usage } from '../lib/usage';
 
@@ -175,9 +175,11 @@ function moreCommands(input: string, q: string): BotReply | null {
         return { text: `« ${ev.title} » est dans la corbeille. Dis « restaure ${ev.title} » si tu changes d'avis.` };
       });
     }
-    return ask(`Je mets « ${hit.title} » (${hit.type}, ${hit.where}) à la corbeille ? Tu pourras le récupérer pendant 30 jours.`, () => {
+    // A note is « la », a file or a folder « le ».
+    const feminine = hit.type === 'note';
+    return ask(`Je mets « ${hit.title} » (${hit.type}, ${hit.where}) à la corbeille ? Tu pourras ${feminine ? 'la' : 'le'} récupérer pendant 30 jours.`, () => {
       const res = trashItems([hit.id]);
-      return { text: res.done.length ? `« ${hit.title} » est dans la corbeille. Dis « restaure ${hit.title} » si tu changes d'avis.` : 'Il a déjà disparu.' };
+      return { text: res.done.length ? `« ${hit.title} » est dans la corbeille. Dis « restaure ${hit.title} » si tu changes d'avis.` : feminine ? 'Elle a déjà disparu.' : 'Il a déjà disparu.' };
     });
   }
 
@@ -349,16 +351,16 @@ export function localReply(raw: string): BotReply {
     if (!res.created.length) {
       return {
         text: getSettings().usage === 'etudes'
-          ? `Plus le temps de caler une séance avant « ${exam.title} ». Je t'ai quand même préparé une fiche pour une dernière relecture.`
-          : `Plus le temps de bloquer un créneau avant « ${exam.title} ». Je t'ai quand même préparé une note pour ne rien oublier.`,
+          ? `Plus le temps de caler une séance avant ${examLabel(exam)}. Je t'ai quand même préparé une fiche pour une dernière relecture.`
+          : `Plus le temps de bloquer un créneau avant ${examLabel(exam)}. Je t'ai quand même préparé une note pour ne rien oublier.`,
         links: res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : [],
       };
     }
     return {
       text:
         getSettings().usage === 'etudes'
-          ? `Pour « ${exam.title} », je t'ai calé ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision et une fiche pour t'organiser.`
-          : `Pour « ${exam.title} », je t'ai bloqué ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer et une note pour ne rien oublier.`,
+          ? `Pour ${examLabel(exam)}, je t'ai calé ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision et une fiche pour t'organiser.`
+          : `Pour ${examLabel(exam)}, je t'ai bloqué ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer et une note pour ne rien oublier.`,
       links: [
         { label: 'Voir le planning', to: linkToDay(res.created[0].date) },
         ...(res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : []),
@@ -462,15 +464,35 @@ export function localReply(raw: string): BotReply {
     return calendarReport();
   }
 
+  // ── What's on a weekend or a week: « qu'est-ce qui est prévu ce week-end ? », « mon planning de la semaine » ──
+  const period = askedPeriod(input);
+  if (period?.kind === 'week') return calendarReport();
+  if (period) {
+    const list = eventsBetween(period.from, period.to);
+    const span = `${fmt(fromKey(period.from), 'EEEE d')} au ${fmt(fromKey(period.to), 'EEEE d MMMM')}`;
+    const name = period.kind === 'weekend' ? (/prochain/.test(q) ? 'le week-end prochain' : 'ce week-end') : 'la semaine prochaine';
+    const more = list.length > 12 ? `\n… et ${list.length - 12} autre${list.length - 12 > 1 ? 's' : ''}.` : '';
+    return {
+      text: list.length
+        ? `${name.charAt(0).toUpperCase()}${name.slice(1)} (du ${span}) :\n${list.slice(0, 12).map(e => `- ${describeEvent(e)}`).join('\n')}${more}`
+        : `Rien de prévu ${name} (du ${span}) pour le moment.`,
+      links: [{ label: 'Voir le calendrier', to: linkToDay(period.from) }],
+    };
+  }
+
   // ── What's on a day: « qu'est-ce que j'ai jeudi prochain ? », « je fais quoi demain », « demain ? » ──
   const day = askedDay(input);
   if (day) {
     const list = eventsBetween(day, day);
     const d = daysUntil(day);
-    const name = d === 0 ? "Aujourd'hui" : d === 1 ? 'Demain' : d === 2 ? 'Après-demain' : fmt(fromKey(day), 'EEEE d MMMM').replace(/^./, c => c.toUpperCase());
-    const empty = d === 0 ? "Rien de prévu aujourd'hui." : d === 1 ? 'Demain est libre pour le moment.' : `Rien de prévu ${d === 2 ? 'après-demain' : `le ${fmt(fromKey(day), 'EEEE d MMMM')}`} pour le moment.`;
+    const date = fmt(fromKey(day), 'EEEE d MMMM');
+    const near = d === 0 ? "aujourd'hui" : d === 1 ? 'demain' : d === 2 ? 'après-demain' : '';
+    // « jeudi », « le 15 » asked: the answer names that day too (« Demain, jeudi 15 octobre »).
+    const named = /\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b|\d/.test(q);
+    const name = near ? (named ? `${near}, ${date}` : near) : date;
+    const empty = !named && d === 0 ? "Rien de prévu aujourd'hui." : !named && d === 1 ? 'Demain est libre pour le moment.' : `Rien de prévu ${near ? (named ? `${near}, ${date},` : near) : `le ${date}`} pour le moment.`;
     return {
-      text: list.length ? `${name} :\n${list.map(describeEvent).join('\n')}` : empty,
+      text: list.length ? `${name.charAt(0).toUpperCase()}${name.slice(1)} :\n${list.map(describeEvent).join('\n')}` : empty,
       links: [{ label: d === 0 ? "Voir aujourd'hui" : d === 1 ? 'Voir demain' : 'Voir le jour', to: linkToDay(day) }],
     };
   }
@@ -505,7 +527,8 @@ export function localReply(raw: string): BotReply {
     if (!hits.length) return { text: `Je n'ai rien trouvé pour « ${term} ». Essaie avec un autre mot ?` };
     return {
       text: `J'ai trouvé ${hits.length} résultat${hits.length > 1 ? 's' : ''} pour « ${term} » :\n${hits.map(h => `• ${h.title} (${h.type}) — ${h.where}`).join('\n')}`,
-      links: hits.slice(0, 4).map(h => ({ label: h.title, to: h.to })),
+      // Two hits with the same name (the sessions of a plan, a note in two folders): their day or place tells them apart.
+      links: hits.slice(0, 4).map(h => ({ label: h.type === 'événement' || hits.filter(x => x.title === h.title).length > 1 ? `${h.title} · ${h.where}` : h.title, to: h.to })),
     };
   }
 

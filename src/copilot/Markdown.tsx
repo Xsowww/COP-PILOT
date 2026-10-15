@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { parseMarkdown, type Inline } from './markdown';
+import { frenchSpacing, parseMarkdown, type Inline } from './markdown';
 
 function Inlines({ nodes }: { nodes: Inline[] }) {
   return (
@@ -7,7 +7,7 @@ function Inlines({ nodes }: { nodes: Inline[] }) {
       {nodes.map((n, i) => {
         switch (n.t) {
           case 'text':
-            return <span key={i}>{n.v}</span>;
+            return <span key={i}>{frenchSpacing(n.v)}</span>;
           case 'code':
             return (
               <code key={i} className="rounded bg-stone-900/[0.07] px-1 py-px font-mono text-[0.92em]">

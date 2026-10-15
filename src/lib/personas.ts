@@ -1,4 +1,5 @@
 import type { PersonaKey } from '../store/settings';
+import type { Usage } from './usage';
 
 // \u00a0: French spacing that never breaks a line (« », ?).
 
@@ -10,3 +11,10 @@ export const PERSONAS: { key: PersonaKey; label: string; description: string; ex
   { key: 'zen', label: 'Zen', description: 'Calme, aide à prendre du recul quand ça déborde.', example: '«\u00a0Une chose à la fois. Laquelle est la plus simple\u00a0?\u00a0»' },
   { key: 'taquin', label: 'Taquin', description: 'Te charrie gentiment, jamais méchant.', example: '«\u00a0Douze onglets ouverts et zéro fiche. Audacieux.\u00a0»' },
 ];
+
+/** « Prof patient » speaks to a student: at work and at home, the same personality is a « Pédagogue patient ». */
+const OTHER_LABELS: Partial<Record<PersonaKey, string>> = { prof: 'Pédagogue patient' };
+
+/** Name of a personality in the account's usage (the setting key stays the same). */
+export const personaLabel = (p: { key: PersonaKey; label: string }, usage: Usage | undefined) =>
+  (usage ?? 'etudes') === 'etudes' ? p.label : (OTHER_LABELS[p.key] ?? p.label);

@@ -28,7 +28,7 @@ import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
 import { aiPausedUntil, aiPauseReason } from '../../copilot/aiPause';
 import BadgeGrid from './BadgeGrid';
 import { USAGES, WORDS, applyUsage, groupWords, type Usage } from '../../lib/usage';
-import { PERSONAS } from '../../lib/personas';
+import { PERSONAS, personaLabel } from '../../lib/personas';
 
 /** « 1 note », « 0 note », « 2 notes ». */
 const plural = (n: number, one: string, many: string) => (n > 1 ? many : one);
@@ -406,7 +406,7 @@ function CopilotTab() {
               )}
             >
               <span className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-medium">{p.label}</span>
+                <span className="text-[13px] font-medium">{personaLabel(p, s.usage)}</span>
                 {s.persona === p.key && <Check size={14} className="text-brand-600" />}
               </span>
               <span className="mt-0.5 block text-[12px] text-stone-500">{p.description}</span>

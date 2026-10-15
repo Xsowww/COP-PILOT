@@ -26,6 +26,8 @@ export const WORDS: Record<Usage, {
   none: string; it: string;
   /** What a focus session is about (« Par matière », « Sans sujet »). */
   subject: string;
+  /** Shared files of a group (empty list) and an example of a Drive tag. */
+  sharedFiles: string; tagExample: string;
 }> = {
   etudes: {
     nextBig: 'Prochain examen', noBig: 'Aucun examen à venir.', plan: 'Planifier les révisions', planned: 'Révisions planifiées',
@@ -38,6 +40,7 @@ export const WORDS: Record<Usage, {
     bigNoted: 'Examen noté', prepare: 'des révisions',
     pastOne: 'examen passé', pastMany: 'examens passés', upcoming: 'Tes prochains examens', bigOne: 'examen', bigMany: 'examens',
     none: 'aucun', it: 'le', subject: 'matière',
+    sharedFiles: 'Cours, sujets, corrigés…', tagExample: 'Partiels',
   },
   travail: {
     nextBig: 'Prochaine échéance', noBig: 'Aucune échéance à venir.', plan: 'Bloquer du temps pour préparer', planned: 'Préparation planifiée',
@@ -50,6 +53,7 @@ export const WORDS: Record<Usage, {
     bigNoted: 'Échéance notée', prepare: 'du temps pour préparer',
     pastOne: 'échéance passée', pastMany: 'échéances passées', upcoming: 'Tes prochaines échéances', bigOne: 'échéance', bigMany: 'échéances',
     none: 'aucune', it: 'la', subject: 'sujet',
+    sharedFiles: 'Devis, présentations, comptes rendus…', tagExample: 'Clients',
   },
   perso: {
     nextBig: 'Prochain grand jour', noBig: 'Rien d’important à venir.', plan: 'Bloquer du temps pour préparer', planned: 'Préparation planifiée',
@@ -62,6 +66,7 @@ export const WORDS: Record<Usage, {
     bigNoted: "C'est noté", prepare: 'du temps pour préparer',
     pastOne: 'grand jour passé', pastMany: 'grands jours passés', upcoming: 'Tes prochains grands jours', bigOne: 'grand jour', bigMany: 'grands jours',
     none: 'aucun', it: 'le', subject: 'sujet',
+    sharedFiles: 'Photos, papiers, billets…', tagExample: 'Papiers',
   },
 };
 

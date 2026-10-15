@@ -10,7 +10,7 @@ import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { cx, normalize, relativeTime, stripHtml } from '../../lib/utils';
 import NoteEditor from './NoteEditor';
 import { LinkChips, LinkPicker } from './NoteLinks';
-import { NOTE_TEMPLATES, type NoteTemplate } from './templates';
+import { noteTemplates, type NoteTemplate } from './templates';
 import { downloadMarkdown, printNote } from './exportNote';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
 import { flushNoteEditor } from './noteUtils';
@@ -120,8 +120,8 @@ export default function NotesPage() {
   }, [activeId]);
 
   const templateMenu = (folderId: string | null = targetFolder): MenuItem[] =>
-    NOTE_TEMPLATES.map((t, i) => {
-      const Icon = TEMPLATE_ICONS[t.id] ?? FileText;
+    noteTemplates().map((t, i) => {
+      const Icon = t.icon ?? TEMPLATE_ICONS[t.id] ?? FileText;
       return { label: t.label, icon: <Icon size={15} />, onClick: () => newNote(folderId, i === 0 ? undefined : t) };
     });
 
@@ -484,7 +484,7 @@ export default function NotesPage() {
             <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
             <p className="mt-3 text-[13px] text-stone-500">Choisis une note, ou pars d’un modèle.</p>
             <div className="mt-4 flex max-w-[460px] flex-wrap justify-center gap-1.5">
-              {NOTE_TEMPLATES.map((t, i) => (
+              {noteTemplates().map((t, i) => (
                 <button key={t.id} onClick={() => newNote(targetFolder, i === 0 ? undefined : t)} title={t.hint} className="btn-secondary h-8 px-3 text-[12px]">
                   {t.label}
                 </button>

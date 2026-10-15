@@ -168,17 +168,20 @@ function onFilesUploaded(count: number) {
 
 // ── Periodic look at the calendar ────────────────────────────────────────────
 
-function periodicCheck() {
-  if (weeklyReview()) return;
+/**
+ * The remarks the calendar and the notes call for right now, most important first. Only the first one Kompaly
+ * may make is made: one already made today (or switched off) must not hold back the ones after it.
+ */
+export function periodicNudges(now = new Date()): Nudge[] {
+  const out: Nudge[] = [];
   const events = [...useCalendar.getState().events].sort(sortEvents);
-  const today = todayKey();
-  const now = new Date();
+  const today = toKey(now);
   const hm = fmt(now, 'HH:mm');
 
   // Something starts within 20 minutes
   const soon = events.find(e => e.date === today && !e.done && e.start && e.start > hm && minutesBetween(hm, e.start) <= 20);
   if (soon) {
-    void nudge({
+    out.push({
       key: `starting:${soon.id}`,
       every: DAY,
       urgent: true,
@@ -187,14 +190,12 @@ function periodicCheck() {
       links: [{ label: 'Voir', to: linkToDay(today) }],
       mood: 'alert',
     });
-    return;
   }
 
-  // Exam within 6 days and no revision plan yet
-  const exam = events.find(e => e.category === 'examen' && !e.done && daysUntil(e.date) >= 0 && daysUntil(e.date) <= 6 && !hasRevisionPlan(e));
-  if (exam) {
+  // Exams within 6 days and no revision plan yet
+  for (const exam of events.filter(e => e.category === 'examen' && !e.done && daysUntil(e.date) >= 0 && daysUntil(e.date) <= 6 && !hasRevisionPlan(e))) {
     const d = daysUntil(exam.date);
-    void nudge({
+    out.push({
       key: `exam-soon:${exam.id}`,
       every: DAY,
       situation: studying()
@@ -207,13 +208,12 @@ function periodicCheck() {
           : `« ${exam.title} » arrive dans ${d} jours et rien n'est prévu pour réviser. Je te cale des créneaux ?`,
       offers: examOffers(exam),
     });
-    return;
   }
 
   // Late homework
   const late = events.filter(e => isDeliverable(e) && !e.done && e.date < today);
   if (late.length) {
-    void nudge({
+    out.push({
       key: `late:${today}`,
       every: DAY,
       situation: { evenement: 'devoirs non cochés dont la date est passée', devoirs: late.map(e => e.title) },
@@ -224,27 +224,25 @@ function periodicCheck() {
       offers: late.length === 1 ? [{ label: studying() ? "Oui, c'est rendu" : "Oui, c'est fait", kind: 'mark_done', payload: { eventId: late[0].id } }] : undefined,
       links: late.length > 1 ? [{ label: 'Voir le calendrier', to: '/calendrier' }] : undefined,
     });
-    return;
   }
 
   // Homework due tomorrow
   const tomorrow = toKey(addDays(now, 1));
   const due = events.find(e => isDeliverable(e) && !e.done && e.date === tomorrow);
   if (due && now.getHours() >= 14) {
-    void nudge({
+    out.push({
       key: `due-tomorrow:${due.id}`,
       every: DAY,
       situation: { evenement: 'devoir à rendre demain, pas encore coché', devoir: due.title, quand: when(due) },
       fallback: `N'oublie pas : « ${due.title} » est ${studying() ? 'à rendre' : 'prévu'} demain. Il te reste beaucoup ?`,
       offers: [{ label: "C'est déjà fait", kind: 'mark_done', payload: { eventId: due.id } }],
     });
-    return;
   }
 
   // Evening before an exam
   const examTomorrow = events.find(e => e.category === 'examen' && e.date === tomorrow);
   if (examTomorrow && now.getHours() >= 21) {
-    void nudge({
+    out.push({
       key: `eve:${examTomorrow.id}`,
       every: DAY,
       situation: { evenement: "veille d'examen, il est tard", examen: examTomorrow.title, heure: examTomorrow.start },
@@ -253,13 +251,12 @@ function periodicCheck() {
         : `Demain c'est « ${examTomorrow.title} ». Le meilleur conseil maintenant : une bonne nuit de sommeil.`,
       mood: 'sleep',
     });
-    return;
   }
 
   // A note created a while ago that is still empty
   const empty = useNotes.getState().notes.find(n => !n.content.replace(/<[^>]+>/g, '').trim() && Date.now() - new Date(n.createdAt).getTime() > 2 * DAY);
   if (empty) {
-    void nudge({
+    out.push({
       key: `empty-note:${empty.id}`,
       every: 30 * DAY,
       situation: { evenement: 'une note créée il y a plusieurs jours est toujours vide', note: empty.title },
@@ -267,6 +264,16 @@ function periodicCheck() {
       links: [{ label: 'Ouvrir la note', to: linkToNote(empty.id) }],
     });
   }
+  return out;
+}
+
+/** The remark the periodic look makes now: the first of the list Kompaly may make (tested in tests/proactive.test.ts). */
+export const nextNudge = (now = new Date()) => periodicNudges(now).find(canSpeak);
+
+function periodicCheck() {
+  if (weeklyReview()) return;
+  const next = nextNudge();
+  if (next) void nudge(next);
 }
 
 function minutesBetween(a: string, b: string) {
@@ -300,7 +307,7 @@ function morningBrief(): boolean {
       ? `Aujourd'hui : ${todays.slice(0, 4).map(e => `${e.title}${e.start ? ` (${e.start.replace(':', 'h')})` : ''}`).join(', ')}${todays.length > 4 ? '…' : '.'}`
       : "Aujourd'hui : rien au calendrier, journée libre.",
     dueTodos.length
-      ? `À faire : ${dueTodos.slice(0, 3).map(t => t.title).join(', ')}${dueTodos.length > 3 ? ` et ${dueTodos.length - 3} autre(s)` : ''}.`
+      ? `À faire : ${dueTodos.slice(0, 3).map(t => t.title).join(', ')}${dueTodos.length > 3 ? ` et ${dueTodos.length - 3} autre${dueTodos.length > 4 ? 's' : ''}` : ''}.`
       : todos.length
         ? `À faire : ${plural(todos.length, 'tâche')} dans ta liste, rien d'urgent.`
         : 'À faire : liste vide, rien qui presse.',
