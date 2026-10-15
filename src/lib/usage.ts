@@ -1,4 +1,4 @@
-import { CATEGORIES, type BuiltinCategory } from '../store/calendar';
+import { CATEGORIES, CATEGORY_LABELS, type BuiltinCategory } from '../store/calendar';
 
 /** What the account is for, chosen in the welcome questionnaire. It only changes words and starter content. */
 export type Usage = 'etudes' | 'travail' | 'perso';
@@ -9,12 +9,6 @@ export const USAGES: { key: Usage; label: string; hint: string }[] = [
   { key: 'perso', label: 'Ma vie perso', hint: 'Rendez-vous, papiers, projets, à-faire du quotidien' },
 ];
 
-const CATEGORY_LABELS: Record<Usage, Record<BuiltinCategory, string>> = {
-  etudes: { cours: 'Cours', examen: 'Examen', devoir: 'Devoir', perso: 'Perso', sport: 'Sport' },
-  travail: { cours: 'Réunion', examen: 'Échéance', devoir: 'Devis', perso: 'Perso', sport: 'Sport' },
-  perso: { cours: 'Rendez-vous', examen: 'Important', devoir: 'À faire', perso: 'Perso', sport: 'Sport' },
-};
-
 /** The few words that differ from one usage to the other. */
 export const WORDS: Record<Usage, {
   nextBig: string; noBig: string; plan: string; planned: string;
@@ -22,6 +16,12 @@ export const WORDS: Record<Usage, {
   groups: string; profileTab: string;
   /** Calendar: example in the quick add, empty « À venir », the box that ticks a deliverable, timetable slots. */
   quickExample: string; noUpcoming: string; markDone: string; slot: string; slots: string;
+  /** Calendar: the .ics import (a timetable from the school's ENT, or any agenda), examples of the event form and of a category. */
+  timetable: string; icsFrom: string; titleExample: string; notesExample: string; categoryExample: string; categoryHint: string;
+  /** Kompaly's message when a big event (exam, deadline…) is added. */
+  bigNoted: string; prepare: string;
+  /** Profile stats and Kompaly's lists: big events past (one / many) and coming up. */
+  pastOne: string; pastMany: string; upcoming: string; bigOne: string; bigMany: string;
 }> = {
   etudes: {
     nextBig: 'Prochain examen', noBig: 'Aucun examen à venir.', plan: 'Planifier les révisions', planned: 'Révisions planifiées',
@@ -29,6 +29,10 @@ export const WORDS: Record<Usage, {
     level: 'Année', levels: ['', 'Lycée', 'L1', 'L2', 'L3', 'M1', 'M2', 'BTS / BUT', 'Prépa', 'École', 'Doctorat', 'Autre'],
     groups: 'Groupes', profileTab: 'Études',
     quickExample: 'Partiel de maths vendredi 14h', noUpcoming: 'Aucun examen ni rendu prévu.', markDone: 'rendu', slot: 'cours', slots: 'cours',
+    timetable: 'emploi du temps', icsFrom: 'ton ENT ou Google Agenda', titleExample: 'Partiel de maths', notesExample: 'salle, chapitres à réviser…',
+    categoryExample: 'Stage, Asso, Job…', categoryHint: 'Stage chez Airbus',
+    bigNoted: 'Examen noté', prepare: 'des révisions',
+    pastOne: 'examen passé', pastMany: 'examens passés', upcoming: 'Tes prochains examens', bigOne: 'examen', bigMany: 'examens',
   },
   travail: {
     nextBig: 'Prochaine échéance', noBig: 'Aucune échéance à venir.', plan: 'Bloquer du temps pour préparer', planned: 'Préparation planifiée',
@@ -36,6 +40,10 @@ export const WORDS: Record<Usage, {
     level: 'Statut', levels: ['', 'Indépendant·e / freelance', 'Salarié·e', 'Dirigeant·e', 'Association', 'Autre'],
     groups: 'Équipes', profileTab: 'Travail',
     quickExample: 'Réunion client jeudi 10h', noUpcoming: 'Aucune échéance ni devis prévu.', markDone: 'fait', slot: 'créneau', slots: 'créneaux',
+    timetable: 'agenda', icsFrom: 'Outlook, Google Agenda ou Apple Calendrier', titleExample: 'Réunion client', notesExample: 'lieu, ordre du jour…',
+    categoryExample: 'Projet, Formation, Salon…', categoryHint: 'Formation Excel',
+    bigNoted: 'Échéance notée', prepare: 'du temps pour préparer',
+    pastOne: 'échéance passée', pastMany: 'échéances passées', upcoming: 'Tes prochaines échéances', bigOne: 'échéance', bigMany: 'échéances',
   },
   perso: {
     nextBig: 'Prochain grand jour', noBig: 'Rien d’important à venir.', plan: 'Bloquer du temps pour préparer', planned: 'Préparation planifiée',
@@ -43,6 +51,10 @@ export const WORDS: Record<Usage, {
     level: 'Situation', levels: ['', 'Étudiant·e', 'En activité', 'En recherche', 'Parent', 'Retraité·e', 'Autre'],
     groups: 'Groupes', profileTab: 'Organisation',
     quickExample: 'Dentiste mardi 17h30', noUpcoming: 'Rien d’important ni à faire de prévu.', markDone: 'fait', slot: 'rendez-vous', slots: 'rendez-vous',
+    timetable: 'agenda', icsFrom: 'Google Agenda, Outlook ou Apple Calendrier', titleExample: 'Dentiste', notesExample: 'adresse, choses à apporter…',
+    categoryExample: 'Famille, Vacances, Asso…', categoryHint: 'Vacances à Biarritz',
+    bigNoted: 'C’est noté', prepare: 'du temps pour préparer',
+    pastOne: 'grand jour passé', pastMany: 'grands jours passés', upcoming: 'Tes prochains grands jours', bigOne: 'grand jour', bigMany: 'grands jours',
   },
 };
 

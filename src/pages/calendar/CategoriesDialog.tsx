@@ -3,7 +3,8 @@ import { Check, Plus, Tags, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { confirmAction, toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
-import { useCalendar, CATEGORIES, CATEGORY_COLORS, createCategory, deleteCategory, labelTaken, updateCategory, type CustomCategory } from '../../store/calendar';
+import { useCalendar, CATEGORIES, CATEGORY_COLORS, builtinLabel, createCategory, customNamed, deleteCategory, labelTaken, updateCategory, type CustomCategory } from '../../store/calendar';
+import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
 
 export function ColorChoice({ value, onChange }: { value: string; onChange: (color: string) => void }) {
@@ -30,13 +31,17 @@ export function ColorChoice({ value, onChange }: { value: string; onChange: (col
 /** Name + colour of a new category; calls back with the one created. */
 export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCategory) => void; autoFocus?: boolean }) {
   const used = useSettings(s => s.customCategories).length;
+  const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
   const [label, setLabel] = useState('');
   const [color, setColor] = useState(CATEGORY_COLORS[(used + 5) % CATEGORY_COLORS.length]);
   const submit = () => {
-    if (!label.trim()) return;
-    if (Object.values(CATEGORIES).some(c => c.label.toLowerCase() === label.trim().toLowerCase())) {
-      return toast(`« ${label.trim()} » existe déjà dans les catégories de base.`, 'error');
-    }
+    const name = label.trim().replace(/\s+/g, ' ');
+    if (!name) return;
+    const builtin = builtinLabel(name);
+    if (builtin === 'current') return toast(`« ${name} » existe déjà dans les catégories de base.`, 'error');
+    // A name kept for the other usages (« Cours » in a work account): it would come back twice after switching.
+    if (builtin === 'other') return toast(`« ${name} » est réservé à une catégorie de base de Kompaly.`, 'error');
+    if (customNamed(name)) return toast(`Tu as déjà une catégorie « ${customNamed(name)!.label} ».`, 'error');
     onCreated(createCategory(label, color));
     setLabel('');
     setColor(CATEGORY_COLORS[(used + 6) % CATEGORY_COLORS.length]); // the next one gets another colour
@@ -54,7 +59,7 @@ export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCat
               submit();
             }
           }}
-          placeholder="Nom, ex. Stage, Asso, Job…"
+          placeholder={`Nom, ex. ${words.categoryExample}`}
           aria-label="Nom de la nouvelle catégorie"
           maxLength={24}
           className="field min-w-0 flex-1"
@@ -73,7 +78,7 @@ function Row({ cat }: { cat: CustomCategory }) {
   const [editingColor, setEditingColor] = useState(false);
   const count = useCalendar(s => s.events.filter(e => e.category === cat.id).length);
   const remove = async () => {
-    const msg = count ? `Ses ${count} événement${count > 1 ? 's' : ''} passeront dans « ${CATEGORIES.perso.label} ».` : 'Aucun événement ne l’utilise.';
+    const msg = count > 1 ? `Ses ${count} événements passeront dans « ${CATEGORIES.perso.label} ».` : count ? `Son événement passera dans « ${CATEGORIES.perso.label} ».` : 'Aucun événement ne l’utilise.';
     if (await confirmAction(`Supprimer « ${cat.label} » ?`, msg, 'Supprimer')) deleteCategory(cat.id);
   };
   return (
@@ -84,8 +89,13 @@ function Row({ cat }: { cat: CustomCategory }) {
           value={label}
           onChange={e => setLabel(e.target.value)}
           onBlur={() => {
-            if (label.trim() && !labelTaken(label, cat.id)) return updateCategory(cat.id, { label });
-            if (label.trim() && label.trim() !== cat.label) toast(`Une catégorie s’appelle déjà « ${label.trim()} ».`, 'error');
+            if (label.trim() && !labelTaken(label, cat.id)) {
+              updateCategory(cat.id, { label });
+              return setLabel(label.trim().replace(/\s+/g, ' ')); // the name as saved
+            }
+            if (label.trim() && label.trim() !== cat.label) {
+              toast(builtinLabel(label) === 'other' ? `« ${label.trim()} » est réservé à une catégorie de base de Kompaly.` : `Une catégorie s’appelle déjà « ${label.trim()} ».`, 'error');
+            }
             setLabel(cat.label);
           }}
           onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
@@ -116,6 +126,7 @@ function Row({ cat }: { cat: CustomCategory }) {
 /** The student's own calendar categories: create, rename, recolour, delete. */
 export default function CategoriesDialog({ onClose }: { onClose: () => void }) {
   const custom = useSettings(s => s.customCategories);
+  const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
   return (
     <Modal open onClose={onClose} width={460}>
       <div className="flex items-center gap-2.5">
@@ -149,7 +160,7 @@ export default function CategoriesDialog({ onClose }: { onClose: () => void }) {
       <div className="mt-4 rounded-lg bg-stone-50 p-3">
         <NewCategory onCreated={() => undefined} />
       </div>
-      <p className="mt-2 text-[12px] text-stone-500">Astuce&nbsp;: écris son nom dans le titre d’un événement («&nbsp;Stage chez Airbus&nbsp;») et Kompaly la choisit tout seul.</p>
+      <p className="mt-2 text-[12px] text-stone-500">Astuce&nbsp;: écris son nom dans le titre d’un événement («&nbsp;{words.categoryHint}&nbsp;») et Kompaly la choisit tout seul.</p>
 
       <div className="mt-5 flex justify-end">
         <button className="btn-primary" onClick={onClose}>

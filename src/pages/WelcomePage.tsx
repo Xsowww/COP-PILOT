@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Check, GraduationCap, House, Loader2 } from 'lucide-react';
 import Logo from '../components/Logo';
 import { useAuth } from '../store/auth';
-import { finishWelcome, type WelcomeAnswers } from '../store/session';
+import { finishWelcome, loadWelcomeDraft, saveWelcomeDraft, type WelcomeAnswers } from '../store/session';
 import { PERSONAS } from '../lib/personas';
 import { USAGES, WORDS, type Usage } from '../lib/usage';
 import { cx } from '../lib/utils';
@@ -35,22 +35,35 @@ const TIME_QUESTION: Record<Usage, string> = {
 
 const STEPS = 6;
 
+const DEFAULT_ANSWERS: WelcomeAnswers = { usage: 'etudes', year: '', school: '', program: '', needs: [], persona: 'pote', revisionTime: '18:00' };
+
+// Longer than the double-click delay of the systems (500 ms on Windows): the second click of a
+// double click lands on the next question, often on the answer just under the pointer.
+const LOCK_MS = 700;
+
 /** Six quick questions before the first visit: who is this for, so Kompaly speaks their language. */
 export default function WelcomePage() {
   const navigate = useNavigate();
   const name = useAuth(s => s.user?.name ?? '');
-  const [step, setStep] = useState(0);
+  const userId = useAuth(s => s.user?.id ?? '');
+  // A reload in the middle comes back to the same question, with the answers already given.
+  const [draft] = useState(() => (userId ? loadWelcomeDraft(userId, DEFAULT_ANSWERS, STEPS) : null));
+  const [step, setStep] = useState(draft?.step ?? 0);
   const [busy, setBusy] = useState(false);
-  const [a, setA] = useState<WelcomeAnswers>({ usage: 'etudes', year: '', school: '', program: '', needs: [], persona: 'pote', revisionTime: '18:00' });
+  const [a, setA] = useState<WelcomeAnswers>(draft?.answers ?? DEFAULT_ANSWERS);
   const words = WORDS[a.usage];
+  useEffect(() => {
+    if (userId && !busy) saveWelcomeDraft(userId, { step, answers: a });
+  }, [userId, step, a, busy]);
   // A double click would also answer the next question, shown under the pointer.
   const moving = useRef(false);
   const settled = () => {
     if (moving.current) return false;
     moving.current = true;
-    setTimeout(() => (moving.current = false), 300);
+    setTimeout(() => (moving.current = false), LOCK_MS);
     return true;
   };
+  const go = (to: number) => settled() && setStep(to);
   const set = (patch: Partial<WelcomeAnswers>, next = true) => {
     if (next && !settled()) return;
     setA(prev => ({ ...prev, ...patch }));
@@ -70,15 +83,22 @@ export default function WelcomePage() {
     );
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-6 py-6 sm:px-10">
+    <div
+      className="flex h-full flex-col overflow-y-auto px-6 py-6 sm:px-10"
+      // Just after moving on, the end of a double click neither selects a word nor takes the focus off the title.
+      onMouseDown={e => (moving.current || e.detail > 1) && !(e.target as HTMLElement).closest('input') && e.preventDefault()}
+    >
       <Logo />
       <div className="flex flex-1 justify-center py-8 sm:pt-[8vh]">
         <div className="enter w-full max-w-[440px]">
           <div className="flex items-center gap-3">
-            {step > 0 && (
-              <button type="button" onClick={() => setStep(s => s - 1)} className="icon-btn -ml-2" aria-label="Question précédente">
+            {/* The place of the back arrow is kept on the first question: the bar doesn't move afterwards. */}
+            {step > 0 ? (
+              <button type="button" onClick={() => go(step - 1)} className="icon-btn -ml-2" aria-label="Question précédente">
                 <ArrowLeft size={16} />
               </button>
+            ) : (
+              <span className="-ml-2 h-8 w-8 shrink-0" aria-hidden />
             )}
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-100" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step + 1} aria-label={`Question ${step + 1} sur ${STEPS}`}>
               <div className="h-full rounded-full bg-brand-500 transition-[width] duration-300" style={{ width: `${((step + 1) / STEPS) * 100}%` }} />
@@ -107,7 +127,7 @@ export default function WelcomePage() {
             <Question title={a.usage === 'etudes' ? 'Tu es en…' : a.usage === 'travail' ? 'Tu es…' : 'Aujourd’hui, tu es…'}>
               <div className="flex flex-wrap gap-2">
                 {words.levels.filter(Boolean).map(l => (
-                  <button key={l} type="button" onClick={() => set({ year: l })} className={cx('rounded-full border px-3.5 py-1.5 text-[13px]', a.year === l ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 hover:bg-stone-50')}>
+                  <button key={l} type="button" onClick={() => set({ year: l })} className={cx('rounded-full border px-3.5 py-2 text-[13px]', a.year === l ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 hover:bg-stone-50')}>
                     {l}
                   </button>
                 ))}
@@ -125,7 +145,7 @@ export default function WelcomePage() {
                 {words.program}
                 <input className="field mt-1 h-10 w-full" value={a.program} placeholder={words.programHint} onChange={e => set({ program: e.target.value }, false)} />
               </label>
-              <button type="button" className="btn-primary mt-2 w-full" onClick={() => setStep(3)}>
+              <button type="button" className="btn-primary mt-2 w-full" onClick={() => go(3)}>
                 {a.school || a.program ? 'Continuer' : 'Passer'}
               </button>
             </Question>
@@ -142,7 +162,7 @@ export default function WelcomePage() {
                   </button>
                 );
               })}
-              <button type="button" className="btn-primary mt-2 w-full" onClick={() => setStep(4)}>
+              <button type="button" className="btn-primary mt-2 w-full" onClick={() => go(4)}>
                 Continuer
               </button>
             </Question>
@@ -173,7 +193,7 @@ export default function WelcomePage() {
           )}
 
           {step === 0 && (
-            <button type="button" disabled={busy} onClick={() => void finish(a)} className="mt-6 w-full text-center text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
+            <button type="button" disabled={busy} onClick={() => void finish(a)} className="mt-3 w-full py-3 text-center text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
               Passer le questionnaire
             </button>
           )}

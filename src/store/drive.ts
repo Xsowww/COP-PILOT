@@ -54,7 +54,8 @@ interface DriveState {
   duplicate: (ids: string[]) => Promise<void>;
   copy: (ids: string[]) => void;
   cut: (ids: string[]) => void;
-  paste: (targetId: string | null) => Promise<void>;
+  /** False when refused: a folder can't go (moved or copied) into itself or one of its subfolders. */
+  paste: (targetId: string | null) => Promise<boolean>;
   toggleStar: (id: string) => void;
 }
 
@@ -78,6 +79,13 @@ export function withDescendants(items: DriveItem[], ids: string[]): string[] {
   }
   return [...out];
 }
+
+/** True when `target` is one of `ids` or inside one of them (no folder can go into itself). */
+export const pasteForbidden = (items: DriveItem[], ids: string[], target: string | null) => !!target && withDescendants(items, ids).includes(target);
+
+/** Files whose content is plain text (CSV included, though it shows a spreadsheet icon). */
+export const isPlainText = (item: Pick<DriveItem, 'kind' | 'mime' | 'name'>) =>
+  item.kind === 'file' && (categoryOf(item) === 'text' || /\.(csv|tsv)$/i.test(item.name));
 
 export function pathOf(items: DriveItem[], id: string | null): DriveItem[] {
   const path: DriveItem[] = [];
@@ -103,7 +111,9 @@ function cloneTree(items: DriveItem[], ids: string[], targetId: string | null, k
   const time = nowIso();
   const cloneOne = (src: DriveItem, parentId: string | null, rename: boolean) => {
     const pool = [...items, ...created];
-    const base = rename && !keepName ? copyName(src.name) : src.name;
+    // Pasted next to the original, a copy is named like a duplicate (« A - copie.txt »), not « A (2).txt ».
+    const clash = siblingNames(pool, parentId).includes(src.name);
+    const base = rename && (!keepName || clash) ? copyName(src.name) : src.name;
     const copy: DriveItem = {
       ...src,
       id: uid(),
@@ -241,9 +251,9 @@ export const useDrive = create<DriveState>()(
         }
         // The server deletes a folder's content with it: what was trashed earlier from inside it
         // (kept here as a separate entry) first moves to the root, or it would vanish without its file.
-        const time = nowIso();
+        // Its updatedAt stays: the file itself was not modified.
         set(s => ({
-          trash: s.trash.filter(i => !doomed.has(i.id)).map(i => (i.parentId && doomed.has(i.parentId) ? { ...i, parentId: null, updatedAt: time } : i)),
+          trash: s.trash.filter(i => !doomed.has(i.id)).map(i => (i.parentId && doomed.has(i.parentId) ? { ...i, parentId: null } : i)),
         }));
       },
 
@@ -255,7 +265,8 @@ export const useDrive = create<DriveState>()(
         if (old.length) get().purge(old);
       },
 
-      update: (id, patch) => set(s => ({ items: s.items.map(i => (i.id === id ? { ...i, ...patch, updatedAt: nowIso() } : i)) })),
+      // Colour and labels are like the star: the content is unchanged, so updatedAt (Récents) stays.
+      update: (id, patch) => set(s => ({ items: s.items.map(i => (i.id === id ? { ...i, ...patch } : i)) })),
 
       move(ids, targetId) {
         const items = get().items;
@@ -301,15 +312,17 @@ export const useDrive = create<DriveState>()(
 
       async paste(targetId) {
         const clip = get().clipboard;
-        if (!clip || clip.ids.length === 0) return;
+        if (!clip || clip.ids.length === 0) return true;
+        // Refused (a folder into itself): the clipboard stays, to paste elsewhere.
+        if (pasteForbidden(get().items, clip.ids, targetId)) return false;
         if (clip.mode === 'cut') {
-          // Refused (a folder into itself): the cut stays, to paste elsewhere.
           if (get().move(clip.ids, targetId)) set({ clipboard: null });
-          return;
+          return true;
         }
         const { created, blobCopies } = cloneTree(get().items, clip.ids, targetId, true);
         await Promise.all(blobCopies.map(([a, b]) => blobStore.copy(blobKey(a), blobKey(b))));
         set(s => ({ items: [...s.items, ...created] }));
+        return true;
       },
 
       toggleStar: id => set(s => ({ items: s.items.map(i => (i.id === id ? { ...i, starred: !i.starred } : i)) })),

@@ -6,6 +6,8 @@ import { useNotes } from '../../store/notes';
 import { catOf, allCategories, guessCategory, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { trashEvent } from '../../lib/trash';
 import { useSettings } from '../../store/settings';
+import { toast } from '../../store/ui';
+import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
 import { NewCategory } from './CategoriesDialog';
 
@@ -16,9 +18,11 @@ interface Props {
   start?: string;
   end?: string;
   onClose: () => void;
+  /** After « Ajouter » / « Enregistrer », with the saved event (the calendar goes to its day). */
+  onSaved?: (ev: Pick<CalendarEvent, 'date' | 'category'>) => void;
 }
 
-export default function EventForm({ event, date, start: initialStart, end: initialEnd, onClose }: Props) {
+export default function EventForm({ event, date, start: initialStart, end: initialEnd, onClose, onSaved }: Props) {
   const { add, update } = useCalendar.getState();
   const [title, setTitle] = useState(event?.title ?? '');
   const [day, setDay] = useState(event?.date ?? date);
@@ -27,6 +31,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [category, setCategory] = useState<EventCategory | null>(event?.category ?? null);
   const [details, setDetails] = useState(event?.details ?? '');
   const custom = useSettings(s => s.customCategories);
+  const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
   const [creating, setCreating] = useState(false);
   const effective = category ?? guessCategory(title, !!start);
   const notes = useNotes(s => s.notes);
@@ -35,9 +40,12 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !day) return;
+    // An end without a start can't be sent: the start field is required then (see below).
     const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined };
     if (event) update(event.id, data);
     else add(data);
+    toast(`${event ? 'Enregistré' : 'Ajouté'} : ${data.title}`, 'success');
+    onSaved?.(data);
     onClose();
   };
 
@@ -45,7 +53,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
         <h3 className="text-[15px] font-semibold">{event ? "Modifier l'événement" : 'Nouvel événement'}</h3>
-        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} aria-label="Titre de l’événement" placeholder="Titre (ex. Partiel de maths)" className="field mt-4 h-10 w-full text-[14px]" />
+        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} aria-label="Titre de l’événement" placeholder={`Titre (ex. ${words.titleExample})`} className="field mt-4 h-10 w-full text-[14px]" />
 
         <p className="mb-2 mt-4 text-[12px] font-medium text-stone-600">Catégorie</p>
         <div className="flex flex-wrap gap-2">
@@ -85,14 +93,14 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <label className="col-span-3 sm:col-span-1">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <label className="col-span-2 sm:col-span-1">
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Jour</span>
             <input type="date" value={day} onChange={e => setDay(e.target.value)} className="field w-full" required />
           </label>
           <label>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Début</span>
-            <input type="time" value={start} onChange={e => setStart(e.target.value)} className="field w-full" />
+            <input type="time" value={start} onChange={e => setStart(e.target.value)} required={!!end} title={end && !start ? 'Indique le début, ou efface la fin' : undefined} className="field w-full" />
           </label>
           <label>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Fin</span>
@@ -100,7 +108,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           </label>
         </div>
 
-        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder="Notes (salle, chapitres à réviser…)" aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
+        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={`Notes (${words.notesExample})`} aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
 
         {linked.length > 0 && (
           <div className="mt-4">

@@ -32,8 +32,18 @@ export function formatBytes(bytes = 0): string {
   return `${v.toFixed(v < 10 ? 1 : 0).replace(/\.0$/, '').replace('.', ',')} ${units[i]}`;
 }
 
+/** Plain text of some HTML, entities decoded (« & », not « &amp; »). Only for text, never to put back as HTML. */
 export function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  const entities: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+      if (e[0] !== '#') return entities[e.toLowerCase()] ?? m;
+      const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m;
+    })
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** Returns `name` or `name (2)`, `name (3)`… so it doesn't clash with `taken`. */

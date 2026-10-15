@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cancelledBy, parseIcs, parseStamp } from '../src/lib/ics';
+import { cancelledBy, foldLine, parseIcs, parseStamp, utcStamp } from '../src/lib/ics';
 
 const now = new Date(2026, 9, 12);
 const cal = (...events: string[]) => ['BEGIN:VCALENDAR', 'VERSION:2.0', ...events, 'END:VCALENDAR'].join('\r\n');
@@ -59,5 +59,29 @@ describe('parseStamp', () => {
 
   it('garde l’heure telle quelle pour un TZID inconnu', () => {
     expect(parseStamp('20261012T080000', { TZID: 'Romance Standard Time' })!.date.getHours()).toBe(8);
+  });
+});
+
+describe('export', () => {
+  it('plie les lignes à 75 octets sans couper un caractère, et la relecture les recolle', () => {
+    const title = 'Révisions générales — anatomie, physiologie, biochimie et sémiologie (amphi Pasteur, bâtiment B)';
+    const folded = foldLine(`SUMMARY:${title}`);
+    const lines = folded.split('\r\n');
+    expect(lines.length).toBeGreaterThan(1);
+    for (const l of lines) expect(new TextEncoder().encode(l).length).toBeLessThanOrEqual(75);
+    expect(lines.slice(1).every(l => l.startsWith(' '))).toBe(true);
+    const [e] = parseIcs(cal(ev('UID:x', 'DTSTART:20261016T120000Z', folded)), { now });
+    expect(e.title).toBe(title);
+  });
+
+  it('écrit les heures en UTC, relues à la même heure locale', () => {
+    const stamp = utcStamp('2026-10-16', '14:00');
+    expect(stamp).toMatch(/^\d{8}T\d{6}Z$/);
+    const [e] = parseIcs(cal(ev('UID:y', `DTSTART:${stamp}`, `DTEND:${utcStamp('2026-10-16', '15:30')}`, 'SUMMARY:TD')), { now });
+    expect(e).toMatchObject({ date: '2026-10-16', start: '14:00', end: '15:30' });
+  });
+
+  it('laisse une ligne courte telle quelle', () => {
+    expect(foldLine('SUMMARY:TD')).toBe('SUMMARY:TD');
   });
 });

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Plus, Tag, X } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useDrive, FOLDER_COLORS } from '../../store/drive';
@@ -28,17 +28,18 @@ export function TagPill({ tag, active, onClick, onRemove, size = 'sm' }: { tag: 
       <span className={cx('shrink-0 rounded-full', size === 'md' ? 'h-2 w-2' : 'h-1.5 w-1.5')} style={{ background: tagColor(tag) }} />
       <span className="truncate">{tag}</span>
       {onRemove && (
-        <span
-          role="button"
-          aria-label={`Retirer ${tag}`}
+        <button
+          type="button"
+          aria-label={`Retirer l’étiquette « ${tag} »`}
+          title="Retirer"
           onClick={e => {
             e.stopPropagation();
             onRemove();
           }}
-          className="-mr-1 rounded-full p-0.5 text-stone-500 hover:bg-stone-100 hover:text-ink"
+          className="-my-1 -mr-1.5 flex h-6 w-6 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-ink"
         >
           <X size={11} />
-        </span>
+        </button>
       )}
     </Comp>
   );
@@ -49,6 +50,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
   const items = useDrive(s => s.items);
   const targets = items.filter(i => ids.includes(i.id));
   const [draft, setDraft] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const current = [...new Set(targets.flatMap(i => i.tags ?? []))].sort((a, b) => a.localeCompare(b, 'fr'));
   const known = useMemo(() => [...new Set(items.flatMap(i => i.tags ?? []))].sort((a, b) => a.localeCompare(b, 'fr')), [items]);
@@ -68,7 +70,11 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
     setTags(tags => (tags.some(t => t.toLowerCase() === existing.toLowerCase()) ? tags : [...tags, existing]));
     setDraft('');
   };
-  const remove = (tag: string) => setTags(tags => tags.filter(t => t !== tag));
+  const remove = (tag: string) => {
+    setTags(tags => tags.filter(t => t !== tag));
+    // The × disappears with its label: keep the keyboard focus in the dialog.
+    inputRef.current?.focus();
+  };
 
   return (
     <Modal open onClose={onClose} width={420}>
@@ -93,7 +99,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
           add(draft);
         }}
       >
-        <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} placeholder="Nouvelle étiquette, ex. Partiels" className="field min-w-0 flex-1" maxLength={32} />
+        <input ref={inputRef} autoFocus value={draft} onChange={e => setDraft(e.target.value)} placeholder="Nouvelle étiquette, ex. Partiels" className="field min-w-0 flex-1" maxLength={32} />
         <button type="submit" className="btn-secondary" disabled={!draft.trim()}>
           <Plus size={15} /> Ajouter
         </button>

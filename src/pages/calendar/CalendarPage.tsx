@@ -1,11 +1,11 @@
 import { useToday } from '../../lib/useToday';
-import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { trashEvent } from '../../lib/trash';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp } from 'lucide-react';
 import { useCalendar, catOf, allCategories, guessCategory, isDeliverable, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
-import { parseQuickAdd, toKey, fromKey, todayKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes } from '../../lib/dates';
+import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
@@ -16,6 +16,7 @@ import DayView from './DayView';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { isIcsFile } from '../../lib/ics';
 import { useEventDrag, type DropTarget } from './useEventDrag';
+import { exportIcs } from '../../lib/backup';
 
 type Mode = 'week' | 'month' | 'day';
 const MODES: { id: Mode; label: string }[] = [
@@ -33,6 +34,17 @@ function savedMode(): Mode {
     return 'week';
   }
 }
+
+// Phones get a shorter hint in the quick add (the long example was cut in the middle of a word at 375 px).
+const wideQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 640px)') : null;
+const subscribeWide = (cb: () => void) => {
+  wideQuery?.addEventListener('change', cb);
+  return () => wideQuery?.removeEventListener('change', cb);
+};
+const useWide = () => useSyncExternalStore(subscribeWide, () => wideQuery?.matches ?? true);
+
+/** How many exams « À venir » lists before « Voir les … autres ». */
+const EXAMS_SHOWN = 4;
 
 function Dot({ color, size = 8 }: { color: string; size?: number }) {
   return <span className="inline-block shrink-0 rounded-full" style={{ background: color, width: size, height: size }} />;
@@ -63,31 +75,31 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
       <div
         onPointerDown={onDragStart}
         title="Glisse sur un autre jour pour déplacer"
-        className={cx('flex flex-1 touch-manipulation items-start gap-3 rounded-lg border border-stone-200/80 bg-surface py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:border-stone-300', ev.done && 'bg-stone-50', dragging && 'opacity-40')}
+        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-lg border border-stone-200/80 bg-surface py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:border-stone-300', ev.done && 'bg-stone-50', dragging && 'opacity-40')}
       >
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
         <button
           onClick={() => toggleDone(ev.id)}
           className={cx('hit mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', ev.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
-          title={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'} aria-label={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
+          title={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'} aria-label={`Marquer « ${ev.title} » comme ${ev.done ? 'à faire' : 'fait'}`}
         >
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
         </button>
         <button className="min-w-0 flex-1 text-left" onClick={onEdit}>
-          <p className={cx('text-[14px] font-medium leading-snug', ev.done && 'text-stone-500 line-through')}>{ev.title}</p>
+          <p className={cx('text-[14px] font-medium leading-snug [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>{ev.title}</p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
             {ev.category === 'examen' && !ev.done && ` · ${countdownLabel(ev.date)}`}
           </p>
-          {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600">{ev.details}</p>}
+          {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
         </button>
-        <div className="touch-show flex opacity-0 transition-opacity group-hover:opacity-100">
-          <button className="icon-btn" title="Modifier" aria-label="Modifier" onClick={onEdit}>
+        <div className="touch-show flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <button className="icon-btn" title="Modifier" aria-label={`Modifier « ${ev.title} »`} onClick={onEdit}>
             <Pencil size={14} />
           </button>
           <button
             className="icon-btn hover:text-red-600"
-            title="Supprimer" aria-label="Supprimer"
+            title="Supprimer" aria-label={`Supprimer « ${ev.title} »`}
             onClick={() => trashEvent(ev.id)}
           >
             <Trash2 size={14} />
@@ -102,14 +114,17 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
 export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
   const events = useCalendar(s => s.events);
-  const [selected, setSelected] = useState(() => params.get('jour') ?? todayKey());
+  const [selected, setSelected] = useState(() => validKey(params.get('jour')) ?? todayKey());
   const [mode, setModeState] = useState<Mode>(savedMode);
   const [quick, setQuick] = useState('');
   const [hidden, setHidden] = useState<Set<EventCategory>>(new Set());
   const custom = useSettings(s => s.customCategories);
-  const words = WORDS[useSettings(s => s.usage)];
+  const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
+  const wide = useWide();
+  const [allExams, setAllExams] = useState(false);
   const [managing, setManaging] = useState(false);
-  const [form, setForm] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string } | null>(null);
+  // fromQuick: opened from the quick add (« demain 14h » without a title), whose text is cleared once saved.
+  const [form, setForm] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string; fromQuick?: boolean } | null>(null);
   const [importing, setImporting] = useState<{ initial?: IcsSource } | null>(null);
   const [fileOver, setFileOver] = useState(false);
   const quickRef = useRef<HTMLInputElement>(null);
@@ -124,7 +139,7 @@ export default function CalendarPage() {
   };
 
   // Follow links like /calendrier?jour=2026-10-12 (from search, dashboard or Kompaly).
-  const jour = params.get('jour');
+  const jour = validKey(params.get('jour'));
   const [lastJour, setLastJour] = useState(jour);
   if (jour !== lastJour) {
     setLastJour(jour);
@@ -159,7 +174,19 @@ export default function CalendarPage() {
   const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start) : null;
 
   // The form, with what the sentence already gives (« demain 14h » has a day and an hour but no title).
-  const openForm = () => setForm({ date: parsed?.date ?? selected, start: parsed?.start ?? undefined, end: parsed?.end ?? undefined });
+  const openForm = () => setForm({ date: parsed?.date ?? selected, start: parsed?.start ?? undefined, end: parsed?.end ?? undefined, fromQuick: !!quick.trim() });
+
+  /** After an event is saved: show its day, and its category if it was hidden (it would seem not to be there). */
+  const showSaved = (ev: { date: string; category: EventCategory }) => {
+    selectDay(ev.date);
+    if (hidden.has(ev.category)) {
+      setHidden(s => {
+        const n = new Set(s);
+        n.delete(ev.category);
+        return n;
+      });
+    }
+  };
 
   const submitQuick = (e: FormEvent) => {
     e.preventDefault();
@@ -168,7 +195,7 @@ export default function CalendarPage() {
     const date = parsed.date ?? selected;
     useCalendar.getState().add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat! });
     setQuick('');
-    setSelected(date);
+    showSaved({ date, category: parsedCat! });
     toast(
       parsed.weekly ? `Ajouté pour ${fmt(fromKey(date), 'EEEE d MMMM')}, seulement celui-ci : la répétition chaque semaine n’existe pas encore.` : `Ajouté : ${parsed.title}`,
       'success',
@@ -225,14 +252,17 @@ export default function CalendarPage() {
     const file = e.dataTransfer.files[0];
     if (!file) return;
     if (!isIcsFile(file)) {
-      toast('Dépose un fichier .ics pour importer un emploi du temps', 'error');
+      toast(`Dépose un fichier .ics pour importer un ${words.timetable}`, 'error');
       return;
     }
     setImporting({ initial: { name: file.name, text: await file.text() } });
   };
 
-  const upcomingExams = events.filter(e => e.category === 'examen' && e.date >= today && !e.done).sort(sortEvents).slice(0, 4);
-  const homework = events.filter(e => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14).sort(sortEvents).slice(0, 6);
+  // Same filter as the calendar (the category chips sit in this block).
+  const allUpcomingExams = visible.filter(e => e.category === 'examen' && e.date >= today && !e.done).sort(sortEvents);
+  const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
+  const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
+  const homework = visible.filter(e => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14).sort(sortEvents).slice(0, 6);
 
   const monthDays = useMemo(() => {
     const ref = fromKey(selected);
@@ -274,27 +304,32 @@ export default function CalendarPage() {
           </button>
           <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px]" role="group" aria-label="Affichage">
             {MODES.map(m => (
-              <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('h-7 rounded-md px-3 font-medium transition-colors', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
+              <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('h-7 rounded-md px-3 font-medium transition-colors pointer-coarse:h-9', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
                 {m.label}
               </button>
             ))}
           </div>
-          <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title="Importer un emploi du temps (.ics)" aria-label="Importer un emploi du temps (.ics)">
+          <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title={`Importer un ${words.timetable} (.ics)`} aria-label={`Importer un ${words.timetable} (.ics)`}>
             <CalendarArrowDown size={16} />
+          </button>
+          {/* Not on phones, where the header would wrap for it: Profil › Données exports too. */}
+          <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => exportIcs()} title="Exporter le calendrier (.ics)" aria-label="Exporter le calendrier (.ics)">
+            <CalendarArrowUp size={16} />
           </button>
         </div>
 
         {/* Quick add */}
-        <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop">
+        {/* Keyboard focus: a brand ring (the shadow alone was invisible on the dark theme). */}
+        <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand-500/75">
           <div className="flex h-12 items-center gap-2.5">
             <Plus size={17} className="shrink-0 text-stone-400" />
             <input
               ref={quickRef}
               value={quick}
               onChange={e => setQuick(e.target.value)}
-              placeholder={`Ajouter un événement, par exemple «\u00a0${words.quickExample}\u00a0»`}
+              placeholder={wide ? `Ajouter un événement, par exemple «\u00a0${words.quickExample}\u00a0»` : 'Ajouter un événement…'}
               aria-label="Ajouter un événement en une phrase"
-              className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-stone-400"
+              className="min-w-0 flex-1 text-ellipsis bg-transparent text-[14px] outline-none placeholder:text-stone-400"
             />
             {parsed?.title ? (
               <button type="submit" className="btn-primary h-8 px-3">
@@ -323,6 +358,7 @@ export default function CalendarPage() {
               )}
               <span>·</span>
               <span style={{ color: catOf(parsedCat).text }}>{catOf(parsedCat).label}</span>
+              {parsed.weekly && <span className="w-full text-stone-500">Seulement celui-ci&nbsp;: la répétition chaque semaine n’existe pas encore.</span>}
             </div>
           )}
         </form>
@@ -384,6 +420,8 @@ export default function CalendarPage() {
                       <button
                         key={key}
                         data-drop-day={key}
+                        aria-pressed={isSel}
+                        aria-label={`${fmt(d, 'EEEE d MMMM')}${key === today ? ", aujourd'hui" : ''}${evs.length ? `, ${evs.length} événement${evs.length > 1 ? 's' : ''}` : ''}`}
                         onClick={() => selectDay(key)}
                         onDoubleClick={() => setForm({ date: key })}
                         className={cx(
@@ -418,7 +456,7 @@ export default function CalendarPage() {
                             ))}
                           </span>
                         )}
-                        {evs.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 md:block">+{evs.length - 2} autres</span>}
+                        {evs.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 md:block">+{evs.length - 2} autre{evs.length > 3 ? 's' : ''}</span>}
                       </button>
                     );
                   })}
@@ -481,6 +519,13 @@ export default function CalendarPage() {
                     </li>
                   );
                 })}
+                {moreExams > 0 && (
+                  <li>
+                    <button onClick={() => setAllExams(v => !v)} aria-expanded={allExams} className="w-full rounded-lg px-1.5 py-1 text-left text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-50 hover:text-ink">
+                      {allExams ? 'Réduire' : `Voir ${moreExams} autre${moreExams > 1 ? 's' : ''}`}
+                    </button>
+                  </li>
+                )}
                 {homework.map(e => (
                   <li key={e.id} className="flex h-8 items-center gap-3 px-1.5">
                     <span className="flex w-9 shrink-0">
@@ -520,7 +565,7 @@ export default function CalendarPage() {
                         return n;
                       })
                     }
-                    className={cx('flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] transition-colors', off ? 'border-dashed border-stone-200 text-stone-500 hover:text-ink' : 'border-stone-200 bg-surface text-ink hover:bg-stone-50')}
+                    className={cx('flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] transition-colors pointer-coarse:h-9', off ? 'border-dashed border-stone-200 text-stone-500 hover:text-ink' : 'border-stone-200 bg-surface text-ink hover:bg-stone-50')}
                   >
                     <span className="h-2 w-2 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: c.color, background: off ? 'transparent' : c.color }} />
                     {c.label}
@@ -530,7 +575,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setManaging(true)}
-                className="flex h-7 items-center gap-1 rounded-full border border-dashed border-stone-300 px-2.5 text-[12px] text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
+                className="flex h-7 items-center gap-1 rounded-full border border-dashed border-stone-300 px-2.5 text-[12px] text-stone-500 transition-colors hover:border-stone-400 hover:text-ink pointer-coarse:h-9"
               >
                 <Plus size={13} /> Catégorie
               </button>
@@ -539,7 +584,19 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {form && <EventForm event={form.event} date={form.date} start={form.start} end={form.end} onClose={() => setForm(null)} />}
+      {form && (
+        <EventForm
+          event={form.event}
+          date={form.date}
+          start={form.start}
+          end={form.end}
+          onClose={() => setForm(null)}
+          onSaved={ev => {
+            if (form.fromQuick) setQuick('');
+            showSaved(ev);
+          }}
+        />
+      )}
       {importing && <ImportIcsDialog initial={importing.initial} onClose={() => setImporting(null)} onImported={selectDay} />}
       {managing && <CategoriesDialog onClose={() => setManaging(false)} />}
 
@@ -562,8 +619,8 @@ export default function CalendarPage() {
         <div className="pointer-events-none fixed inset-0 z-[75] flex items-center justify-center bg-stone-900/10 p-6">
           <div className="pop flex flex-col items-center rounded-2xl border-2 border-dashed border-brand-500 bg-surface/95 px-10 py-8 text-center shadow-pop">
             <CalendarArrowDown size={26} className="text-brand-600" />
-            <p className="mt-2 text-[15px] font-semibold">Dépose ton emploi du temps</p>
-            <p className="mt-0.5 text-[13px] text-stone-500">Fichier .ics exporté depuis ton ENT ou Google Agenda</p>
+            <p className="mt-2 text-[15px] font-semibold">Dépose ton {words.timetable}</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">Fichier .ics exporté depuis {words.icsFrom}</p>
           </div>
         </div>
       )}

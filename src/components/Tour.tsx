@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../store/settings';
 import { useCopilot } from '../store/copilot';
-import { trapTab } from '../lib/a11y';
-import { useTour, endTour } from '../store/tour';
+import { trapTab, focusBeforeOverlay, focusables } from '../lib/a11y';
+import { useTour, endTour, TOUR_TODO } from '../store/tour';
 import type { Usage } from '../lib/usage';
 
 interface Step {
@@ -12,7 +12,8 @@ interface Step {
   /** Prepares the page before measuring the target (Kompaly leans out for its step). */
   enter?: () => void;
   title: string;
-  text: (usage: Usage) => string;
+  /** `touch`: phone or tablet (no keyboard shortcut, no drag and drop, « touche » rather than « clique »). */
+  text: (usage: Usage, touch: boolean) => string;
 }
 
 const NEXT: Record<Usage, string> = { etudes: 'ton prochain examen', travail: 'ta prochaine échéance', perso: 'ton prochain grand jour' };
@@ -33,7 +34,7 @@ const STEPS: Step[] = [
     target: nav('/calendrier'),
     title: 'Le calendrier',
     text: u =>
-      `Écris simplement « ${u === 'travail' ? 'Réunion client jeudi 10h' : u === 'perso' ? 'Dentiste mardi 17h' : 'Partiel de maths vendredi 14h'} » : Kompaly le range tout seul.`,
+      `Écris simplement «\u00a0${u === 'travail' ? 'Réunion client jeudi 10h' : u === 'perso' ? 'Dentiste mardi 17h' : 'Partiel de maths vendredi 14h'}\u00a0»\u00a0: Kompaly le range tout seul.`,
   },
   {
     target: nav('/taches'),
@@ -48,7 +49,7 @@ const STEPS: Step[] = [
   {
     target: nav('/drive'),
     title: 'Le Drive',
-    text: () => 'Glisse tes fichiers dans la page. La recherche fouille même le texte de tes PDF.',
+    text: (_, touch) => `${touch ? 'Ajoute tes fichiers avec le bouton d’import.' : 'Glisse tes fichiers dans la page.'} La recherche fouille même le texte de tes PDF.`,
   },
   {
     target: nav('/groupes'),
@@ -58,19 +59,19 @@ const STEPS: Step[] = [
   {
     target: 'input[aria-label^="Rechercher dans tes fichiers"], button[aria-label="Rechercher"]',
     title: 'La recherche',
-    text: () => 'Retrouve n’importe quel fichier, note ou événement. Raccourci : Ctrl K.',
+    text: (_, touch) => `Retrouve n’importe quel fichier, note ou événement.${touch ? '' : ` Raccourci\u00a0: ${isMac ? '⌘' : 'Ctrl'} K.`}`,
   },
   {
     // His head, not the whole box: hidden at the edge, it is mostly empty.
     target: '[aria-controls="copilot-panel"] svg rect',
     enter: () => useCopilot.getState().pose === 'hidden' && useCopilot.getState().setPose('peek'),
     title: 'Kompaly, ton ami',
-    text: () => 'Clique sur lui pour discuter : il répond, ajoute des événements et t’aide à t’organiser.',
+    text: (_, touch) => `${touch ? 'Touche-le' : 'Clique sur lui'} pour discuter\u00a0: il répond, ajoute des événements et t’aide à t’organiser.`,
   },
   {
     target: 'a[href="/profil"]',
     title: 'Ton profil',
-    text: () => 'Thème, couleur, ton de Kompaly, notifications : tout se règle ici.',
+    text: () => 'Thème, couleur, ton de Kompaly, notifications\u00a0: tout se règle ici.',
   },
 ];
 
@@ -81,6 +82,8 @@ const visible = (sel: string) =>
   }) ?? null;
 
 const CARD_W = 300;
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+const isTouch = () => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
 
 /** The guided tour: one small card at a time, pointing at a part of the screen. */
 export default function Tour() {
@@ -106,8 +109,33 @@ export default function Tour() {
     return () => {
       clearTimeout(settled);
       window.removeEventListener('resize', place);
+      // Kompaly leaned out for his step only: back to his hiding place (unless he is saying something).
+      const c = useCopilot.getState();
+      if (current.enter && c.pose === 'peek' && !c.bubble) c.setPose('hidden');
     };
   }, [current]);
+
+  // When the tour ends, the focus goes back where it was (« Lancer »), or, as that button goes
+  // away with the task ticked off, to the starter task or the first control of its block (« À faire »).
+  const opener = useRef<{ el: HTMLElement; block: HTMLElement | null } | null>(null);
+  useEffect(() => {
+    if (step !== null) {
+      if (!opener.current) {
+        const el = focusBeforeOverlay() ?? document.body;
+        opener.current = { el, block: el.closest<HTMLElement>('section') };
+      }
+      return;
+    }
+    if (!opener.current) return;
+    const { el, block } = opener.current;
+    opener.current = null;
+    const target =
+      (el.isConnected && el.offsetParent ? el : null) ??
+      visible(`[aria-label*="« ${TOUR_TODO} »"]`) ??
+      (block?.isConnected ? focusables(block)[0] : null) ??
+      document.getElementById('contenu');
+    target?.focus();
+  }, [step]);
 
   // Keyboard: focus on « Suivant », Tab stays in the card (the page behind is only shown).
   const rootRef = useRef<HTMLDivElement>(null);
@@ -143,7 +171,7 @@ export default function Tour() {
       {rect ? (
         <div
           className="pointer-events-none absolute rounded-lg ring-2 ring-brand-500 transition-all duration-300"
-          style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12, boxShadow: '0 0 0 9999px rgba(22, 24, 29, 0.45)' }}
+          style={ring(rect, vw, vh)}
         />
       ) : (
         <div className="absolute inset-0" style={{ background: 'rgba(22, 24, 29, 0.45)' }} />
@@ -157,7 +185,7 @@ export default function Tour() {
           <h2 id="tour-title" className="mt-1 text-[15px] font-semibold">
             {current.title}
           </h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-stone-600">{current.text(usage)}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-stone-600">{current.text(usage, isTouch())}</p>
           <div className="mt-4 flex items-center gap-2">
             {!last && (
               <button type="button" onClick={endTour} className="text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
@@ -172,4 +200,13 @@ export default function Tour() {
       </div>
     </div>
   );
+}
+
+/** Highlight 6 px around the target, kept inside the screen (its 2 px ring included). */
+function ring(rect: DOMRect, vw: number, vh: number): React.CSSProperties {
+  const left = Math.max(2, rect.left - 6);
+  const top = Math.max(2, rect.top - 6);
+  const right = Math.min(vw - 2, rect.right + 6);
+  const bottom = Math.min(vh - 2, rect.bottom + 6);
+  return { left, top, width: right - left, height: bottom - top, boxShadow: '0 0 0 9999px rgba(22, 24, 29, 0.45)' };
 }

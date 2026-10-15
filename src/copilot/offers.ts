@@ -4,10 +4,12 @@ import { useCopilot, type CopilotOffer, type CopilotLink } from '../store/copilo
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import type { Note } from '../store/notes';
-import { createRevisionNote, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems } from './actions';
+import { alreadyPlanned, createRevisionNote, hasRevisionPlan, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems } from './actions';
 import { fmt, fromKey } from '../lib/dates';
+import { getSettings } from '../store/settings';
 
 type OfferResult = { text: string; links?: CopilotLink[] };
+const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
 
 /** What the student did with buttons since the AI last spoke (it doesn't see the clicks otherwise). */
 export const offerLog: string[] = [];
@@ -22,8 +24,10 @@ export function runOffer(offer: CopilotOffer): OfferResult {
 /** No slot left before the exam: only the revision sheet. */
 function tooLate(note: Note | null): OfferResult {
   return {
-    text: "Plus le temps de caler une séance avant l'examen. Je t'ai quand même préparé une fiche pour une dernière relecture.",
-    links: note ? [{ label: 'Ouvrir la fiche', to: linkToNote(note.id) }] : [],
+    text: studying()
+      ? "Plus le temps de caler une séance avant l'examen. Je t'ai quand même préparé une fiche pour une dernière relecture."
+      : "Plus le temps de bloquer un créneau avant. Je t'ai quand même préparé une note « À préparer » pour ne rien oublier.",
+    links: note ? [{ label: studying() ? 'Ouvrir la fiche' : 'Ouvrir la note', to: linkToNote(note.id) }] : [],
   };
 }
 
@@ -31,22 +35,30 @@ function run(offer: CopilotOffer): OfferResult {
   const p = offer.payload ?? {};
   switch (offer.kind) {
     case 'plan_revisions': {
-      const res = planRevisions(p.eventId, Number(p.sessions) || 3);
+      const exam = useCalendar.getState().events.find(e => e.id === p.eventId);
+      if (!exam) return { text: "Je ne retrouve plus cet examen, il a peut-être été supprimé." };
+      if (hasRevisionPlan(exam.title)) return alreadyPlanned(exam.title);
+      const res = planRevisions(exam.id, Number(p.sessions) || getSettings().revisionSessions);
       if (!res) return { text: "Je ne retrouve plus cet examen, il a peut-être été supprimé." };
       if (!res.created.length) return tooLate(res.note);
       const days = res.created.map(e => fmt(fromKey(e.date), 'EEEE d')).join(', ');
       return {
-        text: `C'est calé : ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision (${days}) et une fiche « ${res.note?.title} » pour t'organiser. Tu me remercieras le jour J.`,
+        text: studying()
+          ? `C'est calé : ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision (${days}) et une fiche « ${res.note?.title} » pour t'organiser. Tu me remercieras le jour J.`
+          : `C'est calé : ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer (${days}) et une note « ${res.note?.title} » pour ne rien oublier.`,
         links: [
           { label: 'Voir le planning', to: linkToDay(res.created[0].date) },
-          ...(res.note ? [{ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) }] : []),
+          ...(res.note ? [{ label: studying() ? 'Ouvrir la fiche' : 'Ouvrir la note', to: linkToNote(res.note.id) }] : []),
         ],
       };
     }
     case 'revision_note': {
       const note = createRevisionNote(p.eventId);
       if (!note) return { text: "Je ne retrouve plus cet examen." };
-      return { text: `Fiche « ${note.title} » prête, avec une structure pour aller à l'essentiel.`, links: [{ label: 'Ouvrir la fiche', to: linkToNote(note.id) }] };
+      return {
+        text: `${studying() ? 'Fiche' : 'Note'} « ${note.title} » prête, avec une structure pour aller à l'essentiel.`,
+        links: [{ label: studying() ? 'Ouvrir la fiche' : 'Ouvrir la note', to: linkToNote(note.id) }],
+      };
     }
     case 'mark_done': {
       const ev = useCalendar.getState().events.find(e => e.id === p.eventId);

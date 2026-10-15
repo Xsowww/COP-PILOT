@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { useEditor, useEditorState, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Highlight from '@tiptap/extension-highlight';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
@@ -8,13 +9,13 @@ import TiptapImage from '@tiptap/extension-image';
 import type { EditorView } from '@tiptap/pm/view';
 import { NodeSelection } from '@tiptap/pm/state';
 import {
-  Bold, Italic, Underline, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Minus, Undo2, Redo2, ImagePlus,
+  Bold, Italic, Underline, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Link2Off, ExternalLink, Minus, Undo2, Redo2, ImagePlus,
 } from 'lucide-react';
 import { useNotes, type Note } from '../../store/notes';
-import { toast } from '../../store/ui';
+import { askText, toast } from '../../store/ui';
 import { cx } from '../../lib/utils';
 import { compressImage, imageFiles } from './images';
-import { registerEditorFlush } from './noteUtils';
+import { registerEditorFlush, withProtocol } from './noteUtils';
 import './notes.css';
 
 /** Compresses then inserts images at `pos` (drop) or at the selection (paste, toolbar). */
@@ -35,7 +36,12 @@ async function insertImages(view: EditorView, files: File[], pos?: number) {
   }
 }
 
+const openLink = (href: string) => window.open(href, '_blank', 'noopener,noreferrer');
+
 function Toolbar({ editor }: { editor: Editor }) {
+  // The toolbar isn't re-rendered at each keystroke: the link state is followed on its own.
+  const link = useEditorState({ editor, selector: ({ editor: ed }) => (ed.isActive('link') ? ((ed.getAttributes('link').href as string | undefined) ?? '') : null) });
+  const btnClass = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors pointer-coarse:h-9 pointer-coarse:w-9';
   const btn = (label: string, Icon: typeof Bold, active: boolean, run: () => void) => (
     <button
       key={label}
@@ -43,44 +49,56 @@ function Toolbar({ editor }: { editor: Editor }) {
       title={label} aria-label={label}
       onMouseDown={e => e.preventDefault()}
       onClick={run}
-      className={cx('flex h-7 w-7 items-center justify-center rounded-md transition-colors', active ? 'bg-stone-200/70 text-ink' : 'text-stone-500 hover:bg-stone-100 hover:text-ink')}
+      className={cx(btnClass, active ? 'bg-stone-200/70 text-ink' : 'text-stone-500 hover:bg-stone-100 hover:text-ink')}
     >
       <Icon size={15} />
     </button>
   );
   const c = () => editor.chain().focus();
-  const sep = (k: string) => <span key={k} className="mx-1 h-4 w-px bg-stone-200" />;
+  // Groups wrap as a whole; the separator is drawn before each group and hidden at the start of a line
+  // (the row is shifted left under a clipping box), so no line starts with a lone separator.
+  const group = (k: string, children: React.ReactNode) => (
+    <div key={k} className="relative flex shrink-0 items-center gap-0.5 pl-[9px] before:absolute before:left-1 before:top-1/2 before:h-4 before:w-px before:-translate-y-1/2 before:bg-stone-200">
+      {children}
+    </div>
+  );
+  const editLink = async () => {
+    const url = await askText(link !== null ? 'Modifier le lien' : 'Adresse du lien', link ?? '', link !== null ? 'Modifier' : 'Ajouter');
+    if (url === null || !url.trim()) return void c().run();
+    c().extendMarkRange('link').setLink({ href: withProtocol(url) }).run();
+  };
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5">
-      {btn('Titre 1', Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run())}
-      {btn('Titre 2', Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
-      {sep("s1")}
-      {btn('Gras (Ctrl+B)', Bold, editor.isActive('bold'), () => c().toggleBold().run())}
-      {btn('Italique (Ctrl+I)', Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
-      {btn('Souligné (Ctrl+U)', Underline, editor.isActive('underline'), () => c().toggleUnderline().run())}
-      {btn('Barré', Strikethrough, editor.isActive('strike'), () => c().toggleStrike().run())}
-      {btn('Surligner', Highlighter, editor.isActive('highlight'), () => c().toggleHighlight().run())}
-      {sep('s2')}
-      {btn('Liste à puces', List, editor.isActive('bulletList'), () => c().toggleBulletList().run())}
-      {btn('Liste numérotée', ListOrdered, editor.isActive('orderedList'), () => c().toggleOrderedList().run())}
-      {btn('Cases à cocher', ListChecks, editor.isActive('taskList'), () => c().toggleTaskList().run())}
-      {sep('s3')}
-      {btn('Citation', Quote, editor.isActive('blockquote'), () => c().toggleBlockquote().run())}
-      {btn('Bloc de code', Code2, editor.isActive('codeBlock'), () => c().toggleCodeBlock().run())}
-      {btn('Lien', Link2, editor.isActive('link'), () => {
-        const prev = editor.getAttributes('link').href as string | undefined;
-        const url = window.prompt('Adresse du lien', prev ?? 'https://');
-        if (url === null) return;
-        if (!url.trim()) c().unsetLink().run();
-        else c().extendMarkRange('link').setLink({ href: url.trim() }).run();
-      })}
-      {btn('Séparateur', Minus, false, () => c().setHorizontalRule().run())}
-      <label
+    <div className="-mx-1 -my-1 overflow-hidden px-1 py-1 pointer-coarse:overflow-x-auto">
+      <div className="-ml-[9px] flex flex-wrap items-center gap-y-0.5 pointer-coarse:flex-nowrap">
+        {group('g1', <>
+          {btn('Titre 1', Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run())}
+          {btn('Titre 2', Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
+        </>)}
+        {group('g2', <>
+          {btn('Gras (Ctrl+B)', Bold, editor.isActive('bold'), () => c().toggleBold().run())}
+          {btn('Italique (Ctrl+I)', Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
+          {btn('Souligné (Ctrl+U)', Underline, editor.isActive('underline'), () => c().toggleUnderline().run())}
+          {btn('Barré', Strikethrough, editor.isActive('strike'), () => c().toggleStrike().run())}
+          {btn('Surligner', Highlighter, editor.isActive('highlight'), () => c().toggleHighlight().run())}
+        </>)}
+        {group('g3', <>
+          {btn('Liste à puces', List, editor.isActive('bulletList'), () => c().toggleBulletList().run())}
+          {btn('Liste numérotée', ListOrdered, editor.isActive('orderedList'), () => c().toggleOrderedList().run())}
+          {btn('Cases à cocher', ListChecks, editor.isActive('taskList'), () => c().toggleTaskList().run())}
+        </>)}
+        {group('g4', <>
+          {btn('Citation', Quote, editor.isActive('blockquote'), () => c().toggleBlockquote().run())}
+          {btn('Bloc de code', Code2, editor.isActive('codeBlock'), () => c().toggleCodeBlock().run())}
+          {btn(link !== null ? 'Modifier le lien' : 'Lien', Link2, link !== null, () => void editLink())}
+          {link !== null && btn('Ouvrir le lien (ou Ctrl+clic)', ExternalLink, false, () => openLink(withProtocol(link)))}
+          {link !== null && btn('Retirer le lien', Link2Off, false, () => c().extendMarkRange('link').unsetLink().run())}
+          {btn('Séparateur', Minus, false, () => c().setHorizontalRule().run())}
+          <label
         key="image"
         title="Image (tu peux aussi la coller ou la glisser dans la note)"
         onMouseDown={e => e.preventDefault()}
-        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
+        className={cx(btnClass, 'cursor-pointer text-stone-500 hover:bg-stone-100 hover:text-ink')}
       >
         <ImagePlus size={15} />
         <input
@@ -95,9 +113,12 @@ function Toolbar({ editor }: { editor: Editor }) {
           }}
         />
       </label>
-      {sep('s4')}
-      {btn('Annuler (Ctrl+Z)', Undo2, false, () => c().undo().run())}
-      {btn('Rétablir', Redo2, false, () => c().redo().run())}
+        </>)}
+        {group('g5', <>
+          {btn('Annuler (Ctrl+Z)', Undo2, false, () => c().undo().run())}
+          {btn('Rétablir', Redo2, false, () => c().redo().run())}
+        </>)}
+      </div>
     </div>
   );
 }
@@ -119,16 +140,28 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 
   const editor = useEditor({
     editable: !readOnly,
     extensions: [
-      StarterKit.configure({ link: { openOnClick: false, autolink: true } }),
+      StarterKit.configure({ link: false }),
+      // Not « inclusive »: what is typed right after a link stays plain text.
+      Link.extend({ inclusive: () => false }).configure({ openOnClick: false, autolink: true, defaultProtocol: 'https' }),
       Placeholder.configure({ placeholder: 'Commence à écrire… (tape «\u00a0#\u00a0» pour un titre, «\u00a0-\u00a0» pour une liste)' }),
       Highlight,
       TaskList,
-      TaskItem.configure({ nested: true }),
+      TaskItem.configure({
+        nested: true,
+        a11y: { checkboxLabel: node => (node.textContent.trim() ? `Case à cocher\u00a0: ${node.textContent.trim()}` : 'Case à cocher vide') },
+      }),
       TiptapImage.configure({ allowBase64: true }),
     ],
     content: note.content,
     editorProps: {
       attributes: { class: 'prose-note', 'aria-label': 'Contenu de la note', 'aria-multiline': 'true' },
+      // A click places the cursor in a link (to edit it); Ctrl+click (⌘+click) opens it.
+      handleClick: (_view, _pos, event) => {
+        const a = (event.target as HTMLElement | null)?.closest?.('a[href]');
+        if (!a || !(event.ctrlKey || event.metaKey)) return false;
+        openLink(withProtocol(a.getAttribute('href') ?? ''));
+        return true;
+      },
       handlePaste: (view, event) => {
         const files = imageFiles(event.clipboardData?.files);
         if (!files.length) return false;

@@ -104,8 +104,14 @@ export const useNotes = create<NotesState>()(
       },
 
       moveFolder(id, parentId) {
-        if (parentId && folderDescendants(get().folders, id).includes(parentId)) return;
-        set(s => ({ folders: s.folders.map(f => (f.id === id ? { ...f, parentId } : f)) }));
+        const folders = get().folders;
+        const folder = folders.find(f => f.id === id);
+        if (!folder || folder.parentId === parentId) return;
+        if (parentId && folderDescendants(folders, id).includes(parentId)) return;
+        // Same rule as creating or renaming: no two folders with the same name side by side.
+        const taken = folders.filter(f => f.parentId === parentId && f.id !== id).map(f => f.name);
+        const name = uniqueName(folder.name, taken);
+        set(s => ({ folders: s.folders.map(f => (f.id === id ? { ...f, parentId, name } : f)) }));
       },
 
       createNote(data = {}) {

@@ -5,6 +5,7 @@ import { useSettings, DEFAULT_SETTINGS, applyAppearance, type Settings } from '.
 import { applyUsage } from './usage';
 import { addDays } from 'date-fns';
 import { fromKey, fromMinutes, toKey, toMinutes } from './dates';
+import { foldLine, utcStamp } from './ics';
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
 import { blobKey, getStorageUser } from './userStorage';
@@ -56,7 +57,7 @@ const KEEP_CURRENT = new Set<keyof Settings>(['focusSessions', 'focusTotalMinute
  * here (deleted for good, or another device). Current items are kept as they are, so restoring an
  * old file never erases recent work. Settings are replaced.
  */
-export async function importBackup(file: File): Promise<{ notes: number; events: number; todos: number; folders: number }> {
+export async function importBackup(file: File): Promise<{ notes: number; events: number; todos: number; folders: number; inTrash: number }> {
   let data;
   try {
     data = JSON.parse(await file.text());
@@ -65,6 +66,12 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   }
   if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error('Ce fichier n’est pas une sauvegarde Kompaly.');
   const cal = useCalendar.getState();
+  const nb0 = useNotes.getState();
+  const drive0 = useDrive.getState();
+  // Items of the file that are in the trash: not duplicated, but the person is told where they are.
+  const trashed = new Set([...cal.trash, ...nb0.trashNotes, ...nb0.trashFolders, ...drive0.trash].map(x => x.id));
+  const inFile = [data.calendar, data.notes.notes, data.notes.folders, data.driveFolders].flatMap(a => (Array.isArray(a) ? a : []));
+  const inTrash = inFile.filter(x => typeof x?.id === 'string' && trashed.has(x.id)).length;
   const events = missing(data.calendar, cal.events, cal.trash);
   useCalendar.setState(s => ({ events: [...s.events, ...events] }));
   const nb = useNotes.getState();
@@ -93,10 +100,10 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   if (driveFolders.length) useDrive.setState(s => ({ items: [...s.items, ...driveFolders.map(f => (f.parentId && !liveDrive.has(f.parentId) ? { ...f, parentId: null } : f))] }));
   const todos = missing(data.todos, useTodos.getState().todos);
   if (todos.length) useTodos.setState(s => ({ todos: [...s.todos, ...todos] }));
-  return { notes: notes.length, events: events.length, todos: todos.length, folders: folders.length + driveFolders.length };
+  return { notes: notes.length, events: events.length, todos: todos.length, folders: folders.length + driveFolders.length, inTrash };
 }
 
-const icsDate = (date: string, time?: string) => (time ? `${date.replace(/-/g, '')}T${time.replace(':', '')}00` : date.replace(/-/g, ''));
+const icsDate = (date: string) => date.replace(/-/g, '');
 const icsText = (t: string) => t.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, m => `\\${m}`);
 
 // Local calendar arithmetic (toISOString gave the same day back east of UTC+12).
@@ -109,9 +116,10 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
   for (const e of events) {
     lines.push('BEGIN:VEVENT', `UID:${e.id}@cop-pilot`, `DTSTAMP:${now}`);
     if (e.start) {
-      lines.push(`DTSTART:${icsDate(e.date, e.start)}`);
+      // In UTC (« Z »): a floating time would be placed at the wrong hour by a calendar set to another time zone.
+      lines.push(`DTSTART:${utcStamp(e.date, e.start)}`);
       // No end: one hour, not a zero-length event that some calendars hide.
-      lines.push(`DTEND:${icsDate(e.date, e.end ?? fromMinutes(toMinutes(e.start) + 60))}`);
+      lines.push(`DTEND:${utcStamp(e.date, e.end ?? fromMinutes(toMinutes(e.start) + 60))}`);
     } else {
       lines.push(`DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(nextDay(e.date))}`);
     }
@@ -120,7 +128,7 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');
-  download(`kompaly-calendrier-${stamp()}.ics`, lines.join('\r\n'), 'text/calendar');
+  download(`kompaly-calendrier-${stamp()}.ics`, lines.map(foldLine).join('\r\n'), 'text/calendar');
 }
 
 /** The account's own tables (group content lives in separate tables and is left alone). */

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
@@ -37,7 +37,8 @@ const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
-function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () => void }) {
+/** `onDone(cancelled)`: closed with Échap (true) or a result chosen (false). */
+function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (cancelled: boolean) => void }) {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -50,7 +51,10 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () 
       // Only the copy on screen (the desktop one is hidden below 1024 px: AppShell opens the other).
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && inputRef.current?.offsetParent) {
         e.preventDefault();
+        // Not from behind an open dialog (file preview…): its results would sit under the dimmed backdrop.
+        if (document.querySelector('[aria-modal="true"]')) return;
         inputRef.current.focus();
+        inputRef.current.select();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -62,7 +66,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () 
     setQ('');
     setOpen(false);
     inputRef.current?.blur();
-    onDone?.();
+    onDone?.(false);
   };
 
   return (
@@ -80,12 +84,16 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () 
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onKeyDown={e => {
-          if (e.key === 'ArrowDown') setActive(a => Math.min(a + 1, hits.length - 1));
-          if (e.key === 'ArrowUp') setActive(a => Math.max(a - 1, 0));
+          // The arrows move in the results, not the caret.
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActive(a => (e.key === 'ArrowDown' ? Math.min(a + 1, hits.length - 1) : Math.max(a - 1, 0)));
+          }
           if (e.key === 'Enter' && hits[active]) go(hits[active]);
           if (e.key === 'Escape') {
+            setQ('');
             inputRef.current?.blur();
-            onDone?.();
+            onDone?.(true);
           }
         }}
         placeholder="Rechercher"
@@ -136,12 +144,20 @@ export default function AppShell() {
   const user = useAuth(s => s.user)!;
   const trashCount = useTrashCount();
   const [searchOpen, setSearchOpen] = useState(false);
+  const searchBtn = useRef<HTMLButtonElement>(null);
+  // Another page: the search field opened on a phone closes.
+  const { pathname } = useLocation();
+  const [searchPath, setSearchPath] = useState(pathname);
+  if (searchPath !== pathname) {
+    setSearchPath(pathname);
+    setSearchOpen(false);
+  }
   // Ctrl+K on a narrow window: no search field in the header, open the one under it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && !window.matchMedia('(min-width: 1024px)').matches) {
         e.preventDefault();
-        setSearchOpen(true);
+        if (!document.querySelector('[aria-modal="true"]')) setSearchOpen(true);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -259,20 +275,36 @@ export default function AppShell() {
           <div className="hidden flex-1 lg:block">
             <GlobalSearch />
           </div>
-          <button type="button" className="icon-btn ml-auto lg:hidden" title="Rechercher" aria-label="Rechercher" aria-expanded={searchOpen} onClick={() => setSearchOpen(o => !o)}>
+          <button
+            ref={searchBtn}
+            type="button"
+            className="icon-btn ml-auto lg:hidden"
+            title="Rechercher"
+            aria-label="Rechercher"
+            aria-expanded={searchOpen}
+            aria-controls={searchOpen ? 'recherche-mobile' : undefined}
+            onClick={() => setSearchOpen(o => !o)}
+          >
             <Search size={18} strokeWidth={1.9} />
           </button>
           <NavLink to="/corbeille" className="icon-btn relative lg:hidden" title="Corbeille" aria-label={trashLabel}>
             <Trash2 size={18} strokeWidth={1.9} />
             {trashCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-paper" aria-hidden />}
           </NavLink>
-          <NavLink to="/profil" className="rounded-full lg:hidden" title="Profil et réglages" aria-label="Profil et réglages">
+          <NavLink to="/profil" className="inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden" title="Profil et réglages" aria-label="Profil et réglages">
             <Avatar size={30} />
           </NavLink>
         </header>
         {searchOpen && (
-          <div className="px-4 pb-2 md:px-8 lg:hidden">
-            <GlobalSearch autoFocus onDone={() => setSearchOpen(false)} />
+          <div id="recherche-mobile" className="px-4 pb-2 md:px-8 lg:hidden">
+            <GlobalSearch
+              autoFocus
+              onDone={cancelled => {
+                setSearchOpen(false);
+                // Échap: back to the magnifier, not to the top of the page.
+                if (cancelled) searchBtn.current?.focus();
+              }}
+            />
           </div>
         )}
         <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-14 outline-none lg:pb-0">

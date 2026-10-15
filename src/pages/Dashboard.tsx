@@ -55,6 +55,8 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
   );
 }
 
+const preloadNotes = () => void import('./notes/NotesPage');
+
 export default function Dashboard() {
   const words = WORDS[useSettings(st => st.usage)] ?? WORDS.etudes;
   const navigate = useNavigate();
@@ -65,13 +67,18 @@ export default function Dashboard() {
   const today = useToday();
   const now = new Date();
   const hour = now.getHours();
-  const hello = hour < 5 ? 'Bonne nuit' : hour < 18 ? 'Bonjour' : 'Bonsoir';
+  // « Bonne nuit » is said when leaving, not to greet: late at night it is still « Bonsoir ».
+  const hello = hour >= 5 && hour < 18 ? 'Bonjour' : 'Bonsoir';
 
   const todayEvents = events.filter(e => e.date === today).sort(sortEvents);
   // When the day is light, show what comes next so that the card is never a dead end.
   const nextCount = todayEvents.length === 0 ? 2 : todayEvents.length < 3 ? 1 : 0;
   const nextEvents = events.filter(e => e.date > today && !e.done).sort(sortEvents).slice(0, nextCount);
-  const nextExam = events.filter(e => e.category === 'examen' && e.date >= today && !e.done).sort(sortEvents)[0];
+  // An exam already over today (end, else start, passed) is no longer the next one.
+  const nowTime = fmt(now, 'HH:mm');
+  const nextExam = events
+    .filter(e => e.category === 'examen' && !e.done && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime)))
+    .sort(sortEvents)[0];
   const ws = weekStart(now);
   const weekDays = Array.from({ length: 7 }, (_, i) => toKey(addDays(ws, i)));
   const week = events.filter(e => e.date >= weekDays[0] && e.date <= weekDays[6]);
@@ -84,7 +91,9 @@ export default function Dashboard() {
   const planExam = () => {
     if (!nextExam) return;
     const r = runOffer({ label: 'Planifier', kind: 'plan_revisions', payload: { eventId: nextExam.id } });
-    toast(r.links?.length ? 'Révisions planifiées et fiche créée' : r.text, 'success');
+    // Only a plan with sessions links to the schedule: too late, Kompaly only made the sheet.
+    const planned = r.links?.some(l => l.label === 'Voir le planning');
+    toast(planned ? `${words.planned}, ${words === WORDS.etudes ? 'fiche créée' : 'note créée'}` : r.text, planned ? 'success' : 'info');
   };
 
   const examDays = nextExam ? daysUntil(nextExam.date) : 0;
@@ -99,7 +108,8 @@ export default function Dashboard() {
               {hello}, {user.name}
             </h1>
           </div>
-          <button onClick={() => navigate('/notes?nouvelle=1')} className="btn-ghost h-8 px-2.5 text-[13px]">
+          {/* Notes page loaded on approach: the title typed right after the click isn't lost while it loads. */}
+          <button onPointerEnter={preloadNotes} onFocus={preloadNotes} onPointerDown={preloadNotes} onClick={() => navigate('/notes?nouvelle=1')} className="btn-ghost h-8 px-2.5 text-[13px]">
             <Plus size={15} /> Note
           </button>
           <button onClick={() => navigate('/calendrier?ajout=1')} className="btn-ghost h-8 px-2.5 text-[13px]">

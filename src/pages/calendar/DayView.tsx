@@ -110,9 +110,8 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
     <div className="overflow-hidden rounded-lg border border-stone-200">
       {/* All-day band */}
       <div data-drop-day={date} className={cx('flex min-h-10 items-start gap-2 border-b border-stone-200 bg-stone-50/70 px-2 py-1.5', drag?.target?.day === date && drag.target.minutes === undefined && 'bg-brand-50')}>
-        <span className="w-10 shrink-0 pt-1 text-right text-[10px] font-medium uppercase tracking-wide text-stone-500">Jour</span>
+        <span className="w-10 shrink-0 pt-1 text-right text-[10px] font-medium leading-tight text-stone-500" title="Événements sur toute la journée">Journée</span>
         <div className="flex min-w-0 flex-1 flex-wrap gap-1">
-          {allDay.length === 0 && <span className="pt-1 text-[12px] text-stone-500">—</span>}
           {allDay.map(ev => {
             const c = catOf(ev.category);
             return (
@@ -174,6 +173,8 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
               const c = catOf(ev.category);
               const height = Math.max(y(end) - y(start), 22) - 2;
               const compact = height < 40;
+              // One line of title when two wouldn't leave room for the hour (a 1 h block is 50 px).
+              const oneLine = height < 66;
               return (
                 <button
                   key={ev.id}
@@ -208,7 +209,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
                     </span>
                   ) : (
                     <>
-                      <span className={cx('line-clamp-2 text-[12.5px] font-medium leading-snug text-ink', ev.done && 'line-through')}>{ev.title}</span>
+                      <span className={cx('shrink-0 text-[12.5px] font-medium leading-snug text-ink', oneLine ? 'truncate' : 'line-clamp-2', ev.done && 'line-through')}>{ev.title}</span>
                       <span className="tabular mt-0.5 text-[11px]" style={{ color: c.text }}>
                         {ev.start}
                         {ev.end && ` – ${ev.end}`}

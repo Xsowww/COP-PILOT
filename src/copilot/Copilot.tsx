@@ -18,7 +18,8 @@ import { useDictation } from './voice';
 // Already loaded with the app (proactive.ts uses it): the promise keeps the call sites unchanged.
 const brain = async () => claudeBrain;
 
-const SUGGESTIONS = ['Analyse ma semaine', 'Planifie mes révisions'];
+// Studies revise; work and personal life block time to prepare (localBrain understands both).
+const suggestions = (studying: boolean) => ['Analyse ma semaine', studying ? 'Planifie mes révisions' : 'Bloque du temps pour préparer'];
 const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|avec plaisir|je veux bien|volontiers)\b/;
 
 function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer) => void; disabled?: boolean }) {
@@ -31,7 +32,7 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
           disabled={disabled}
           onClick={() => onOffer(o)}
           className={cx(
-            'h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors disabled:opacity-40',
+            'h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors disabled:opacity-40 pointer-coarse:h-9',
             i === 0 ? 'bg-ink text-paper hover:bg-stone-800' : 'border border-stone-200 bg-surface text-stone-700 hover:bg-stone-50',
           )}
         >
@@ -42,7 +43,7 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
         <button
           key={l.to + l.label}
           onClick={() => onGo(l.to)}
-          className="h-7 max-w-full truncate rounded-md border border-stone-200 bg-surface px-2.5 text-[12px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
+          className="h-7 max-w-full truncate rounded-md border border-stone-200 bg-surface px-2.5 text-[12px] font-medium text-stone-700 transition-colors hover:bg-stone-50 pointer-coarse:h-9"
         >
           {l.label} →
         </button>
@@ -81,7 +82,9 @@ export default function Copilot() {
   const [pausedUntil, setPausedUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const { push, setPose, clearBubble, setThinking, setOffsetY, clearHistory, greet } = useCopilot.getState();
-  const hello = () => greet(`Salut ${user?.name ?? ''} ! Moi c'est Kompaly. Je peux retrouver tes fichiers, organiser tes révisions, créer des notes… ou juste discuter. Dis-moi.`);
+  const studying = useSettings(s => s.usage ?? 'etudes') === 'etudes';
+  const hello = () =>
+    greet(`Salut ${user?.name ?? ''} ! Moi c'est Kompaly. Je peux retrouver tes fichiers, ${studying ? 'organiser tes révisions' : 'organiser ton agenda'}, créer des notes… ou juste discuter. Dis-moi.`);
 
   const [look, setLook] = useState({ x: -1, y: 0 });
   const [blink, setBlink] = useState(false);
@@ -336,10 +339,10 @@ export default function Copilot() {
             <button title={wide ? 'Réduire' : 'Agrandir'} aria-label={wide ? 'Réduire' : 'Agrandir'} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
               {wide ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             </button>
-            <button title="Nouvelle conversation" aria-label="Nouvelle conversation" onClick={() => { clearHistory(); hello(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
+            <button title="Nouvelle conversation" aria-label="Nouvelle conversation" onClick={() => { clearHistory(); hello(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" tabIndex={isOpen ? 0 : -1}>
               <RotateCcw size={15} />
             </button>
-            <button title="Fermer (Échap)" aria-label="Fermer (Échap)" onClick={() => setPose('hidden')} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
+            <button title="Fermer (Échap)" aria-label="Fermer (Échap)" onClick={() => setPose('hidden')} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" tabIndex={isOpen ? 0 : -1}>
               <X size={16} />
             </button>
           </header>
@@ -370,8 +373,8 @@ export default function Copilot() {
 
           {messages.length <= 2 && (
             <div className="flex flex-wrap gap-1.5 px-3.5 pb-2.5">
-              {SUGGESTIONS.map(s => (
-                <button key={s} onClick={() => void send(s)} tabIndex={isOpen ? 0 : -1} className="h-7 rounded-full border border-stone-200 px-2.5 text-[12px] text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink">
+              {suggestions(studying).map(s => (
+                <button key={s} onClick={() => void send(s)} tabIndex={isOpen ? 0 : -1} className="h-7 rounded-full border border-stone-200 px-2.5 text-[12px] text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink pointer-coarse:h-9">
                   {s}
                 </button>
               ))}
@@ -412,8 +415,10 @@ export default function Copilot() {
             </button>
           </form>
           {dictation.error && <p className="px-3.5 pb-2 text-[11px] text-red-600">{dictation.error}</p>}
-          {/* Required by the EU AI Act: the student knows they are talking to an AI. */}
-          <p className="px-3.5 pb-2 text-center text-[10.5px] text-stone-500">Kompaly est une IA : il peut se tromper, vérifie ce qui compte.</p>
+          {/* Required by the EU AI Act: the student knows they are talking to an AI (only true in smart mode). */}
+          {aiEnabled && pausedUntil <= now && (
+            <p className="px-3.5 pb-2 text-center text-[10.5px] text-stone-500">Kompaly est une IA&nbsp;: il peut se tromper, vérifie ce qui compte.</p>
+          )}
         </div>
 
         {/* Spontaneous remarks are read out even though the bubble only appears visually. */}
@@ -423,7 +428,7 @@ export default function Copilot() {
 
         {/* Spontaneous remark */}
         {bubble && !isOpen && (
-          <div className="pop pointer-events-auto absolute right-[92px] top-1/2 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop">
+          <div className="pop pointer-events-auto absolute right-[92px] top-1/2 z-10 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop">
             <button onClick={clearBubble} className="absolute right-1.5 top-1.5 rounded p-1 text-stone-400 hover:text-stone-600" title="Fermer" aria-label="Fermer le message">
               <X size={12} />
             </button>
@@ -437,8 +442,14 @@ export default function Copilot() {
         {/* The character */}
         {/* Only the drawn shapes take clicks (Character): the empty corners of its
             box sit over page buttons near the right edge. */}
+        {/* Phones: a bit smaller and, hidden, a little further out (only in the page margin, not over the cards);
+            open, the panel takes his place (his hands stuck out over its edge). */}
         <div
-          className="origin-right cursor-pointer touch-none max-sm:scale-[0.8]" // a bit smaller on phones: less over the cards' edge
+          className={cx(
+            'origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8]',
+            pose === 'hidden' && 'max-sm:translate-x-1.5',
+            isOpen && 'max-sm:invisible',
+          )}
           style={{ clipPath: 'inset(-80px 0 -80px -80px)' }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

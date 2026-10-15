@@ -337,18 +337,20 @@ export default function TrashPage() {
 
         {selectedIds.length > 0 && (
           <div className="enter mb-2 flex h-10 items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-[13px] text-on-inverse shadow-pop">
-            <button className="rounded-md p-1.5 hover:bg-on-inverse/10" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)" aria-label="Désélectionner">
+            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)" aria-label="Désélectionner">
               <X size={15} />
             </button>
+            {/* On a phone the count stands alone, so both buttons fit (the count is in the bar already). */}
             <span className="mr-2 whitespace-nowrap px-1 font-medium" aria-live="polite">
-              {plural(selectedIds.length, 'sélectionné')}
+              {selectedIds.length}
+              <span className="max-sm:sr-only"> sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
             </span>
-            <span className="mr-1 h-4 w-px bg-on-inverse/20" />
-            <button className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse" onClick={() => restore(selectedIds)}>
-              <RotateCcw size={14} /> Restaurer ({selectedIds.length})
+            <span className="mr-1 h-4 w-px shrink-0 bg-on-inverse/20" />
+            <button className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse sm:h-8" onClick={() => restore(selectedIds)}>
+              <RotateCcw size={14} /> Restaurer<span className="max-sm:hidden"> ({selectedIds.length})</span>
             </button>
-            <button className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse" onClick={() => void purge(selectedIds)}>
-              <Trash2 size={14} /> <span className="sm:hidden">Supprimer ({selectedIds.length})</span>
+            <button className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse sm:h-8" onClick={() => void purge(selectedIds)}>
+              <Trash2 size={14} /> <span className="sm:hidden">Supprimer</span>
               <span className="hidden sm:inline">Supprimer définitivement ({selectedIds.length})</span>
             </button>
           </div>

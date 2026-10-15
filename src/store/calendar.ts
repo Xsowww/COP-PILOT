@@ -4,6 +4,7 @@ import { uid, nowIso } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
 import { TRASH_DAYS } from './drive';
 import { getSettings, useSettings } from './settings';
+import type { Usage } from '../lib/usage';
 
 export type BuiltinCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
 /** A built-in category, or one the student created (`c-…`, its name and colour live in the settings). */
@@ -32,6 +33,13 @@ export const CATEGORIES: Record<BuiltinCategory, CategoryInfo> = {
   devoir: { label: 'Devoir', color: '#d48a17', soft: 'var(--cat-devoir-soft)', text: 'var(--cat-devoir-text)' },
   perso: { label: 'Perso', color: '#2f9e6b', soft: 'var(--cat-perso-soft)', text: 'var(--cat-perso-text)' },
   sport: { label: 'Sport', color: '#7a5ad6', soft: 'var(--cat-sport-soft)', text: 'var(--cat-sport-text)' },
+};
+
+/** Names of the five built-in categories for each usage of the account (applied by lib/usage). */
+export const CATEGORY_LABELS: Record<Usage, Record<BuiltinCategory, string>> = {
+  etudes: { cours: 'Cours', examen: 'Examen', devoir: 'Devoir', perso: 'Perso', sport: 'Sport' },
+  travail: { cours: 'Réunion', examen: 'Échéance', devoir: 'Devis', perso: 'Perso', sport: 'Sport' },
+  perso: { cours: 'Rendez-vous', examen: 'Important', devoir: 'À faire', perso: 'Perso', sport: 'Sport' },
 };
 
 export interface CalendarEvent {
@@ -97,7 +105,7 @@ export function customCategoryIn(title: string): EventCategory | undefined {
 }
 
 /** Something to hand in (« Marquer comme rendu »): a revision session is homework-coloured but not one. */
-export const isDeliverable = (e: Pick<CalendarEvent, 'category' | 'title'>) => e.category === 'devoir' && !/^r[ée]vision/i.test(e.title.trim());
+export const isDeliverable = (e: Pick<CalendarEvent, 'category' | 'title'>) => e.category === 'devoir' && !/^(r[ée]vision|préparation)\b/i.test(e.title.trim());
 
 /**
  * Guess a category from the title so the student never has to think about it. `timed`: a TD or TP
@@ -169,20 +177,30 @@ export const useCalendar = create<CalendarState>()(
 
 const cleanLabel = (label: string) => label.trim().replace(/\s+/g, ' ').slice(0, 24);
 
+const sameName = (a: string, b: string) => cleanLabel(a).toLowerCase() === cleanLabel(b).toLowerCase();
+
+/**
+ * The name of a built-in category: 'current' when it is shown now, 'other' when it is one in another usage
+ * (« Cours » created in a work account would appear twice after switching back to studies).
+ */
+export function builtinLabel(label: string): 'current' | 'other' | null {
+  if (Object.values(CATEGORIES).some(c => sameName(c.label, label))) return 'current';
+  return Object.values(CATEGORY_LABELS).some(names => Object.values(names).some(n => sameName(n, label))) ? 'other' : null;
+}
+
+/** The student's own category with this name (spaces and case aside). */
+export const customNamed = (label: string, exceptId?: string) => (getSettings().customCategories ?? []).find(c => c.id !== exceptId && sameName(c.label, label));
+
 /** A built-in category, or another of the student's, already has this name (« Cours » twice would be confusing). */
 export function labelTaken(label: string, exceptId?: string) {
-  const name = cleanLabel(label).toLowerCase();
-  return (
-    Object.values(CATEGORIES).some(c => c.label.toLowerCase() === name) ||
-    (getSettings().customCategories ?? []).some(c => c.id !== exceptId && c.label.toLowerCase() === name)
-  );
+  return !!builtinLabel(label) || !!customNamed(label, exceptId);
 }
 
 /** Creates a category, or returns the existing one with that name. */
 export function createCategory(label: string, color: string): CustomCategory {
   const name = cleanLabel(label);
   const list = getSettings().customCategories ?? [];
-  const same = list.find(c => c.label.toLowerCase() === name.toLowerCase());
+  const same = customNamed(name);
   if (same) return same;
   const cat: CustomCategory = { id: `c-${uid().slice(0, 8)}`, label: name, color };
   useSettings.getState().set({ customCategories: [...list, cat] });
@@ -192,7 +210,7 @@ export function createCategory(label: string, color: string): CustomCategory {
 export function updateCategory(id: CustomCategory['id'], patch: Partial<Omit<CustomCategory, 'id'>>) {
   if (patch.label !== undefined && labelTaken(patch.label, id)) return;
   const list = getSettings().customCategories ?? [];
-  useSettings.getState().set({ customCategories: list.map(c => (c.id === id ? { ...c, ...patch, label: (patch.label ?? c.label).trim().slice(0, 24) || c.label } : c)) });
+  useSettings.getState().set({ customCategories: list.map(c => (c.id === id ? { ...c, ...patch, label: cleanLabel(patch.label ?? c.label) || c.label } : c)) });
 }
 
 /** Removes a category; its events (trash included) go back to Perso. */

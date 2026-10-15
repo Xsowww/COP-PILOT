@@ -13,7 +13,7 @@ import { TOUR_TODO, isTourTodo } from './tour';
 import { useFocusLog } from './focusLog';
 import { useFocus, settleFocus } from './focus';
 import { renameToKompa } from '../lib/renameToKompa';
-import { applyUsage } from '../lib/usage';
+import { applyUsage, USAGES } from '../lib/usage';
 import { create } from 'zustand';
 
 /** True while a brand-new account still has to answer the welcome questionnaire. */
@@ -35,6 +35,44 @@ function localWelcomePending(userId: string) {
     return localStorage.getItem(welcomeKey(userId)) === '1';
   } catch {
     return false;
+  }
+}
+
+/** Questionnaire in progress (question shown and answers so far), so a reload picks it up where it was. */
+export interface WelcomeDraft {
+  step: number;
+  answers: WelcomeAnswers;
+}
+const draftKey = (userId: string) => `cop:${userId}:welcome-draft`;
+export function saveWelcomeDraft(userId: string, draft: WelcomeDraft) {
+  try {
+    sessionStorage.setItem(draftKey(userId), JSON.stringify(draft));
+  } catch {
+    /* private mode: a reload starts the questionnaire again */
+  }
+}
+/** The saved draft merged over `defaults`, or null when there is none (or it is unreadable). */
+export function loadWelcomeDraft(userId: string, defaults: WelcomeAnswers, steps: number): WelcomeDraft | null {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(draftKey(userId)) ?? 'null') as Partial<WelcomeDraft> | null;
+    if (!raw || typeof raw !== 'object') return null;
+    const step = Number.isInteger(raw.step) ? Math.min(Math.max(raw.step as number, 0), steps - 1) : 0;
+    const answers = { ...defaults };
+    for (const k of Object.keys(defaults) as (keyof WelcomeAnswers)[]) {
+      const v = raw.answers?.[k];
+      if (typeof v === typeof defaults[k] && Array.isArray(v) === Array.isArray(defaults[k])) Object.assign(answers, { [k]: v });
+    }
+    if (!USAGES.some(u => u.key === answers.usage)) answers.usage = defaults.usage;
+    return { step, answers };
+  } catch {
+    return null;
+  }
+}
+function clearWelcomeDraft(userId: string) {
+  try {
+    sessionStorage.removeItem(draftKey(userId));
+  } catch {
+    /* nothing saved */
   }
 }
 
@@ -114,8 +152,9 @@ export async function finishWelcome(answers: WelcomeAnswers) {
   const settings = useSettings.getState();
   settings.set({
     ...answers,
-    // Someone who didn't ask for help from the AI gets a quieter Kompaly (still one click away).
-    chattiness: answers.needs.length && !answers.needs.includes('ia') ? 'calme' : settings.chattiness,
+    // Someone who asked for help from the AI gets a Kompaly that speaks up more (the default is the quiet one);
+    // someone who didn't keeps the quiet one (still one click away).
+    chattiness: answers.needs.includes('ia') ? (settings.chattiness === 'calme' ? 'normal' : settings.chattiness) : answers.needs.length ? 'calme' : settings.chattiness,
   });
   applyUsage(answers.usage);
   const user = useAuth.getState().user;
@@ -128,6 +167,7 @@ export async function finishWelcome(answers: WelcomeAnswers) {
       .catch(() => undefined);
   }
   if (!cloudEnabled && user) localStorage.removeItem(welcomeKey(user.id));
+  if (user) clearWelcomeDraft(user.id);
   useWelcome.setState({ pending: false });
 }
 

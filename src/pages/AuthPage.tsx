@@ -258,7 +258,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                       placeholder={mode === 'login' ? undefined : '8 caractères, lettres et chiffres'}
                       autoFocus={mode === 'reset'}
                     />
-                    <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1.5 text-stone-500 hover:text-stone-700" title={show ? 'Masquer' : 'Afficher'} aria-label={show ? 'Masquer' : 'Afficher'}>
+                    <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-1.5 text-stone-500 hover:text-stone-700 pointer-coarse:h-9 pointer-coarse:w-9" title={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
                       {show ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </span>

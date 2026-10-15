@@ -25,7 +25,8 @@ interface Props {
 }
 
 export default function ImportIcsDialog({ initial, onClose, onImported }: Props) {
-  const words = WORDS[useSettings(s => s.usage)];
+  const usage = useSettings(s => s.usage);
+  const words = WORDS[usage] ?? WORDS.etudes;
   const [source, setSource] = useState<IcsSource | undefined>(initial);
   const [skipPast, setSkipPast] = useState(true);
   const [over, setOver] = useState(false);
@@ -105,7 +106,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
 
   return (
     <Modal open onClose={onClose} width={500}>
-      <h3 className="text-[15px] font-semibold">Importer un emploi du temps</h3>
+      <h3 className="text-[15px] font-semibold">Importer un {words.timetable}</h3>
 
       {!source ? (
         <>
@@ -132,15 +133,22 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
           <input ref={inputRef} type="file" accept=".ics,text/calendar" className="hidden" onChange={e => void read(e.target.files?.[0])} />
 
           <div className="mt-4 space-y-2.5 text-[13px] text-stone-600">
-            <p className="eyebrow">Où trouver ce fichier ?</p>
+            <p className="eyebrow">Où trouver ce fichier&nbsp;?</p>
+            {usage === 'etudes' || !usage ? (
+              <p>
+                <span className="font-medium text-ink">ENT de ta fac ou de ton école</span>&nbsp;: ouvre ton emploi du temps (ADE, Hyperplanning…), puis cherche
+                «&nbsp;Exporter&nbsp;», «&nbsp;Synchroniser&nbsp;» ou «&nbsp;Export iCal&nbsp;» et télécharge le fichier <span className="font-mono text-[12px]">.ics</span>.
+              </p>
+            ) : (
+              <p>
+                <span className="font-medium text-ink">Outlook</span>&nbsp;: Fichier › Enregistrer le calendrier, au format <span className="font-mono text-[12px]">.ics</span>.{' '}
+                <span className="font-medium text-ink">Apple Calendrier</span>&nbsp;: Fichier › Exporter › Exporter.
+              </p>
+            )}
             <p>
-              <span className="font-medium text-ink">ENT de ta fac ou de ton école</span> : ouvre ton emploi du temps (ADE, Hyperplanning…), puis cherche
-              «&nbsp;Exporter&nbsp;», «&nbsp;Synchroniser&nbsp;» ou «&nbsp;Export iCal&nbsp;» et télécharge le fichier <span className="font-mono text-[12px]">.ics</span>.
+              <span className="font-medium text-ink">Google Agenda</span>&nbsp;: Paramètres › Importer et exporter › Exporter, puis décompresse le .zip reçu.
             </p>
-            <p>
-              <span className="font-medium text-ink">Google Agenda</span> : Paramètres › Importer et exporter › Exporter, puis décompresse le .zip reçu.
-            </p>
-            <p className="text-[12px] text-stone-500">Les liens d'abonnement (URL) ne peuvent pas être lus directement : télécharge le fichier.</p>
+            <p className="text-[12px] text-stone-500">Les liens d'abonnement (URL) ne peuvent pas être lus directement&nbsp;: télécharge le fichier.</p>
           </div>
 
           <div className="mt-5 flex justify-end">
@@ -206,7 +214,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                 </label>
                 {(plan.updates.length > 0 || plan.removals.length > 0) && (
                   <p className="mt-2 text-[12px] text-stone-600">
-                    Emploi du temps mis à jour :{' '}
+                    {words.timetable.charAt(0).toUpperCase() + words.timetable.slice(1)} mis à jour&nbsp;:{' '}
                     {[
                       plan.updates.length && `${plan.updates.length} ${plan.updates.length > 1 ? words.slots : words.slot} modifié${plan.updates.length > 1 ? 's' : ''} (horaire, salle…)`,
                       plan.removals.length && `${plan.removals.length} ${plan.removals.length > 1 ? words.slots : words.slot} annulé${plan.removals.length > 1 ? 's' : ''}, mis à la corbeille`,

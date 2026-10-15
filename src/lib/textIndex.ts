@@ -1,10 +1,10 @@
-// Text of the Drive's PDF, Word and text files, extracted in the browser so the search can look
+// Text of the Drive's PDF, Word, PowerPoint and text files (CSV included), extracted in the browser so the search can look
 // inside documents. Kept in its own IndexedDB database: blobStore's one is left untouched.
 // Entries are keyed like blobs ("<userId>:<itemId>") so accounts sharing a browser stay apart.
 
 import { blobStore } from './blobStore';
 import { blobKey, getStorageUser } from './userStorage';
-import { useDrive, categoryOf, type DriveItem } from '../store/drive';
+import { useDrive, categoryOf, isPlainText, type DriveItem } from '../store/drive';
 import { docxText, pdfPages } from './docText';
 
 const DB_NAME = 'cop-pilot-text';
@@ -88,21 +88,42 @@ export function highlightParts(text: string, query: string): { text: string; hit
 
 // ── Extraction ─────────────────────────────────────────────────────────────
 
-type Kind = 'pdf' | 'docx' | 'text';
+type Kind = 'pdf' | 'docx' | 'pptx' | 'text';
 
 function kindOf(item: Pick<DriveItem, 'kind' | 'mime' | 'name' | 'size'>): Kind | null {
   if (item.kind !== 'file' || (item.size ?? 0) > MAX_FILE_SIZE) return null;
-  const cat = categoryOf(item);
-  if (cat === 'pdf') return 'pdf';
-  if (cat === 'text') return 'text';
-  if (item.name.toLowerCase().endsWith('.docx')) return 'docx';
+  if (categoryOf(item) === 'pdf') return 'pdf';
+  if (isPlainText(item)) return 'text';
+  const name = item.name.toLowerCase();
+  if (name.endsWith('.docx')) return 'docx';
+  if (name.endsWith('.pptx')) return 'pptx';
   return null;
+}
+
+/** Text of every slide of a PowerPoint file (jszip is loaded on demand). */
+async function pptxText(blob: Blob) {
+  const { default: JSZip } = await import('jszip');
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const num = (p: string) => Number(p.match(/slide(\d+)\.xml$/)?.[1] ?? 0);
+  const paths = Object.keys(zip.files).filter(p => /^ppt\/(slides\/slide|notesSlides\/notesSlide)\d+\.xml$/.test(p)).sort((a, b) => num(a) - num(b));
+  const parts: string[] = [];
+  for (const path of paths) {
+    const xml = new DOMParser().parseFromString((await zip.file(path)?.async('string')) ?? '', 'application/xml');
+    for (const p of xml.getElementsByTagName('a:p')) parts.push([...p.getElementsByTagName('a:t')].map(t => t.textContent ?? '').join(''));
+  }
+  return parts.join('\n');
 }
 
 /** Plain text of a file, whitespace collapsed (snippets read better on one line). */
 async function extract(kind: Kind, blob: Blob) {
   const raw =
-    kind === 'pdf' ? (await pdfPages(blob, MAX_TEXT, MAX_PDF_PAGES)).pages.join('\n') : kind === 'docx' ? await docxText(blob) : await blob.slice(0, MAX_TEXT * 2).text();
+    kind === 'pdf'
+      ? (await pdfPages(blob, MAX_TEXT, MAX_PDF_PAGES)).pages.join('\n')
+      : kind === 'docx'
+        ? await docxText(blob)
+        : kind === 'pptx'
+          ? await pptxText(blob)
+          : await blob.slice(0, MAX_TEXT * 2).text();
   return raw.replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT);
 }
 

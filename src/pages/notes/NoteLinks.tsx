@@ -64,7 +64,7 @@ export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }
               {!isFile && <span className="tabular shrink-0 text-stone-500">{shortDate(r.event.date)}</span>}
             </button>
             {!readOnly && (
-              <button className="rounded p-0.5 text-stone-400 hover:bg-stone-200/70 hover:text-ink" title="Retirer le lien" aria-label="Retirer le lien" onClick={() => unlink(r.link)}>
+              <button className="rounded p-0.5 text-stone-400 hover:bg-stone-200/70 hover:text-ink" title="Retirer le lien" aria-label={`Retirer le lien vers «\u00a0${title}\u00a0»`} onClick={() => unlink(r.link)}>
                 <X size={12} />
               </button>
             )}
@@ -116,7 +116,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
   const t = todayKey();
 
   const row = (key: string, linked: boolean, onClick: () => void, icon: React.ReactNode, title: string, meta: React.ReactNode) => (
-    <button key={key} onClick={onClick} className={cx('flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors', linked ? 'bg-brand-50/70' : 'hover:bg-stone-50')}>
+    <button key={key} onClick={onClick} aria-pressed={linked} className={cx('flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors', linked ? 'bg-brand-50/70' : 'hover:bg-stone-50')}>
       <span className="flex w-6 shrink-0 justify-center">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-medium">{title}</span>
@@ -140,9 +140,9 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
       <p className="mt-0.5 text-[13px] text-stone-500">Rattache des fichiers du Drive et des événements du calendrier à « {note.title} ».</p>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-        <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher un fichier ou un événement" className="field w-full pl-8" />
+        <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher un fichier ou un événement" aria-label="Rechercher un fichier ou un événement" className="field w-full pl-8" />
       </div>
-      <div className="mt-3 flex gap-1">
+      <div className="mt-3 flex gap-1" role="group" aria-label="Afficher">
         {(
           [
             ['all', 'Tout'],
@@ -150,7 +150,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
             ['file', 'Fichiers'],
           ] as const
         ).map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)} className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors', tab === k ? 'bg-stone-100 text-ink' : 'text-stone-500 hover:text-ink')}>
+          <button key={k} onClick={() => setTab(k)} aria-pressed={tab === k} className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors', tab === k ? 'bg-stone-100 text-ink' : 'text-stone-500 hover:text-ink')}>
             {label}
           </button>
         ))}

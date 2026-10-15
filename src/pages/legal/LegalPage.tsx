@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import Logo from '../../components/Logo';
 import { LEGAL_LINKS } from './links';
 
@@ -155,12 +155,13 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
   const { title, sections } = DOCS[doc];
   return (
     <div className="h-full overflow-y-auto bg-paper px-6 py-6 sm:px-10">
-      <Link to="/" aria-label="Accueil">
+      {/* inline-flex: around a block child, the focus outline of an inline link was drawn on an empty box. */}
+      <Link to="/" aria-label="Accueil" className="inline-flex rounded-md">
         <Logo />
       </Link>
       <article className="mx-auto max-w-[680px] py-10">
         <h1 className="text-[26px] font-semibold tracking-[-0.02em]">{title}</h1>
-        <p className="mt-1 text-[12px] text-stone-500">Mise à jour : {UPDATED}</p>
+        <p className="mt-1 text-[12px] text-stone-500">Mise à jour&nbsp;: {UPDATED}</p>
         {sections.map(s => (
           <section key={s.title} className="mt-8">
             <h2 className="text-[15px] font-semibold">{s.title}</h2>
@@ -180,11 +181,12 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
             ))}
           </section>
         ))}
-        <nav className="mt-12 flex flex-wrap gap-x-4 gap-y-1 border-t border-stone-200 pt-4 text-[13px] text-stone-500">
+        <nav aria-label="Informations légales" className="mt-12 flex flex-wrap gap-x-4 border-t border-stone-200 pt-2 text-[13px] text-stone-500">
           {LEGAL_LINKS.map(l => (
-            <Link key={l.to} to={l.to} className="underline decoration-stone-300 underline-offset-4 hover:text-ink">
+            // NavLink: the page being read is marked (aria-current) and not underlined.
+            <NavLink key={l.to} to={l.to} className="inline-block py-2 underline decoration-stone-300 underline-offset-4 hover:text-ink aria-[current=page]:font-medium aria-[current=page]:text-ink aria-[current=page]:no-underline">
               {l.label}
-            </Link>
+            </NavLink>
           ))}
         </nav>
       </article>

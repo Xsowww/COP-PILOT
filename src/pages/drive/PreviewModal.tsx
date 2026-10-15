@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Download, X, Loader2 } from 'lucide-react';
-import { categoryOf, getFileUrl, type DriveItem } from '../../store/drive';
+import { categoryOf, getFileUrl, isPlainText, type DriveItem } from '../../store/drive';
 import { downloadItem } from './download';
 import { formatBytes, relativeTime } from '../../lib/utils';
 import FileIcon from '../../components/FileIcon';
@@ -15,6 +15,12 @@ const PAGE =
   '[&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:font-semibold [&_p]:my-2.5 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1 ' +
   '[&_a]:text-brand-700 [&_a]:underline [&_img]:my-3 [&_img]:max-w-full [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse ' +
   '[&_td]:border [&_td]:border-stone-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-stone-200 [&_th]:bg-stone-50 [&_th]:px-2 [&_th]:py-1 [&_*:first-child]:mt-0';
+
+/** « il y a 3 min », « hier », « le 3 oct. » */
+const when = (iso: string) => {
+  const rel = relativeTime(iso);
+  return /^\d/.test(rel) ? `le ${rel}` : rel;
+};
 
 const extOf = (name: string) => name.split('.').pop()?.toLowerCase() ?? '';
 
@@ -40,6 +46,8 @@ export default function PreviewModal({
   const [slides, setSlides] = useState<Slide[] | null>(null);
   const [failed, setFailed] = useState(false);
   const cat = categoryOf(item);
+  // CSV keeps its spreadsheet icon but is shown as text.
+  const plain = isPlainText(item);
   // Only the modern Office formats can be read in the browser (.doc / .ppt are binary).
   const office = extOf(item.name) === 'docx' ? 'docx' : extOf(item.name) === 'pptx' ? 'pptx' : null;
 
@@ -60,7 +68,7 @@ export default function PreviewModal({
       }
       current = u;
       setUrl(u);
-      if (cat === 'text') setText((await (await fetch(u)).text()).slice(0, 200_000));
+      if (plain) setText((await (await fetch(u)).text()).slice(0, 200_000));
       if (office) {
         try {
           const blob = await (await fetch(u)).blob();
@@ -85,7 +93,7 @@ export default function PreviewModal({
       if (current) URL.revokeObjectURL(current);
       revokeSlides(built);
     };
-  }, [item.id, cat, office, getUrl]);
+  }, [item.id, cat, plain, office, getUrl]);
 
   // Captured and stopped, like Modal: Échap closes the preview only, not Kompaly behind it.
   useEffect(() => {
@@ -119,7 +127,7 @@ export default function PreviewModal({
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium">{item.name}</p>
           <p className="text-[12px] text-white/65">
-            {formatBytes(item.size)} · modifié {relativeTime(item.updatedAt)}
+            {formatBytes(item.size)} · {item.deletedAt ? `supprimé ${when(item.deletedAt)}` : `modifié ${when(item.updatedAt)}`}
           </p>
         </div>
         {actions}
@@ -184,7 +192,7 @@ export default function PreviewModal({
                 ))}
               </div>
             )
-          ) : cat === 'text' ? (
+          ) : plain ? (
             <pre className="max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md bg-white p-5 font-mono text-[12px] text-stone-800">{text}</pre>
           ) : (
             <div className="rounded-xl bg-white p-10 text-center">

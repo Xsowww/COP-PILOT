@@ -6,7 +6,8 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { useCalendar, catOf, allCategories, guessCategory, createCategory, updateCategory, deleteCategory } = await import('../src/store/calendar');
+const { useCalendar, catOf, allCategories, guessCategory, createCategory, updateCategory, deleteCategory, labelTaken, builtinLabel } = await import('../src/store/calendar');
+const { applyUsage } = await import('../src/lib/usage');
 const { useSettings } = await import('../src/store/settings');
 
 beforeEach(() => {
@@ -38,5 +39,24 @@ describe('own categories', () => {
     deleteCategory(job.id);
     expect(useCalendar.getState().events.find(e => e.id === ev.id)?.category).toBe('perso');
     expect(catOf(job.id).label).toBe(catOf('perso').label); // a stale id never breaks the display
+  });
+
+  it('compare les noms sans tenir compte des espaces en trop', () => {
+    const asso = createCategory('Asso', '#d6457f');
+    updateCategory(asso.id, { label: '  Club   théâtre ' });
+    expect(catOf(asso.id).label).toBe('Club théâtre');
+    expect(labelTaken('club théâtre')).toBe(true);
+    expect(labelTaken('Club  théâtre', asso.id)).toBe(false); // itself
+    expect(createCategory('Club théâtre', '#1f8a8a').id).toBe(asso.id);
+  });
+
+  it('réserve les noms de base de tous les usages', () => {
+    applyUsage('travail');
+    expect(builtinLabel('Réunion')).toBe('current');
+    expect(builtinLabel(' cours ')).toBe('other'); // « Cours » reviendrait en double en repassant aux études
+    expect(labelTaken('Cours')).toBe(true);
+    expect(builtinLabel('Stage')).toBeNull();
+    applyUsage('etudes');
+    expect(builtinLabel('Cours')).toBe('current');
   });
 });

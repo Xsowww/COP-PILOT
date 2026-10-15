@@ -13,6 +13,7 @@ interface FocusState {
   endsAt: number;
   pausedLeft: number | null; // ms left while paused
   label: string;
+  minutes: number; // planned length of the current phase: changing the setting mid-session changes nothing
   start: (label?: string) => void;
   pause: () => void;
   resume: () => void;
@@ -30,9 +31,11 @@ export const useFocus = create<FocusState>()(
       endsAt: 0,
       pausedLeft: null,
       label: '',
+      minutes: 0,
 
       start(label = '') {
-        set({ phase: 'focus', endsAt: Date.now() + getSettings().focusMinutes * 60_000, pausedLeft: null, label });
+        const minutes = getSettings().focusMinutes;
+        set({ phase: 'focus', endsAt: Date.now() + minutes * 60_000, pausedLeft: null, label, minutes });
       },
       pause() {
         const s = get();
@@ -44,26 +47,38 @@ export const useFocus = create<FocusState>()(
       },
       stop: () => set({ phase: null, pausedLeft: null, label: '' }),
 
-      /** Called every second by the timer widget; switches phases when time is up. */
+      /** Called every second by the timer widget; switches phases when time is up (even long after, tab closed). */
       tick() {
         const s = get();
         if (!s.phase || s.pausedLeft !== null || Date.now() < s.endsAt) return;
         const settings = getSettings();
-        if (settings.focusSound) chime();
         if (s.phase === 'focus') {
+          const minutes = s.minutes || settings.focusMinutes;
           useSettings.getState().set({
             focusSessions: settings.focusSessions + 1,
-            focusTotalMinutes: settings.focusTotalMinutes + settings.focusMinutes,
+            focusTotalMinutes: settings.focusTotalMinutes + minutes,
           });
-          useFocusLog.getState().log(s.label, settings.focusMinutes, new Date(Date.now() - settings.focusMinutes * 60_000).toISOString());
+          useFocusLog.getState().log(s.label, minutes, new Date(s.endsAt - minutes * 60_000).toISOString());
+          // The break starts when the session really ended, not when the tab comes back.
+          const breakEndsAt = s.endsAt + settings.breakMinutes * 60_000;
+          if (Date.now() >= breakEndsAt) {
+            useCopilot.getState().say({
+              text: `Ta session${s.label ? ` sur «\u00a0${s.label}\u00a0»` : ''} s’est terminée pendant ton absence\u00a0: ${minutes}\u00a0min comptées.`,
+              mood: 'happy',
+            });
+            set({ phase: null, pausedLeft: null, label: '' });
+            return;
+          }
+          if (settings.focusSound) chime();
           const text = pick([
-            `${settings.focusMinutes} minutes de concentration, bien joué. Pause de ${settings.breakMinutes} min : lève-toi, bois un verre d'eau.`,
+            `${minutes} minutes de concentration, bien joué. Pause de ${settings.breakMinutes} min : lève-toi, bois un verre d'eau.`,
             `Session terminée${s.label ? ` sur « ${s.label} »` : ''}. Tu as mérité ta pause de ${settings.breakMinutes} minutes.`,
           ]);
           useCopilot.getState().say({ text, mood: 'happy' });
           notify('Session terminée', `Pause de ${settings.breakMinutes} minutes.`);
-          set({ phase: 'break', endsAt: Date.now() + settings.breakMinutes * 60_000 });
+          set({ phase: 'break', endsAt: breakEndsAt, minutes: settings.breakMinutes });
         } else {
+          if (settings.focusSound) chime();
           notify('Fin de la pause', 'On repart pour une session ?');
           useCopilot.getState().say({ text: 'Fin de la pause. On repart pour une session ?', mood: 'alert' });
           set({ phase: null, label: '' });
@@ -74,15 +89,20 @@ export const useFocus = create<FocusState>()(
       name: 'focus',
       storage: userStorage,
       skipHydration: true,
-      partialize: s => ({ phase: s.phase, endsAt: s.endsAt, pausedLeft: s.pausedLeft, label: s.label }),
+      partialize: s => ({ phase: s.phase, endsAt: s.endsAt, pausedLeft: s.pausedLeft, label: s.label, minutes: s.minutes }),
     },
   ),
 );
 
-/** After loading an account: a session whose break is long over is simply gone. */
+/**
+ * After loading an account. A session that ended while the tab was closed is still counted
+ * (its break runs from the real end); a break that is long over is simply gone.
+ */
 export function settleFocus() {
   const s = useFocus.getState();
-  if (s.phase && s.pausedLeft === null && Date.now() > s.endsAt + getSettings().breakMinutes * 60_000) s.stop();
+  if (!s.phase || s.pausedLeft !== null || Date.now() < s.endsAt) return;
+  if (s.phase === 'focus') s.tick();
+  else if (Date.now() > s.endsAt + getSettings().breakMinutes * 60_000) s.stop();
 }
 
 export function focusLeft(s: Pick<FocusState, 'endsAt' | 'pausedLeft'>) {

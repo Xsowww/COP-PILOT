@@ -399,7 +399,12 @@ export function describeApiError(e: unknown): string {
   if (code === 'daily_limit') return "Tu as utilisé toutes tes questions à l'IA pour aujourd'hui : je passe en mode simple jusqu'à minuit.";
   if (code === 'site_limit') return "L'IA gratuite a atteint sa limite du jour pour tout le site : je passe en mode simple jusqu'à minuit.";
   if (code === 'too_large') return "C'est trop long pour l'IA gratuite d'un coup : demande-moi une partie précise, ou ouvre une nouvelle conversation.";
-  if (code === 'network' || code === 'timeout') return "J'ai perdu la connexion une seconde.";
-  if (code === 'bad_key') return "Ma clé d'accès à l'IA ne marche pas (à vérifier dans la configuration du serveur).";
-  return "J'ai un petit souci technique de mon côté.";
+  // The AI doesn't answer: simple mode for a while instead of the same apology at every message.
+  if (code === 'bad_key') {
+    pauseAi(30 * 60);
+    return "Ma clé d'accès à l'IA ne marche pas (à vérifier dans la configuration du serveur) : je passe en mode simple.";
+  }
+  pauseAi(2 * 60);
+  if (code === 'network' || code === 'timeout') return "J'ai perdu la connexion à l'IA : je passe en mode simple deux minutes.";
+  return "L'IA a un petit souci technique : je passe en mode simple deux minutes.";
 }

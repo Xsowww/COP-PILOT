@@ -278,24 +278,46 @@ export function findExam(query: string) {
   return upcoming.find(e => normalize(e.title).includes(q)) ?? (q ? undefined : upcoming[0]);
 }
 
-const revisionTitle = (examTitle: string) => `Révision · ${examTitle}`;
+// Studies: revision sessions and a revision sheet; work and personal life: time to prepare and a checklist.
+const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
+const revisionTitle = (examTitle: string) => `${studying() ? 'Révision' : 'Préparation'} · ${examTitle}`;
 
-export function hasRevisionPlan(examTitle: string) {
-  return useCalendar.getState().events.some(e => e.title === revisionTitle(examTitle));
+/** Revision (or preparation) sessions already planned for an exam, earliest first. */
+export function revisionSessions(examTitle: string) {
+  return useCalendar.getState().events
+    .filter(e => e.title === `Révision · ${examTitle}` || e.title === `Préparation · ${examTitle}`)
+    .sort(sortEvents);
 }
 
-/** Creates (or reuses) a revision sheet for an exam, in the "Révisions" notes folder. */
+export function hasRevisionPlan(examTitle: string) {
+  return revisionSessions(examTitle).length > 0;
+}
+
+/** Kompaly's answer when asked to plan an exam that already has its sessions (no duplicates). */
+export function alreadyPlanned(examTitle: string) {
+  const first = revisionSessions(examTitle)[0];
+  const note = useNotes.getState().notes.find(n => n.title === `Fiche · ${examTitle}` || n.title === `À préparer · ${examTitle}`);
+  return {
+    text: studying()
+      ? `C'est déjà planifié pour « ${examTitle} » : tes séances de révision sont dans le calendrier.`
+      : `C'est déjà planifié pour « ${examTitle} » : tes créneaux de préparation sont dans le calendrier.`,
+    links: [
+      ...(first ? [{ label: 'Voir le planning', to: linkToDay(first.date) }] : []),
+      ...(note ? [{ label: studying() ? 'Ouvrir la fiche' : 'Ouvrir la note', to: linkToNote(note.id) }] : []),
+    ],
+  };
+}
+
+/** Creates (or reuses) a revision sheet for an exam, in the "Révisions" notes folder (« Préparation » outside studies). */
 export function createRevisionNote(examId: string) {
   const exam = useCalendar.getState().events.find(e => e.id === examId);
   if (!exam) return null;
-  const title = `Fiche · ${exam.title}`;
+  const title = `${studying() ? 'Fiche' : 'À préparer'} · ${exam.title}`;
   const existing = useNotes.getState().notes.find(n => n.title === title);
   if (existing) return existing;
-  return createNote(
-    title,
-    `# Ce qui tombe\n- Chapitres à revoir :\n- Type d'épreuve :\n# À retenir\n- \n# Mes points faibles\n[ ] \n# Questions à poser au prof\n- `,
-    'Révisions',
-  );
+  return studying()
+    ? createNote(title, `# Ce qui tombe\n- Chapitres à revoir :\n- Type d'épreuve :\n# À retenir\n- \n# Mes points faibles\n[ ] \n# Questions à poser au prof\n- `, 'Révisions')
+    : createNote(title, `# Objectif\n- \n# À préparer\n[ ] \n# Points à aborder\n- \n# Après\n- `, 'Préparation');
 }
 
 const toHm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;

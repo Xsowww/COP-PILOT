@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ChevronDown, ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
-  List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, X, MousePointer2, Search, Tag, Link2, Ban, Check,
+  List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Ban, Check,
 } from 'lucide-react';
 import {
   useDrive, childrenOf, pathOf, categoryOf, folderSize, FOLDER_COLORS, type DriveItem,
-  withDescendants,
+  pasteForbidden,
 } from '../../store/drive';
 import { askText, toast, useUi } from '../../store/ui';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
@@ -25,6 +25,8 @@ import { StorageError } from '../../lib/blobStore';
 
 type Tab = 'all' | 'starred' | 'recent';
 type SortKey = 'name' | 'date' | 'size';
+type Sort = { key: SortKey; asc: boolean };
+const SORT_LABELS: Record<SortKey, string> = { name: 'Nom', date: 'Modifié', size: 'Taille' };
 
 const DRAG_MIME = 'application/x-cop-drive';
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -56,6 +58,26 @@ function readPref<T extends string>(key: string, fallback: T): T {
   }
 }
 
+function readSort(): Sort {
+  const [key, dir] = readPref('cop:drive-sort', 'name:asc').split(':');
+  return { key: key in SORT_LABELS ? (key as SortKey) : 'name', asc: dir !== 'desc' };
+}
+
+/** Folders first, then by the chosen column. */
+function sortItems(items: DriveItem[], list: DriveItem[], sort: Sort) {
+  const dir = sort.asc ? 1 : -1;
+  const size = (i: DriveItem) => (i.kind === 'folder' ? folderSize(items, i.id) : (i.size ?? 0));
+  return [...list].sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
+    if (sort.key === 'date') return dir * a.updatedAt.localeCompare(b.updatedAt);
+    if (sort.key === 'size') return dir * (size(a) - size(b));
+    return dir * a.name.localeCompare(b.name, 'fr', { numeric: true });
+  });
+}
+
+const CANT_COPY_INTO_ITSELF = 'Impossible de copier un dossier dans lui-même ou dans un de ses sous-dossiers';
+const alreadyThere = (n: number) => (n > 1 ? 'Ces éléments sont déjà dans ce dossier' : 'Cet élément est déjà dans ce dossier');
+
 export default function DrivePage() {
   const [params, setParams] = useSearchParams();
   const folderId = params.get('dossier');
@@ -65,7 +87,10 @@ export default function DrivePage() {
 
   const [tab, setTab] = useState<Tab>('all');
   const [view, setView] = useState<'grid' | 'list'>(() => readPref('cop:drive-view', 'grid'));
-  const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: 'name', asc: true });
+  // Mon Drive / Favoris sort, remembered; Récents and search results have their own, reset each time.
+  const [sort, setSort] = useState<Sort>(readSort);
+  const [listSort, setListSort] = useState<Sort | null>(null);
+  const [sortMenu, setSortMenu] = useState<{ x: number; y: number } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; target: string | null } | null>(null);
@@ -78,6 +103,12 @@ export default function DrivePage() {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [tagIds, setTagIds] = useState<string[] | null>(null);
   const [shareItem, setShareItem] = useState<DriveItem | null>(null);
+  // Item holding the list's single Tab stop (arrows move it).
+  const [focusId, setFocusId] = useState<string | null>(null);
+  // Last pointer was a finger: a tap adds to the selection instead of replacing it.
+  const [touchMode, setTouchMode] = useState(false);
+  // An item is being dragged: keep the breadcrumb (drop targets) instead of the selection bar.
+  const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -90,6 +121,9 @@ export default function DrivePage() {
   const q = query.trim();
   const allTags = useMemo(() => [...new Set(items.flatMap(i => i.tags ?? []))].sort((a, b) => a.localeCompare(b, 'fr')), [items]);
   const activeTag = tagFilter && allTags.includes(tagFilter) ? tagFilter : null;
+  const filtering = !!q || !!activeTag;
+  // null: search results in their own order (name matches, then content matches).
+  const activeSort = useMemo<Sort | null>(() => (filtering ? listSort : tab === 'recent' ? (listSort ?? { key: 'date', asc: false }) : sort), [filtering, listSort, tab, sort]);
 
   // Read the text of PDFs / Word / text files in the background, for the search.
   useEffect(() => startTextIndexing(), []);
@@ -114,30 +148,36 @@ export default function DrivePage() {
       const byName = items.filter(i => (!q || fold(i.name).includes(fq)) && (!activeTag || i.tags?.includes(activeTag)));
       const named = new Set(byName.map(i => i.id));
       const byContent = q ? items.filter(i => !named.has(i.id) && contentHits.has(i.id) && (!activeTag || i.tags?.includes(activeTag))) : [];
-      return [...byName.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, 'fr', { numeric: true }) : a.kind === 'folder' ? -1 : 1)), ...byContent];
+      const found = [...sortItems(items, byName, { key: 'name', asc: true }), ...byContent];
+      return activeSort ? sortItems(items, found, activeSort) : found;
     }
     if (tab === 'starred') list = items.filter(i => i.starred);
+    // The 40 latest files, then shown in the chosen order (newest first by default).
     else if (tab === 'recent') list = items.filter(i => i.kind === 'file').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 40);
     else list = childrenOf(items, parentId);
-    if (tab === 'recent') return list;
-    const dir = sort.asc ? 1 : -1;
-    const size = (i: DriveItem) => (i.kind === 'folder' ? folderSize(items, i.id) : (i.size ?? 0));
-    return [...list].sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
-      if (sort.key === 'date') return dir * a.updatedAt.localeCompare(b.updatedAt);
-      if (sort.key === 'size') return dir * (size(a) - size(b));
-      return dir * a.name.localeCompare(b.name, 'fr', { numeric: true });
-    });
-  }, [items, parentId, tab, sort, q, activeTag, contentHits]);
+    return sortItems(items, list, activeSort ?? sort);
+  }, [items, parentId, tab, sort, activeSort, q, activeTag, contentHits]);
 
   const selectedIds = useMemo(() => [...selected].filter(id => items.some(i => i.id === id)), [selected, items]);
   const single = selectedIds.length === 1 ? items.find(i => i.id === selectedIds[0]) : undefined;
-  const filtering = !!q || !!activeTag;
+  const activeId = (visible.find(i => i.id === focusId) ?? visible.find(i => selected.has(i.id)) ?? visible[0])?.id;
+
+  const changeSort = (key: SortKey) => {
+    const next = { key, asc: activeSort?.key === key ? !activeSort.asc : true };
+    if (filtering || tab === 'recent') return setListSort(next);
+    setSort(next);
+    try {
+      localStorage.setItem('cop:drive-sort', `${key}:${next.asc ? 'asc' : 'desc'}`);
+    } catch {
+      /* ignore */
+    }
+  };
 
   // ── Navigation ────────────────────────────────────────────────────────────
   const openFolder = useCallback(
     (id: string | null) => {
       setTab('all');
+      setListSort(null);
       setSelected(new Set());
       setQuery('');
       setTagFilter(null);
@@ -244,11 +284,12 @@ export default function DrivePage() {
     async (target: string | null) => {
       const clip = useDrive.getState().clipboard;
       if (!clip?.ids.length) return;
-      if (clip.mode === 'cut' && target && withDescendants(useDrive.getState().items, clip.ids).includes(target)) {
-        return toast('Impossible de déplacer un dossier dans lui-même', 'error');
-      }
       const before = useDrive.getState().items.length;
-      await useDrive.getState().paste(target);
+      if (!(await useDrive.getState().paste(target))) {
+        return toast(clip.mode === 'cut' ? 'Impossible de déplacer un dossier dans lui-même' : CANT_COPY_INTO_ITSELF, 'error');
+      }
+      // A cut that moved nothing (already in this folder) stays in the clipboard.
+      if (clip.mode === 'cut' && useDrive.getState().clipboard) return toast(alreadyThere(clip.ids.length), 'info');
       if (clip.mode === 'copy' && useDrive.getState().items.length === before) return;
       toast(clip.mode === 'cut' ? 'Éléments déplacés' : 'Éléments collés', 'success');
     },
@@ -262,9 +303,10 @@ export default function DrivePage() {
   }, []);
 
   const moveTo = useCallback((ids: string[], target: string | null) => {
+    if (pasteForbidden(useDrive.getState().items, ids, target)) return toast('Impossible de déplacer un dossier dans lui-même', 'error');
     const moved = useDrive.getState().move(ids, target);
     if (moved) toast(`${moved} élément${moved > 1 ? 's' : ''} déplacé${moved > 1 ? 's' : ''}`, 'success');
-    else if (target && ids.includes(target)) toast('Impossible de déplacer un dossier dans lui-même', 'error');
+    else toast(alreadyThere(ids.length), 'info');
   }, []);
 
   // ── Selection ─────────────────────────────────────────────────────────────
@@ -277,7 +319,8 @@ export default function DrivePage() {
       setSelected(new Set(visible.slice(from, to + 1).map(i => i.id)));
       return;
     }
-    if (e.metaKey || e.ctrlKey) {
+    // On a phone, once something is selected, each tap adds or removes an item (selection mode).
+    if (e.metaKey || e.ctrlKey || (touchMode && selectedIds.length > 0)) {
       setSelected(s => {
         const n = new Set(s);
         if (n.has(item.id)) n.delete(item.id);
@@ -297,9 +340,26 @@ export default function DrivePage() {
     setMenu({ ...menuPoint(e), target: item.id });
   };
 
-  // Items are focusable: Space selects, Enter opens, Shift+F10 / menu key opens the context menu.
-  const onItemKey = (e: React.KeyboardEvent, item: DriveItem) => {
-    if (isMenuKey(e)) onItemContext(e, item);
+  // Items are focusable: arrows move (Shift extends the selection), Space selects, Enter opens,
+  // Shift+F10 / menu key opens the context menu.
+  const onItemKey = (e: React.KeyboardEvent<HTMLElement>, item: DriveItem) => {
+    if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+      const els = [...(e.currentTarget.closest('[role="listbox"]')?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
+      const i = els.indexOf(e.currentTarget);
+      // Grid: Up / Down jump a whole row (items on the first line = columns).
+      const cols = view === 'grid' && !q ? Math.max(1, els.filter(el => el.offsetTop === els[0].offsetTop).length) : 1;
+      const step: Record<string, number> = { ArrowDown: cols, ArrowUp: -cols, ArrowRight: 1, ArrowLeft: -1 };
+      const to = e.key === 'Home' ? 0 : e.key === 'End' ? els.length - 1 : Math.max(0, Math.min(els.length - 1, i + step[e.key]));
+      e.preventDefault();
+      e.stopPropagation();
+      els[to]?.focus();
+      if (e.shiftKey && visible[to]) {
+        const from = visible.findIndex(v => v.id === (anchor ?? item.id));
+        const [a, b] = from < to ? [from, to] : [to, from];
+        setSelected(new Set(visible.slice(Math.max(0, a), b + 1).map(v => v.id)));
+        if (!anchor) setAnchor(item.id);
+      }
+    } else if (isMenuKey(e)) onItemContext(e, item);
     else if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
@@ -323,7 +383,7 @@ export default function DrivePage() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (el.closest('input, textarea, [contenteditable="true"]') || previewItem || moveIds || tagIds || shareItem || useUi.getState().dialog) return;
+      if (el.closest('input, textarea, [contenteditable="true"], [role="menu"]') || previewItem || moveIds || tagIds || shareItem || useUi.getState().dialog) return;
       const mod = e.metaKey || e.ctrlKey;
       const k = e.key.toLowerCase();
       if (mod && k === 'a') {
@@ -341,7 +401,10 @@ export default function DrivePage() {
       } else if (e.key === 'F2' && single) {
         e.preventDefault();
         void rename(single);
-      } else if (e.key === 'Enter' && single) openItem(single);
+      } else if (e.key === 'Enter' && single && !el.closest('button, a[href], select')) {
+        // (Enter on a button runs that button only, e.g. « Déplacer » in the selection bar.)
+        openItem(single);
+      }
       else if (e.key === 'Escape') setSelected(new Set());
       else if (e.key === 'Backspace' && !mod && current) openFolder(current.parentId);
     };
@@ -355,6 +418,7 @@ export default function DrivePage() {
     if (!selected.has(item.id)) setSelected(new Set([item.id]));
     e.dataTransfer.setData(DRAG_MIME, JSON.stringify(ids));
     e.dataTransfer.effectAllowed = 'copyMove';
+    setDragging(true);
   };
 
   const isInternal = (e: React.DragEvent) => e.dataTransfer.types.includes(DRAG_MIME);
@@ -365,10 +429,12 @@ export default function DrivePage() {
     e.stopPropagation();
     dragDepth.current = 0;
     setDropTarget(null);
+    setDragging(false);
     if (isInternal(e)) {
       const ids: string[] = JSON.parse(e.dataTransfer.getData(DRAG_MIME) || '[]');
       if (e.altKey) {
         // Alt + drop = copy instead of move
+        if (pasteForbidden(useDrive.getState().items, ids, target)) return toast(CANT_COPY_INTO_ITSELF, 'error');
         useDrive.getState().copy(ids);
         await useDrive.getState().paste(target);
         toast('Éléments copiés', 'success');
@@ -453,10 +519,10 @@ export default function DrivePage() {
           },
         ]
       : [];
-    return [
+    const list: MenuItem[] = [
       ...(one ? [{ label: item.kind === 'folder' ? 'Ouvrir' : 'Aperçu', icon: <Eye size={15} />, shortcut: 'Entrée', onClick: () => openItem(item) }] : []),
       ...(one && item.kind === 'file' ? [{ label: 'Télécharger', icon: <Download size={15} />, onClick: () => downloadItem(item) }] : []),
-      { label: '', divider: true, onClick: () => {} },
+      ...(one ? [{ label: '', divider: true, onClick: () => {} }] : []),
       { label: 'Copier', icon: <Copy size={15} />, shortcut: `${MOD}C`, onClick: () => copy(ids) },
       { label: 'Couper', icon: <Scissors size={15} />, shortcut: `${MOD}X`, onClick: () => cut(ids) },
       ...(one && item.kind === 'folder' ? [{ label: 'Coller dans ce dossier', icon: <ClipboardPaste size={15} />, disabled: !clipboard?.ids.length, onClick: () => void paste(item.id) }] : []),
@@ -470,41 +536,63 @@ export default function DrivePage() {
       { label: '', divider: true, onClick: () => {} },
       { label: 'Mettre à la corbeille', icon: <Trash2 size={15} />, shortcut: 'Suppr', danger: true, onClick: () => remove(ids) },
     ];
+    return list;
   }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove]);
+  // No keyboard shortcuts on a phone.
+  const shownMenu = touchMode ? menuItems.map(i => ({ ...i, shortcut: undefined })) : menuItems;
 
   const cutIds = clipboard?.mode === 'cut' ? new Set(clipboard.ids) : new Set<string>();
 
   const itemProps = (item: DriveItem) => ({
     draggable: true,
     onDragStart: (e: React.DragEvent) => onDragStart(e, item),
+    onDragEnd: () => setDragging(false),
     onClick: (e: React.MouseEvent) => onItemClick(e, item),
     onDoubleClick: () => openItem(item),
     onContextMenu: (e: React.MouseEvent) => onItemContext(e, item),
-    onKeyDown: (e: React.KeyboardEvent) => onItemKey(e, item),
-    tabIndex: 0,
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => onItemKey(e, item),
+    onFocus: () => setFocusId(item.id),
+    tabIndex: item.id === activeId ? 0 : -1,
     'aria-selected': selected.has(item.id),
     role: 'option',
     ...(item.kind === 'folder' ? folderDropProps(item.id, item.id) : {}),
   });
 
-  const sortBtn = (key: SortKey, label: string) => (
-    <button
-      className={cx('flex items-center gap-1 transition-colors hover:text-ink', sort.key === key && 'text-stone-700')}
-      onClick={() => setSort(s => ({ key, asc: s.key === key ? !s.asc : true }))}
-    >
-      {label} {sort.key === key && <ArrowUpDown size={11} />}
-    </button>
-  );
+  const sortBtn = (key: SortKey) => {
+    const on = activeSort?.key === key;
+    const Arrow = activeSort?.asc ? ArrowUp : ArrowDown;
+    return (
+      <button
+        className={cx('-my-2 flex h-9 items-center gap-1 transition-colors hover:text-ink', on && 'text-stone-700')}
+        onClick={() => changeSort(key)}
+        aria-label={`Trier par ${SORT_LABELS[key].toLowerCase()}${on ? `, ordre ${activeSort?.asc ? 'croissant' : 'décroissant'}` : ''}`}
+      >
+        {SORT_LABELS[key]} {on && <Arrow size={11} aria-hidden />}
+      </button>
+    );
+  };
+
+  /** Round tick shown on each item while selecting with a finger. */
+  const tick = (sel: boolean) =>
+    touchMode && selectedIds.length > 0 ? (
+      <span aria-hidden className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2', sel ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-300 bg-surface')}>
+        {sel && <Check size={12} strokeWidth={3} />}
+      </span>
+    ) : null;
 
   // Content matches only (a name match speaks for itself).
   const snippetOf = (item: DriveItem) => (q && !fold(item.name).includes(fold(q)) ? contentHits.get(item.id) : undefined);
 
   const extOf = (item: DriveItem) => (item.kind === 'file' ? item.name.split('.').pop() : undefined);
-  const bar = selectedIds.length > 1 || (selectedIds.length === 1 && !previewItem);
+  const bar = !dragging && (selectedIds.length > 1 || (selectedIds.length === 1 && !previewItem));
 
   return (
     <div
       className="flex h-full flex-col px-4 pb-4 md:px-8"
+      onPointerDownCapture={e => {
+        const t = e.pointerType === 'touch';
+        if (t !== touchMode) setTouchMode(t);
+      }}
       onDragEnter={e => {
         if (!tabAll || (!isExternal(e) && !isInternal(e))) return;
         dragDepth.current++;
@@ -535,7 +623,7 @@ export default function DrivePage() {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 pb-4 pt-2">
         <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">Drive</h1>
-        <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px]">
+        <div className="flex h-10 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] sm:h-8">
           {([
             ['all', 'Mon Drive', HardDrive],
             ['starred', 'Favoris', Star],
@@ -545,8 +633,14 @@ export default function DrivePage() {
               key={k}
               aria-label={label}
               aria-pressed={tab === k}
-              onClick={() => { setTab(k); setSelected(new Set()); }}
-              className={cx('flex h-7 items-center gap-1.5 rounded-md px-2.5 font-medium transition-colors', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+              onClick={() => {
+                // « Mon Drive » always goes back to the root.
+                if (k === 'all') return openFolder(null);
+                setTab(k);
+                setListSort(null);
+                setSelected(new Set());
+              }}
+              className={cx('flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
               <Icon size={13} />
               <span className="hidden sm:inline">{label}</span>
@@ -558,7 +652,12 @@ export default function DrivePage() {
             <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
               value={query}
-              onChange={e => { setQuery(e.target.value); setSelected(new Set()); }}
+              onChange={e => {
+                // A new search starts in its own order.
+                if (!query) setListSort(null);
+                setQuery(e.target.value);
+                setSelected(new Set());
+              }}
               onKeyDown={e => e.key === 'Escape' && setQuery('')}
               placeholder="Rechercher, y compris dans les PDF"
               aria-label="Rechercher dans le Drive"
@@ -570,6 +669,20 @@ export default function DrivePage() {
               </button>
             )}
           </label>
+          {view === 'grid' && !q && (
+            <button
+              className="icon-btn"
+              title="Trier"
+              aria-label={activeSort ? `Trier (actuellement par ${SORT_LABELS[activeSort.key].toLowerCase()}, ordre ${activeSort.asc ? 'croissant' : 'décroissant'})` : 'Trier'}
+              aria-haspopup="menu"
+              onClick={e => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setSortMenu({ x: r.right - 208, y: r.bottom + 6 });
+              }}
+            >
+              <ArrowUpDown size={16} />
+            </button>
+          )}
           <button
             className="icon-btn"
             title={view === 'grid' ? 'Affichage liste' : 'Affichage grille'} aria-label={view === 'grid' ? 'Affichage liste' : 'Affichage grille'}
@@ -589,7 +702,7 @@ export default function DrivePage() {
                 <Upload size={15} /> <span className="hidden sm:inline">{busy ? 'Import…' : 'Importer'}</span>
               </button>
               <button
-                className="btn-primary rounded-l-none border-l border-white/20 px-1.5"
+                className="btn-primary w-9 justify-center rounded-l-none border-l border-white/20 px-0 sm:w-auto sm:px-1.5"
                 disabled={busy}
                 title="Plus d’options d’import"
                 aria-label="Plus d’options d’import"
@@ -611,7 +724,7 @@ export default function DrivePage() {
       <div className="flex h-10 items-center gap-1 text-[13px]">
         {bar ? (
           <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-on-inverse shadow-pop">
-            <button className="rounded-md p-1.5 hover:bg-on-inverse/10" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)" aria-label="Désélectionner (Échap)">
+            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)" aria-label="Désélectionner (Échap)">
               <X size={15} />
             </button>
             <span className="mr-2 whitespace-nowrap px-1 font-medium">
@@ -742,6 +855,7 @@ export default function DrivePage() {
                   title={item.name}
                 >
                   {item.starred && <Star size={11} className="absolute right-2.5 top-2.5 fill-amber-400 text-amber-400" />}
+                  {touchMode && selectedIds.length > 0 && <span className="absolute left-2 top-2">{tick(sel)}</span>}
                   <FileIcon category={categoryOf(item)} size={56} ext={extOf(item)} color={folderColor(item)} />
                   <p className="mt-2 line-clamp-2 w-full break-words text-[12.5px] font-medium leading-tight">{item.name}</p>
                   <p className="tabular mt-0.5 text-[11px] text-stone-500">
@@ -760,10 +874,10 @@ export default function DrivePage() {
         ) : (
           <div className="card overflow-hidden">
             <div className="grid grid-cols-[minmax(0,1fr)_64px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-500 sm:grid-cols-[minmax(0,1fr)_110px_80px] md:grid-cols-[minmax(0,1fr)_200px_130px_90px]">
-              {sortBtn('name', 'Nom')}
+              {sortBtn('name')}
               <span className="hidden md:block">Emplacement</span>
-              <span className="hidden sm:block">{sortBtn('date', 'Modifié')}</span>
-              {sortBtn('size', 'Taille')}
+              <span className="hidden sm:block">{sortBtn('date')}</span>
+              {sortBtn('size')}
             </div>
             <div role="listbox" aria-label="Contenu du dossier" aria-multiselectable="true">
             {visible.map(item => {
@@ -781,6 +895,7 @@ export default function DrivePage() {
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-2.5">
+                    {tick(sel)}
                     <FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} color={folderColor(item)} />
                     <span className="min-w-0">
                       <span className="flex min-w-0 items-center gap-1.5">
@@ -812,7 +927,22 @@ export default function DrivePage() {
         )}
       </div>
 
-      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={shownMenu} onClose={() => setMenu(null)} />}
+      {sortMenu && (
+        <ContextMenu
+          x={sortMenu.x}
+          y={sortMenu.y}
+          onClose={() => setSortMenu(null)}
+          items={(Object.keys(SORT_LABELS) as SortKey[]).map(key => {
+            const on = activeSort?.key === key;
+            return {
+              label: on ? `${SORT_LABELS[key]} (${activeSort?.asc ? 'croissant' : 'décroissant'})` : SORT_LABELS[key],
+              icon: on ? activeSort?.asc ? <ArrowUp size={15} /> : <ArrowDown size={15} /> : undefined,
+              onClick: () => changeSort(key),
+            };
+          })}
+        />
+      )}
       {importMenu && (
         <ContextMenu
           x={importMenu.x}

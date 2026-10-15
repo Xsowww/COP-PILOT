@@ -342,3 +342,33 @@ export function parseIcs(text: string, opts: ParseOptions = {}): IcsEvent[] {
 
   return out.sort((a, b) => a.date.localeCompare(b.date) || (a.start ?? '').localeCompare(b.start ?? ''));
 }
+
+// ── Writing (export) ─────────────────────────────────────────────────────────
+
+/** RFC 5545 §3.1: lines longer than 75 octets are folded (CRLF + a space), without cutting a UTF-8 character. */
+export function foldLine(line: string): string {
+  const size = (ch: string) => new TextEncoder().encode(ch).length;
+  const parts: string[] = [];
+  let current = '';
+  let bytes = 0;
+  for (const ch of line) {
+    const n = size(ch);
+    // The continuation lines start with a space, which counts in their 75 octets.
+    if (bytes + n > (parts.length ? 74 : 75)) {
+      parts.push(current);
+      current = '';
+      bytes = 0;
+    }
+    current += ch;
+    bytes += n;
+  }
+  parts.push(current);
+  return parts.join('\r\n ');
+}
+
+/** A local date and time (« 2026-10-16 », « 14:00 ») as a UTC stamp, so any calendar places it at the right hour. */
+export function utcStamp(date: string, time: string): string {
+  const [y, mo, d] = date.split('-').map(Number);
+  const [h, mi] = time.split(':').map(Number);
+  return new Date(y, mo - 1, d, h, mi).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+}

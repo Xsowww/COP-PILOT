@@ -150,7 +150,7 @@ export function applyAppearance(s: Appearance, remember = true) {
   const dark = resolveDark(s.theme);
   if (dark) root.dataset.theme = 'dark';
   else delete root.dataset.theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#141311' : '#fafaf8');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#141311' : '#f7f7f5');
   if (remember) {
     try {
       localStorage.setItem(THEME_KEY, s.theme);

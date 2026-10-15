@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseQuickAdd } from '../src/lib/dates';
+import { fmt, parseQuickAdd } from '../src/lib/dates';
 
 // Mardi 13 octobre 2026, 10 h.
 const base = new Date(2026, 9, 13, 10);
@@ -24,6 +24,14 @@ describe('parseQuickAdd', () => {
     ['Anniversaire le 31/02', { title: 'Anniversaire le 31/02', date: null, start: null, end: null }],
     ['Rdv lundi 14h75', { title: 'Rdv 14h75', date: '2026-10-19', start: null, end: null }],
     ['Sport lundi de 18h à 9h', { title: 'Sport', date: '2026-10-19', start: '18:00', end: null }],
+    ['Exam aujourd’hui 14h', { title: 'Exam', date: '2026-10-13', start: '14:00', end: null }], // apostrophe des téléphones
+    ['Cours 14h–16h', { title: 'Cours', date: null, start: '14:00', end: '16:00' }], // tiret de la correction auto
+    ['Déjeuner ce midi', { title: 'Déjeuner', date: '2026-10-13', start: '12:00', end: null }],
+    ['Fête du 1er novembre', { title: 'Fête', date: '2026-11-01', start: null, end: null }],
+    ['Rendre DM avant vendredi', { title: 'Rendre DM', date: '2026-10-16', start: null, end: null }],
+    ['Exam hier', { title: 'Exam', date: '2026-10-12', start: null, end: null }],
+    ['Exam de maths le 15', { title: 'Exam de maths', date: '2026-10-15', start: null, end: null }],
+    ['Rdv le 2 à 9h', { title: 'Rdv', date: '2026-11-02', start: '09:00', end: null }], // le 2 est passé : mois suivant
   ])('%s', (input, expected) => {
     expect(parseQuickAdd(input, base)).toEqual(expected);
   });
@@ -34,5 +42,14 @@ describe('parseQuickAdd', () => {
 
   it('ignore une heure impossible', () => {
     expect(parseQuickAdd('Truc 25h', base).start).toBeNull();
+  });
+});
+
+describe('fmt', () => {
+  it('écrit « 1er » devant le mois', () => {
+    expect(fmt(new Date(2026, 10, 1), 'EEEE d MMMM')).toBe('dimanche 1er novembre');
+    expect(fmt(new Date(2026, 8, 1), 'd MMM yyyy')).toBe('1er sept. 2026');
+    expect(fmt(new Date(2026, 10, 2), 'EEEE d MMMM')).toBe('lundi 2 novembre');
+    expect(fmt(new Date(2026, 10, 1), 'dd/MM')).toBe('01/11');
   });
 });

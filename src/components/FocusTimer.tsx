@@ -114,20 +114,22 @@ export default function FocusTimer() {
   }
 
   const left = focusLeft(focus);
-  const total = (focus.phase === 'focus' ? focusMinutes : breakMinutes) * 60_000;
+  // Planned length kept with the session: changing the setting meanwhile doesn't break the bar.
+  const total = (focus.minutes || (focus.phase === 'focus' ? focusMinutes : breakMinutes)) * 60_000;
+  const done = Math.min(100, Math.max(0, 100 - (left / total) * 100));
   const paused = focus.pausedLeft !== null;
   return (
     <div className={cx('mb-2 rounded-lg border p-2.5', focus.phase === 'focus' ? 'border-brand-200 bg-brand-50' : 'border-emerald-200 bg-emerald-50')}>
       <div className="flex items-center gap-2">
         <span className={cx('min-w-0 truncate text-[11px] font-medium', focus.phase === 'focus' ? 'text-brand-700' : 'text-emerald-700')}>
           {focus.phase === 'focus' ? 'Concentration' : 'Temps de pause'}
-          {paused && ' · arrêté'}
+          {paused && ' · en pause'}
         </span>
         <span role="timer" aria-label={`Temps restant : ${mmss(left)}`} className="tabular ml-auto font-mono text-[15px] font-medium">{mmss(left)}</span>
       </div>
       {focus.phase === 'focus' && focus.label && <p className="mt-0.5 truncate text-[12px] font-medium text-ink">{focus.label}</p>}
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface" role="progressbar" aria-label="Progression de la session" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(100 - (left / total) * 100)}>
-        <div className={cx('h-full rounded-full', focus.phase === 'focus' ? 'bg-brand-500' : 'bg-emerald-500')} style={{ width: `${100 - (left / total) * 100}%` }} />
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface" role="progressbar" aria-label="Progression de la session" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(done)}>
+        <div className={cx('h-full rounded-full', focus.phase === 'focus' ? 'bg-brand-500' : 'bg-emerald-500')} style={{ width: `${done}%` }} />
       </div>
       <div className="mt-2 flex gap-1">
         <button onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">

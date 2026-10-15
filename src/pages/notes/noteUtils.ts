@@ -13,3 +13,11 @@ export const flushNoteEditor = () => flushOpen?.();
 // ── Links ──────────────────────────────────────────────────────────
 export const fileHref = (f: DriveItem) => (f.parentId ? `/drive?dossier=${f.parentId}&fichier=${f.id}` : `/drive?fichier=${f.id}`);
 export const eventHref = (e: CalendarEvent) => `/calendrier?jour=${e.date}`;
+
+/** « kompaly.com » → « https://kompaly.com » (otherwise the link would point inside the app). */
+export function withProtocol(url: string) {
+  const u = url.trim();
+  if (/^([a-z][a-z\d+.-]*:\/\/|mailto:|tel:)/i.test(u) || /^[/#?]/.test(u)) return u;
+  if (/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(u)) return `mailto:${u}`;
+  return `https://${u}`;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, Info, XCircle } from 'lucide-react';
 import { useUi, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
@@ -7,9 +8,9 @@ import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
 function ToastRow({ t }: { t: Toast }) {
   const dismiss = useUi(s => s.dismissToast);
   return (
-    <div className="pop flex items-center gap-2 rounded-lg bg-inverse px-3.5 py-2 text-[13px] text-on-inverse shadow-pop">
+    <div className="pop flex max-w-[calc(100vw-32px)] items-center gap-2 rounded-lg bg-inverse px-3.5 py-2 text-[13px] text-on-inverse shadow-pop [overflow-wrap:anywhere] sm:max-w-[560px]">
       {t.tone === 'success' ? <CheckCircle2 size={15} className="text-emerald-400" aria-hidden /> : t.tone === 'error' ? <XCircle size={15} className="text-red-400" aria-hidden /> : <Info size={15} className="text-stone-400" aria-hidden />}
-      {t.text}
+      <span className="min-w-0">{t.text}</span>
       {t.action && (
         <button
           className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
@@ -76,7 +77,9 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
     };
   }, [open, label, headingId]);
   if (!open) return null;
-  return (
+  // On <body>: a dialog opened from a page that is itself a stacking context (entrance animation) would
+  // otherwise end up under Kompaly and the toasts.
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-900/25 p-4 dark:bg-black/60" onMouseDown={onClose}>
       <div
         ref={ref}
@@ -91,6 +94,8 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
         {children}
       </div>
     </div>
+    ,
+    document.body,
   );
 }
 
@@ -153,9 +158,18 @@ export interface MenuItem {
   content?: React.ReactNode;
 }
 
-export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
+/** Name of a menu for screen readers: `label`, else the name of the button that opened it, else « Actions ». */
+function menuName(label?: string) {
+  if (label) return label;
+  const opener = document.activeElement as HTMLElement | null;
+  if (!opener || opener === document.body) return 'Actions';
+  return opener.getAttribute('aria-label') || opener.title || 'Actions';
+}
+
+export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: number; items: MenuItem[]; onClose: () => void; label?: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ x, y });
+  const [pos, setPos] = useState({ x: Math.max(8, x), y: Math.max(8, y) });
+  const [name] = useState(() => menuName(label));
 
   const closeRef = useRef(onClose);
   useEffect(() => {
@@ -166,7 +180,8 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
     const el = ref.current;
     if (el) {
       const r = el.getBoundingClientRect();
-      setPos({ x: Math.min(x, window.innerWidth - r.width - 8), y: Math.min(y, window.innerHeight - r.height - 8) });
+      // Always on screen, 8 px from the edges (a keyboard opening could give x = 0 or less).
+      setPos({ x: Math.max(8, Math.min(x, window.innerWidth - r.width - 8)), y: Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) });
     }
     const close = () => closeRef.current();
     const onKey = (e: KeyboardEvent) => {
@@ -199,6 +214,7 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
     <div
       ref={ref}
       role="menu"
+      aria-label={name}
       className="enter fixed z-[65] min-w-52 rounded-xl border border-stone-200 bg-surface p-1 shadow-pop"
       style={{ left: pos.x, top: pos.y }}
       onMouseDown={e => e.stopPropagation()}

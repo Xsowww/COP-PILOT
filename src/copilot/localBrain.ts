@@ -27,9 +27,9 @@ import {
 import { useNotes } from '../store/notes';
 import { useCopilot } from '../store/copilot';
 import { runOffer } from './offers';
-import { findExam, planRevisions } from './actions';
+import { alreadyPlanned, findExam, hasRevisionPlan, planRevisions } from './actions';
 import { getSettings } from '../store/settings';
-import { groupWords } from '../lib/usage';
+import { WORDS, groupWords } from '../lib/usage';
 
 export interface BotReply {
   text: string;
@@ -39,6 +39,9 @@ export interface BotReply {
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
+const words = () => WORDS[getSettings().usage] ?? WORDS.etudes;
+const count = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
+
 const unquote = (s: string) => s.trim().replace(/^["'«“]\s*|\s*["'»”]$/g, '').trim();
 
 // ── Things waiting for the student's next message ───────────────────────────
@@ -46,6 +49,14 @@ const unquote = (s: string) => s.trim().replace(/^["'«“]\s*|\s*["'»”]$/g, 
 /** A destructive action announced and waiting for « oui ». */
 let pendingConfirm: { run: () => BotReply } | null = null;
 let quiz: Quiz | null = null;
+
+// « Nouvelle conversation » (or any cleared history): a quiz or a question no longer on screen is dropped.
+useCopilot.subscribe((s, prev) => {
+  if (!s.messages.length && prev.messages.length) {
+    pendingConfirm = null;
+    quiz = null;
+  }
+});
 
 const ask = (text: string, run: () => BotReply): BotReply => {
   pendingConfirm = { run };
@@ -283,19 +294,25 @@ export function localReply(raw: string): BotReply {
   }
 
   // ── Plan revisions ────────────────────────────────────────────────────────
-  if (/(planifi|organis|prepar|cale|programm).*(revision|revis)|(revision|reviser).*(planifi|organis)/.test(q)) {
+  if (/(planifi|organis|prepar|cale|programm).*(revision|revis)|(revision|reviser).*(planifi|organis)|(bloqu|planifi|cale|organis).*(temps|creneau|preparation).*prepar|planifie (ma|la) preparation/.test(q)) {
     const subject = q.replace(/.*\b(pour|de|du|d')\s*(l'|le |la |mon |ma )?/, '').replace(/(examen|exam|partiel|controle|\?)/g, '').trim();
     const exam = findExam(subject.length > 2 ? subject : '') ?? findExam('');
     if (!exam) return { text: "Je ne vois aucun examen à venir dans ton calendrier. Ajoute-le et je m'occupe du reste." };
+    if (hasRevisionPlan(exam.title)) return alreadyPlanned(exam.title);
     const res = planRevisions(exam.id)!;
     if (!res.created.length) {
       return {
-        text: `Plus le temps de caler une séance avant « ${exam.title} ». Je t'ai quand même préparé une fiche pour une dernière relecture.`,
+        text: getSettings().usage === 'etudes'
+          ? `Plus le temps de caler une séance avant « ${exam.title} ». Je t'ai quand même préparé une fiche pour une dernière relecture.`
+          : `Plus le temps de bloquer un créneau avant « ${exam.title} ». Je t'ai quand même préparé une note pour ne rien oublier.`,
         links: res.note ? [{ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) }] : [],
       };
     }
     return {
-      text: `Pour « ${exam.title} », je t'ai calé ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision et une fiche pour t'organiser.`,
+      text:
+        getSettings().usage === 'etudes'
+          ? `Pour « ${exam.title} », je t'ai calé ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision et une fiche pour t'organiser.`
+          : `Pour « ${exam.title} », je t'ai bloqué ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer et une note pour ne rien oublier.`,
       links: [
         { label: 'Voir le planning', to: linkToDay(res.created[0].date) },
         ...(res.note ? [{ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) }] : []),
@@ -419,10 +436,10 @@ export function localReply(raw: string): BotReply {
     const list = eventsBetween(d, d);
     return { text: list.length ? `Demain :\n${list.map(describeEvent).join('\n')}` : 'Demain est libre pour le moment.', links: [{ label: 'Voir demain', to: linkToDay(d) }] };
   }
-  if (/(examen|exam|partiel|controle)s?/.test(q) && /(quand|prochain|liste|quels|mes|a venir)/.test(q)) {
+  if (/(examen|exam|partiel|controle|echeance|deadline|grand jour)s?/.test(q) && /(quand|prochain|liste|quels|quelles|mes|a venir)/.test(q)) {
     const exams = eventsBetween(todayKey(), '9999-12-31').filter(e => e.category === 'examen');
     return {
-      text: exams.length ? `Tes prochains examens :\n${exams.slice(0, 6).map(describeEvent).join('\n')}` : "Aucun examen à l'horizon. Ajoute-les pour que je t'aide à t'organiser !",
+      text: exams.length ? `${words().upcoming} :\n${exams.slice(0, 6).map(describeEvent).join('\n')}` : `${words().noBig} Ajoute ce qui compte et je t'aide à t'organiser !`,
       links: [{ label: 'Calendrier', to: '/calendrier' }],
     };
   }
@@ -464,13 +481,13 @@ export function localReply(raw: string): BotReply {
     const w = groupWords(getSettings().usage);
     return { text: `Tes ${w.groups}, c'est par ici.`, links: [{ label: w.Groups, to: '/groupes' }] };
   }
-  if (/(ouvre|va|aller|emmene|montre).*(dashboard|accueil|tableau)/.test(q)) return { text: 'Retour au QG.', links: [{ label: 'Dashboard', to: '/' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(dashboard|accueil|tableau)/.test(q)) return { text: 'Retour au QG.', links: [{ label: 'Accueil', to: '/' }] };
 
   // ── Overview ──────────────────────────────────────────────────────────────
   if (/(resume|bilan|vue d'ensemble|etat|statistiques|stats)/.test(q)) {
     const o = overview();
     return {
-      text: `Petit bilan 📊\n📁 Drive : ${o.drive.folders} dossiers, ${o.drive.files} fichiers (${o.drive.totalSize})\n📝 Notes : ${o.notes.count} notes\n📅 Cette semaine : ${o.calendar.weekCount} événements${o.calendar.exams.length ? `, ${o.calendar.exams.length} examen(s) à venir` : ''}`,
+      text: `Petit bilan 📊\n📁 Drive : ${count(o.drive.folders, 'dossier', 'dossiers')}, ${count(o.drive.files, 'fichier', 'fichiers')} (${o.drive.totalSize})\n📝 Notes : ${count(o.notes.count, 'note', 'notes')}\n📅 Cette semaine : ${count(o.calendar.weekCount, 'événement', 'événements')}${o.calendar.exams.length ? `, ${count(o.calendar.exams.length, words().bigOne, words().bigMany)} à venir` : ''}`,
     };
   }
 

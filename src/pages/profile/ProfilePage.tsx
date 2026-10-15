@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowDown, LogOut, Trash2, ChevronRight,
+  User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
   Timer, HardDrive, Smartphone, Keyboard,
 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
@@ -137,7 +137,7 @@ function ProfileTab() {
         <div className="flex flex-wrap items-center gap-5 px-5 py-5">
           <div className="relative">
             <Avatar size={72} />
-            <button onClick={() => fileRef.current?.click()} className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-ink text-paper hover:bg-stone-700" title="Changer la photo" aria-label="Changer la photo">
+            <button onClick={() => fileRef.current?.click()} className="hit absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-ink text-paper hover:bg-stone-700" title="Changer la photo" aria-label="Changer la photo">
               <Camera size={13} />
             </button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { void pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
@@ -145,7 +145,7 @@ function ProfileTab() {
           <div className="min-w-0 flex-1">
             <p className="break-words text-[18px] font-semibold tracking-tight">{user.name}</p>
             <p className="text-[13px] text-stone-500 [overflow-wrap:anywhere]">
-              {user.email} · inscrit le {fmt(new Date(user.createdAt), 'd MMMM yyyy')}
+              {user.email} · inscrit le {fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0')}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {AVATAR_COLORS.map((c, i) => (
@@ -154,7 +154,7 @@ function ProfileTab() {
                   aria-label={`Couleur de l'avatar ${i + 1}`}
                   aria-pressed={!settings.avatarImage && settings.avatarColor === c}
                   onClick={() => settings.set({ avatarColor: c, avatarImage: null })}
-                  className="flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110"
+                  className="flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
                   style={{ background: c, boxShadow: !settings.avatarImage && settings.avatarColor === c ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${c}` : undefined }}
                   title="Couleur de l'avatar"
                 />
@@ -175,6 +175,7 @@ function ProfileTab() {
             onChange={e => setName(e.target.value)}
             onBlur={() => {
               if (name.trim().length >= 2 && name.trim() !== user.name) {
+                setName(name.trim());
                 updateName(name.trim()).then(
                   () => toast('Prénom enregistré', 'success'),
                   (e: Error) => {
@@ -184,6 +185,7 @@ function ProfileTab() {
                 );
               } else {
                 if (name.trim() !== user.name) toast('Ton prénom doit contenir au moins 2 caractères.', 'error');
+                // Same name with spaces around it: shown as saved.
                 setName(user.name);
               }
             }}
@@ -220,7 +222,7 @@ function ProfileTab() {
         <div className="grid grid-cols-2 md:grid-cols-3">
           <Stat value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d'affilée`} />
           <Stat value={stats.done} label={plural(stats.done, 'élément coché', 'éléments cochés')} />
-          <Stat value={stats.exams} label={plural(stats.exams, 'examen passé', 'examens passés')} />
+          <Stat value={stats.exams} label={plural(stats.exams, words.pastOne, words.pastMany)} />
           <Stat
             value={stats.focusSessions}
             label={plural(stats.focusSessions, 'session focus', 'sessions focus')}
@@ -271,7 +273,7 @@ function AppearanceTab() {
               title={ACCENTS[k].label}
               aria-label={ACCENTS[k].label}
               aria-pressed={settings.accent === k}
-              className="flex h-7 w-7 items-center justify-center rounded-full transition-transform hover:scale-110"
+              className="flex h-7 w-7 items-center justify-center rounded-full transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
               style={{ background: ACCENTS[k].shades[500], boxShadow: settings.accent === k ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${ACCENTS[k].shades[500]}` : undefined }}
             >
               {settings.accent === k && <Check size={13} strokeWidth={3} className="text-white" />}
@@ -279,8 +281,9 @@ function AppearanceTab() {
           ))}
         </div>
       </Row>
-      <div className="flex items-center gap-4 overflow-hidden bg-stone-50/70 px-5 py-4">
-        <button className="btn-primary pointer-events-none">Bouton</button>
+      {/* Preview only: no real button (no Tab stop), nothing announced. */}
+      <div className="flex items-center gap-4 overflow-hidden bg-stone-50/70 px-5 py-4" aria-hidden>
+        <span className="btn-primary pointer-events-none">Bouton</span>
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-solid text-[13px] font-semibold text-on-brand">{new Date().getDate()}</span>
         <span className="rounded-md bg-brand-50 px-2 py-1 text-[12px] font-medium text-brand-700">Sélection</span>
         <div className="relative ml-auto h-16 w-24 overflow-hidden">
@@ -468,7 +471,7 @@ function StudiesTab() {
 
       <Section title={s.usage === 'etudes' ? 'Planification des révisions' : 'Temps de préparation'} description={s.usage === 'etudes' ? 'Quand Kompaly prépare tes révisions avant un examen.' : 'Quand Kompaly bloque du temps pour préparer un moment important.'}>
         <Row label="Nombre de séances">
-          <Stepper value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
+          <Stepper label="Nombre de séances" value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
         <Row label="Heure des séances" hint="Chaque séance dure 1 h 30.">
           <input type="time" className="field w-32" aria-label="Heure des séances" value={s.revisionTime} onChange={e => e.target.value && s.set({ revisionTime: e.target.value })} />
@@ -635,7 +638,8 @@ function DataTab() {
         .filter(([n]) => n)
         .map(([n, word]) => `${n} ${word}${(n as number) > 1 ? 's' : ''}`);
       const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} et ${parts.at(-1)}` : parts[0];
-      toast(list ? `Récupéré : ${list}.` : 'Rien à récupérer : tout est déjà là.', 'success');
+      const trash = r.inTrash ? ` ${r.inTrash > 1 ? `${r.inTrash} éléments de la sauvegarde sont` : 'Un élément de la sauvegarde est'} dans la corbeille : restaure-${r.inTrash > 1 ? 'les' : 'le'} depuis la Corbeille.` : '';
+      toast(list ? `Récupéré : ${list}.${trash}` : r.inTrash ? `Rien de plus à récupérer.${trash}` : 'Rien à récupérer : tout est déjà là.', list || !r.inTrash ? 'success' : 'info');
     } catch (e) {
       toast((e as Error).message, 'error');
     }
@@ -657,7 +661,7 @@ function DataTab() {
         </Row>
         <Row label="Exporter le calendrier" hint="Format .ics (Google Agenda, Apple Calendrier, Outlook).">
           <button className="btn-secondary h-8" disabled={!events} onClick={() => exportIcs()}>
-            <CalendarArrowDown size={14} /> Exporter
+            <CalendarArrowUp size={14} /> Exporter
           </button>
         </Row>
       </Section>
@@ -714,6 +718,7 @@ function AccountTab() {
     e.preventDefault();
     if (next.length < 8 || !/\p{L}/u.test(next) || !/\d/.test(next)) return toast('Le nouveau mot de passe doit faire au moins 8 caractères, avec des lettres et des chiffres.', 'error');
     if (next !== confirmPw) return toast('Les deux mots de passe ne correspondent pas', 'error');
+    if (next === current) return toast('Choisis un mot de passe différent de l’actuel.', 'error');
     setBusy(true);
     try {
       await changePassword(current, next);

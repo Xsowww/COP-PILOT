@@ -1,5 +1,6 @@
 import { useToday } from '../../lib/useToday';
 import { useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { CalendarPlus, Check, ChevronRight, Trash2, X } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
@@ -13,15 +14,41 @@ const OVERDUE = 'var(--cat-examen-text)';
 const sortOpen = (a: Todo, b: Todo) =>
   (a.due ?? '9999').localeCompare(b.due ?? '9999') || a.createdAt.localeCompare(b.createdAt);
 
-function DueLabel({ due }: { due: string }) {
+function dueText(due: string, inOverdueGroup?: boolean) {
   const n = daysUntil(due);
-  const label = n < 0 ? (n === -1 ? 'Hier' : `En retard · ${fmtDay(fromKey(due), 'd MMM')}`) : n > 6 ? fmtDay(fromKey(due), 'd MMM') : n > 1 ? fmt(fromKey(due), 'EEE d') : countdownLabel(due);
+  // Under the « En retard » heading, the date alone is enough.
+  if (n < -1) return inOverdueGroup ? fmtDay(fromKey(due), 'd MMM') : `En retard · ${fmtDay(fromKey(due), 'd MMM')}`;
+  return n > 6 ? fmtDay(fromKey(due), 'd MMM') : n > 1 ? fmt(fromKey(due), 'EEE d') : countdownLabel(due);
+}
+
+function DueLabel({ due, short }: { due: string; short?: boolean }) {
+  const n = daysUntil(due);
+  const label = dueText(due, short);
   return (
-    <span className={cx('tabular shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-500')} style={n < 0 ? { color: OVERDUE } : undefined}>
+    // inline-block: ::first-letter only works on a block (« Mar. 20 »).
+    <span className={cx('tabular inline-block shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-500')} style={n < 0 ? { color: OVERDUE } : undefined}>
       {label}
     </span>
   );
 }
+
+const coarse = () => typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+
+/** Where the keyboard focus goes once a row is removed: the same button on the next (or previous) task, else the add field. */
+function focusAfterRemoval(row: HTMLElement | null) {
+  const list = row?.closest('[data-todolist]');
+  const rows = [...(list?.querySelectorAll('li') ?? [])];
+  const i = row ? rows.indexOf(row as HTMLLIElement) : -1;
+  const near = rows[i + 1] ?? rows[i - 1];
+  const target =
+    near?.querySelector<HTMLElement>('[data-remove]') ??
+    // No keyboard popping up on phones when the list empties.
+    (coarse() ? null : list?.querySelector<HTMLElement>('[data-quickadd]'));
+  target?.focus({ preventScroll: true });
+}
+
+/** A changed due date can move the task to another group (new row): find its date button again after the render. */
+const focusDueButton = (id: string) => setTimeout(() => document.querySelector<HTMLElement>(`[data-due="${id}"]`)?.focus(), 0);
 
 /** Removes tasks with a way back: a single tap on the bin must not lose one for good. */
 function removeWithUndo(gone: Todo[]) {
@@ -34,17 +61,31 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
   const { toggle, remove, update } = useTodos();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(t.title);
+  const [dating, setDating] = useState(false);
   const titleRef = useRef<HTMLSpanElement>(null);
+  const dateRef = useRef<HTMLInputElement>(null);
+  // The date is kept aside while it's being typed: saving each change would move the task to
+  // another group (a new row) in the middle of typing the year.
+  const [draftDue, setDraftDue] = useState('');
+  const closing = useRef(false);
+  const closeDate = (commit: boolean, refocus: boolean, value = draftDue) => {
+    if (closing.current) return; // the field going away can still send a blur
+    closing.current = true;
+    if (commit && value !== (t.due ?? '')) update(t.id, { due: value || undefined });
+    setDating(false);
+    if (refocus) focusDueButton(t.id);
+  };
   const overdue = !t.done && !!t.due && t.due < todayKey();
   const canEdit = editable && !t.done;
 
-  // Back to the title once edited, or the keyboard focus would fall to the top of the page.
-  const stopEditing = () => {
+  // Back to the title after Enter or Escape, or the keyboard focus would fall to the top of the page.
+  // Not on blur: the focus went elsewhere on purpose (another field…).
+  const stopEditing = (refocus: boolean) => {
     setEditing(false);
-    setTimeout(() => titleRef.current?.focus(), 0);
+    if (refocus) setTimeout(() => titleRef.current?.focus(), 0);
   };
-  const save = () => {
-    stopEditing();
+  const save = (refocus: boolean) => {
+    stopEditing(refocus);
     if (title.trim() && title.trim() !== t.title) update(t.id, { title: title.trim() });
     else setTitle(t.title);
   };
@@ -67,12 +108,12 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           autoFocus
           value={title}
           onChange={e => setTitle(e.target.value)}
-          onBlur={save}
+          onBlur={() => save(false)}
           onKeyDown={e => {
-            if (e.key === 'Enter') save();
+            if (e.key === 'Enter') save(true);
             if (e.key === 'Escape') {
               setTitle(t.title);
-              stopEditing();
+              stopEditing(true);
             }
           }}
           aria-label="Modifier la tâche"
@@ -99,28 +140,82 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
         </span>
       )}
       {isTourTodo(t.title) && !t.done && (
-        <button type="button" onClick={startTour} className="btn-primary h-7 shrink-0 px-2.5 text-[12px]">
+        <button type="button" onClick={startTour} className="btn-primary h-7 shrink-0 px-2.5 text-[12px] pointer-coarse:h-9">
           Lancer
         </button>
       )}
-      {!t.done && editable && (
-        <label className="hidden shrink-0 sm:group-focus-within:block sm:group-hover:block" title="Échéance">
-          <span className="sr-only">Échéance de « {t.title} »</span>
-          <input
-            type="date"
-            value={t.due ?? ''}
-            onChange={e => update(t.id, { due: e.target.value || undefined })}
-            className="h-7 w-[124px] rounded-md border border-stone-200 bg-surface px-1.5 text-[12px] text-stone-600 outline-none focus:border-stone-400"
-          />
-        </label>
-      )}
-      {t.due && !t.done && (
-        <span className={cx(editable && 'sm:group-focus-within:hidden sm:group-hover:hidden')}>
-          <DueLabel due={t.due} />
-        </span>
+      {!t.done && editable ? (
+        dating ? (
+          // Only while changing it: a date field on every row meant 4 Tab stops per task.
+          <span className="flex shrink-0 items-center" onBlur={e => !e.currentTarget.contains(e.relatedTarget) && closeDate(true, false)}>
+            <input
+              ref={dateRef}
+              type="date"
+              autoFocus
+              value={draftDue}
+              onChange={e => setDraftDue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key !== 'Enter' && e.key !== 'Escape') return;
+                e.preventDefault();
+                closeDate(e.key === 'Enter', true);
+              }}
+              aria-label={`Échéance de «\u00a0${t.title}\u00a0»`}
+              className="field h-7 w-[132px] px-1.5 text-[12px]"
+            />
+            {t.due && (
+              <button
+                type="button"
+                onMouseDown={e => e.preventDefault()} // Safari doesn't focus buttons: the field's blur would close it first
+                onClick={() => {
+                  setDraftDue('');
+                  closeDate(true, true, '');
+                }}
+                className="icon-btn h-7 w-7"
+                title="Retirer l’échéance"
+                aria-label={`Retirer l’échéance de «\u00a0${t.title}\u00a0»`}
+              >
+                <X size={13} />
+              </button>
+            )}
+          </span>
+        ) : (
+          <button
+            data-due={t.id}
+            type="button"
+            onClick={() => {
+              closing.current = false;
+              setDraftDue(t.due ?? '');
+              flushSync(() => setDating(true));
+              // Phones: open the date picker right away instead of asking for a second tap.
+              if (coarse())
+                try {
+                  dateRef.current?.showPicker();
+                } catch {
+                  /* not allowed here: the field is still focused */
+                }
+            }}
+            className={cx(
+              'hit shrink-0 rounded-md',
+              t.due ? 'px-1 py-0.5 hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
+            )}
+            title={t.due ? 'Changer l’échéance' : 'Ajouter une échéance'}
+            aria-label={t.due ? `Changer l’échéance de «\u00a0${t.title}\u00a0» (${dueText(t.due, overdue)})` : `Ajouter une échéance à «\u00a0${t.title}\u00a0»`}
+          >
+            {t.due ? <DueLabel due={t.due} short={overdue} /> : <CalendarPlus size={13} />}
+          </button>
+        )
+      ) : (
+        t.due && !t.done && <DueLabel due={t.due} />
       )}
       {t.done && t.doneAt && <span className="tabular shrink-0 text-[11px] text-stone-500">{fmt(new Date(t.doneAt), 'd MMM')}</span>}
-      <button onClick={() => removeWithUndo([remove(t.id)].filter(x => !!x))} className="icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
+      <button
+        data-remove
+        onClick={e => {
+          const row = e.currentTarget.closest('li');
+          removeWithUndo([remove(t.id)].filter(x => !!x));
+          focusAfterRemoval(row);
+        }}
+        className="icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
         <Trash2 size={13} />
       </button>
     </li>
@@ -132,6 +227,7 @@ function QuickAdd() {
   const [title, setTitle] = useState('');
   const [due, setDue] = useState('');
   const [showDate, setShowDate] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   const submit = () => {
     if (!title.trim()) return;
@@ -139,12 +235,15 @@ function QuickAdd() {
     setTitle('');
     setDue('');
     setShowDate(false);
+    titleRef.current?.focus(); // ready for the next one, even from the date field that just went away
   };
 
   return (
     <div className="flex items-center gap-1.5">
       <div className="min-w-0 flex-1">
         <input
+          ref={titleRef}
+          data-quickadd
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
@@ -166,7 +265,7 @@ function QuickAdd() {
             aria-label="Échéance (facultative)"
             className="field w-[132px] px-2"
           />
-          <button onClick={() => (setDue(''), setShowDate(false))} className="icon-btn" title="Sans échéance" aria-label="Sans échéance">
+          <button onClick={() => (setDue(''), setShowDate(false), titleRef.current?.focus())} className="icon-btn" title="Sans échéance" aria-label="Sans échéance">
             <X size={14} />
           </button>
         </span>
@@ -200,7 +299,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
     : [{ label: '', items: shown }];
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col" data-todolist>
       <QuickAdd />
       {open.length === 0 ? (
         <p className="py-5 text-[13px] text-stone-500">{done.length ? 'Tout est coché. Profites-en.' : 'Rien à faire pour l’instant.'}</p>

@@ -15,6 +15,7 @@ import { hasRevisionPlan, linkToDay, linkToNote } from './actions';
 import { aiNudge, type NudgeKind } from './claudeBrain';
 import { getSettings } from '../store/settings';
 import { notify } from '../lib/notify';
+import { WORDS } from '../lib/usage';
 
 /** minimum delay between two spontaneous remarks, depending on the student's preference */
 const MIN_GAP = { calme: 5 * 60_000, normal: 75_000, bavard: 30_000 };
@@ -73,32 +74,52 @@ async function nudge(n: Nudge) {
 
 const when = (e: CalendarEvent) => `${fmt(fromKey(e.date), 'EEEE d MMMM')}${e.start ? ` à ${e.start.replace(':', 'h')}` : ''}`;
 
-const examOffers = (e: CalendarEvent): CopilotOffer[] =>
-  hasRevisionPlan(e.title)
-    ? [{ label: 'Créer une fiche', kind: 'revision_note', payload: { eventId: e.id } }]
-    : [
-        { label: 'Planifier mes révisions', kind: 'plan_revisions', payload: { eventId: e.id } },
-        { label: 'Juste une fiche', kind: 'revision_note', payload: { eventId: e.id } },
-      ];
+const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
+
+// Work and personal accounts: a deadline or a big day is not revised for, only time blocked to get ready.
+const examOffers = (e: CalendarEvent): CopilotOffer[] | undefined =>
+  !studying()
+    ? hasRevisionPlan(e.title)
+      ? undefined
+      : [{ label: WORDS[getSettings().usage].plan, kind: 'plan_revisions', payload: { eventId: e.id } }]
+    : hasRevisionPlan(e.title)
+      ? [{ label: 'Créer une fiche', kind: 'revision_note', payload: { eventId: e.id } }]
+      : [
+          { label: 'Planifier mes révisions', kind: 'plan_revisions', payload: { eventId: e.id } },
+          { label: 'Juste une fiche', kind: 'revision_note', payload: { eventId: e.id } },
+        ];
+
+/** Kompaly's words when a big event is added, in the vocabulary of the account's usage. */
+function bigEventFallback(e: CalendarEvent, d: number) {
+  const words = WORDS[getSettings().usage] ?? WORDS.etudes;
+  const day = d === 0 ? "aujourd'hui" : d === 1 ? 'demain' : 'après-demain';
+  if (!studying()) {
+    return d <= 2
+      ? `« ${e.title} » ${day} : tu veux que je te bloque un moment pour t'y préparer ?`
+      : `${words.bigNoted} : « ${e.title} », dans ${d} jours. On bloque ${words.prepare} maintenant, comme ça c'est fait ?`;
+  }
+  return d <= 2
+    ? `« ${e.title} » ${day} ? On ne panique pas : je te prépare un mini-plan express ?`
+    : pick([
+        `${words.bigNoted} : « ${e.title} », dans ${d} jours. On cale ${words.prepare} maintenant, comme ça c'est fait ?`,
+        `« ${e.title} » dans ${d} jours. Je te propose de répartir des séances de révision d'ici là, ça te va ?`,
+      ]);
+}
 
 // ── Reactions to what the student does ──────────────────────────────────────
 
 function onEventAdded(e: CalendarEvent) {
-  if (e.title.startsWith('Révision · ')) return; // created by Kompaly himself
+  if (e.title.startsWith('Révision · ') || e.title.startsWith('Préparation · ')) return; // created by Kompaly himself
   if (e.category === 'examen') {
     const d = daysUntil(e.date);
     void nudge({
       key: `exam-added:${e.id}`,
       every: 365 * DAY,
       urgent: true,
-      situation: { evenement: "l'étudiant vient d'ajouter un examen", examen: e.title, quand: when(e), jours_restants: d },
-      fallback:
-        d <= 2
-          ? `« ${e.title} » ${d === 0 ? "aujourd'hui" : d === 1 ? 'demain' : 'après-demain'} ? On ne panique pas : je te prépare un mini-plan express ?`
-          : pick([
-              `Examen noté : « ${e.title} », dans ${d} jours. On cale des révisions maintenant, comme ça c'est fait ?`,
-              `« ${e.title} » dans ${d} jours. Je te propose de répartir des séances de révision d'ici là, ça te va ?`,
-            ]),
+      situation: studying()
+        ? { evenement: "l'étudiant vient d'ajouter un examen", examen: e.title, quand: when(e), jours_restants: d }
+        : { evenement: `l'utilisateur vient d'ajouter un événement important (${getSettings().usage === 'travail' ? 'échéance de travail' : 'événement personnel'}), pas un examen`, titre: e.title, quand: when(e), jours_restants: d },
+      fallback: bigEventFallback(e, d),
       offers: examOffers(e),
     });
   } else if (isDeliverable(e) && daysUntil(e.date) <= 1 && daysUntil(e.date) >= 0) {
@@ -175,8 +196,14 @@ function periodicCheck() {
     void nudge({
       key: `exam-soon:${exam.id}`,
       every: DAY,
-      situation: { evenement: 'examen proche sans révisions planifiées', examen: exam.title, quand: when(exam), jours_restants: d },
-      fallback: d <= 1 ? `« ${exam.title} » ${d === 0 ? "c'est aujourd'hui" : "c'est demain"}. On fait une dernière révision ciblée ensemble ?` : `« ${exam.title} » arrive dans ${d} jours et rien n'est prévu pour réviser. Je te cale des créneaux ?`,
+      situation: studying()
+        ? { evenement: 'examen proche sans révisions planifiées', examen: exam.title, quand: when(exam), jours_restants: d }
+        : { evenement: 'événement important proche (pas un examen), rien de prévu pour le préparer', titre: exam.title, quand: when(exam), jours_restants: d },
+      fallback: !studying()
+        ? `« ${exam.title} » ${d === 0 ? "c'est aujourd'hui" : d === 1 ? "c'est demain" : `arrive dans ${d} jours`} et rien n'est prévu pour t'y préparer. Je te bloque un moment ?`
+        : d <= 1
+          ? `« ${exam.title} » ${d === 0 ? "c'est aujourd'hui" : "c'est demain"}. On fait une dernière révision ciblée ensemble ?`
+          : `« ${exam.title} » arrive dans ${d} jours et rien n'est prévu pour réviser. Je te cale des créneaux ?`,
       offers: examOffers(exam),
     });
     return;

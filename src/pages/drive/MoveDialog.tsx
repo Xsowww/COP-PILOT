@@ -14,6 +14,10 @@ interface Props {
 export default function MoveDialog({ ids, onClose, onMove }: Props) {
   const items = useDrive(s => s.items);
   const forbidden = new Set(withDescendants(items, ids));
+  // Where the items already are (when they all share one folder): moving there would do nothing.
+  const parents = new Set(items.filter(i => ids.includes(i.id)).map(i => i.parentId));
+  const here = parents.size === 1 ? [...parents][0] : undefined;
+  const currentTag = <span className="ml-1 shrink-0 text-[11px] font-normal text-stone-500">(emplacement actuel)</span>;
   const [target, setTarget] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
 
@@ -49,6 +53,7 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
               <button type="button" className="flex h-full min-w-0 flex-1 items-center gap-1.5 text-left" aria-pressed={target === f.id} onClick={() => setTarget(f.id)}>
                 <FileIcon category="folder" size={20} color={f.color ? FOLDER_COLORS[f.color]?.color : undefined} />
                 <span className="truncate">{f.name}</span>
+                {here === f.id && currentTag}
               </button>
             </div>
             {expanded && renderLevel(f.id, depth + 1)}
@@ -67,6 +72,7 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
           onClick={() => setTarget(null)}
         >
           <HardDrive size={16} /> Mon Drive
+          {here === null && currentTag}
         </button>
         {renderLevel(null, 1)}
       </div>
@@ -74,7 +80,7 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
         <button className="btn-secondary" onClick={onClose}>
           Annuler
         </button>
-        <button className="btn-primary" onClick={() => onMove(target)}>
+        <button className="btn-primary" disabled={target === here} title={target === here ? 'Choisis un autre dossier' : undefined} onClick={() => onMove(target)}>
           Déplacer ici
         </button>
       </div>

@@ -22,7 +22,14 @@ export function sanitizeHtml(html: string) {
 
 export async function docxToHtml(blob: Blob) {
   const mammoth = await import('mammoth');
-  const res = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() });
+  // Word's « Titre » / « Sous-titre » styles are not mapped by default: show them as headings.
+  const styleMap = [
+    "p[style-name='Title'] => h1:fresh",
+    "p[style-name='Titre'] => h1:fresh",
+    "p[style-name='Subtitle'] => h2:fresh",
+    "p[style-name='Sous-titre'] => h2:fresh",
+  ];
+  const res = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() }, { styleMap });
   return sanitizeHtml(res.value);
 }
 
