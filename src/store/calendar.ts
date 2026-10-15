@@ -117,7 +117,7 @@ export function guessCategory(title: string, timed = false): EventCategory {
   const t = title.toLowerCase();
   // Work and personal accounts use the same five categories under other names (see lib/usage).
   if (getSettings().usage !== 'etudes') {
-    if (/(r[ée]union|meeting|\bcall\b|visio|point (d'[ée]quipe|client|hebdo)|entretien|rendez-vous|\brdv\b|m[ée]decin|dentiste|kin[ée])/.test(t)) return 'cours';
+    if (/(r[ée]union|meeting|\bcall\b|visio|point (d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|\brdv\b|m[ée]decin|dentiste|kin[ée])/.test(t)) return 'cours';
     if (/(devis|facture|relance|proposition|contrat|payer|imp[oô]ts?|d[ée]claration)/.test(t)) return 'devoir';
     if (/(deadline|[ée]ch[ée]ance|livraison|lancement|audit|salon|anniversaire|mariage|d[ée]m[ée]nagement)/.test(t)) return 'examen';
   }

@@ -6,21 +6,28 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { fmt, todayKey } from '../lib/dates';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
-import { useCalendar, CATEGORIES, type EventCategory } from '../store/calendar';
+import { useCalendar, CATEGORIES, CATEGORY_LABELS, guessCategory, type EventCategory } from '../store/calendar';
+import type { Usage } from '../lib/usage';
 import { useTodos } from '../store/todos';
 import { useNotes } from '../store/notes';
 import { getSettings } from '../store/settings';
 
 /** Who Kompaly is talking to (welcome questionnaire). The category names in the calendar follow the same choice. */
 const USAGE_CONTEXT: Record<string, string> = {
-  etudes: 'ses études (catégories : Cours, Examen, Devoir, Perso, Sport)',
-  travail: 'son travail (catégories : Réunion, Échéance, Devis, Perso, Sport ; parle de réunions, devis, échéances, pas de cours ni de révisions)',
-  perso: 'sa vie perso (catégories : Rendez-vous, Important, À faire, Perso, Sport ; pas de vocabulaire scolaire)',
+  etudes: 'ses études',
+  travail: 'son travail (parle de réunions, devis, échéances, pas de cours ni de révisions)',
+  perso: 'sa vie perso (pas de vocabulaire scolaire)',
 };
+
+/** The category ids of add_event and the names the person sees (« cours » is « Réunion » at work). */
+const categoryContext = (usage: Usage) =>
+  `Catégories du calendrier (valeur de « category » dans add_event = nom affiché) : ${Object.entries(CATEGORY_LABELS[usage] ?? CATEGORY_LABELS.etudes)
+    .map(([id, label]) => `${id} = ${label}`)
+    .join(', ')}. « perso » = vie privée uniquement.`;
 import { accessToken } from '../lib/supabase';
 import {
   search, analyzeCalendar, eventsBetween, addEvent, createNote, createDriveFolder, listDriveFolder, readNote, overview,
-  linkToNote, linkToDriveFolder, linkToDay, describeEvent, findExam, planRevisions, appendToNote, updateEvent, goTo,
+  linkToNote, linkToDriveFolder, linkToDay, describeEvent, findExam, planRevisions, hasRevisionPlan, revisionSessions, alreadyPlanned, openNoteLabel, appendToNote, updateEvent, goTo,
   findItem, linkToItem, itemName, renameItem, moveItem, setStar, setFolderColor, listTrash, restoreFromTrash,
   searchNotes, listTodos, addTodo, completeTodo, startFocus, stopFocus, updateSettings,
 } from './actions';
@@ -141,12 +148,15 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       return eventsBetween(str(input.from), str(input.to)).map(e => ({ id: e.id, title: e.title, date: e.date, start: e.start, end: e.end, category: e.category, done: e.done }));
     case 'add_event': {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(str(input.date)) || !str(input.title)) throw new Error('title et date (YYYY-MM-DD) requis');
+      const picked = str(input.category) in CATEGORIES ? (str(input.category) as EventCategory) : undefined;
+      // « perso » is the AI's default when unsure: a title that clearly says more (« Point d'équipe » → Réunion) wins.
+      const guessed = guessCategory(str(input.title), !!str(input.start));
       const ev = addEvent({
         title: str(input.title),
         date: str(input.date),
         start: str(input.start) || undefined,
         end: str(input.end) || undefined,
-        category: str(input.category) in CATEGORIES ? (str(input.category) as EventCategory) : undefined,
+        category: !picked || (picked === 'perso' && guessed !== 'perso') ? guessed : picked,
       });
       links.push({ label: 'Voir le jour', to: linkToDay(ev.date) });
       return { created: describeEvent(ev), id: ev.id };
@@ -172,9 +182,14 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     case 'plan_revisions': {
       const exam = findExam(str(input.exam));
       if (!exam) throw new Error('examen introuvable');
+      if (hasRevisionPlan(exam)) {
+        const done = alreadyPlanned(exam);
+        links.push(...done.links);
+        return { exam: describeEvent(exam), already_planned: true, sessions: revisionSessions(exam).map(describeEvent) };
+      }
       const res = planRevisions(exam.id, typeof input.sessions === 'number' ? input.sessions : 3)!;
       if (res.created.length) links.push({ label: 'Voir le planning', to: linkToDay(res.created[0].date) });
-      if (res.note) links.push({ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) });
+      if (res.note) links.push({ label: openNoteLabel(), to: linkToNote(res.note.id) });
       return {
         exam: describeEvent(exam),
         sessions: res.created.map(describeEvent),
@@ -314,6 +329,7 @@ function contextBlock(): string {
   const { school, program, year, usage, needs } = getSettings();
   const profile = [year, program, school].filter(Boolean).join(', ');
   lines.push(`Utilise Kompaly pour : ${USAGE_CONTEXT[usage] ?? USAGE_CONTEXT.etudes}${profile ? ` (${profile})` : ''}`);
+  lines.push(categoryContext(usage));
   if (needs.length) lines.push(`Ce dont il/elle a le plus besoin : ${needs.join(', ')}`);
   if (recentProactive.length) lines.push(`Tu lui as dit récemment, de toi-même : ${recentProactive.join(' ')}`);
   if (offerLog.length) lines.push(`Boutons utilisés depuis : ${offerLog.splice(0).join(' | ')}`);
@@ -401,10 +417,10 @@ export function describeApiError(e: unknown): string {
   if (code === 'too_large') return "C'est trop long pour l'IA gratuite d'un coup : demande-moi une partie précise, ou ouvre une nouvelle conversation.";
   // The AI doesn't answer: simple mode for a while instead of the same apology at every message.
   if (code === 'bad_key') {
-    pauseAi(30 * 60);
+    pauseAi(30 * 60, 'error');
     return "Ma clé d'accès à l'IA ne marche pas (à vérifier dans la configuration du serveur) : je passe en mode simple.";
   }
-  pauseAi(2 * 60);
+  pauseAi(2 * 60, 'error');
   if (code === 'network' || code === 'timeout') return "J'ai perdu la connexion à l'IA : je passe en mode simple deux minutes.";
   return "L'IA a un petit souci technique : je passe en mode simple deux minutes.";
 }

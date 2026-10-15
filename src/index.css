@@ -194,7 +194,7 @@ body {
   @apply rounded-xl border border-stone-200/80 bg-surface shadow-card;
 }
 @utility btn {
-  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 disabled:pointer-events-none disabled:opacity-45;
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-45;
 }
 @utility btn-primary {
   @apply btn bg-brand-solid text-on-brand shadow-[inset_0_1px_0_rgb(255_255_255_/0.15)] hover:bg-brand-solid-hover;
@@ -209,7 +209,7 @@ body {
   @apply btn bg-danger text-white hover:bg-danger-hover;
 }
 @utility icon-btn {
-  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-stone-500 transition-colors outline-none hover:bg-stone-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand-500/50;
+  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-stone-500 transition-colors outline-none hover:bg-stone-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand-500;
 }
 @utility field {
   @apply h-9 rounded-lg border border-stone-200 bg-surface px-3 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-3 focus:ring-stone-900/5 focus-visible:ring-brand-500/20;

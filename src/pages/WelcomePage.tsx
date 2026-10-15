@@ -156,7 +156,7 @@ export default function WelcomePage() {
               {NEEDS(a.usage).map(n => {
                 const on = a.needs.includes(n.key);
                 return (
-                  <button key={n.key} type="button" aria-pressed={on} className={choice(on)} onClick={() => set({ needs: on ? a.needs.filter(x => x !== n.key) : [...a.needs, n.key] }, false)}>
+                  <button key={n.key} type="button" aria-pressed={on} className={choice(on)} onClick={() => !moving.current && set({ needs: on ? a.needs.filter(x => x !== n.key) : [...a.needs, n.key] }, false)}>
                     <span className={cx('flex h-4 w-4 shrink-0 items-center justify-center rounded border', on ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-300')}>{on && <Check size={12} />}</span>
                     <span className="text-[14px]">{n.label}</span>
                   </button>
@@ -184,7 +184,17 @@ export default function WelcomePage() {
           {step === 5 && (
             <Question title={TIME_QUESTION[a.usage]} hint="Kompaly placera tes séances de travail à ce moment-là.">
               {TIMES.map(t => (
-                <button key={t.value} type="button" disabled={busy} className={choice(a.revisionTime === t.value)} onClick={() => settled() && void finish({ ...a, revisionTime: t.value })}>
+                <button
+                  key={t.value}
+                  type="button"
+                  disabled={busy}
+                  className={choice(a.revisionTime === t.value)}
+                  onClick={() => {
+                    if (!settled()) return;
+                    setA(prev => ({ ...prev, revisionTime: t.value })); // the spinner shows on the chosen answer
+                    void finish({ ...a, revisionTime: t.value });
+                  }}
+                >
                   <span className="text-[14px] font-medium">{t.label}</span>
                   {busy && a.revisionTime === t.value && <Loader2 size={14} className="ml-auto animate-spin" />}
                 </button>

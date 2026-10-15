@@ -3,8 +3,12 @@ import type { FocusSession } from '../../store/focusLog';
 import type { CalendarEvent } from '../../store/calendar';
 import { normalize } from '../../lib/utils';
 import { toKey, weekStart } from '../../lib/dates';
+import type { Usage } from '../../lib/usage';
 
 export const NO_SUBJECT = 'Sans matière';
+
+/** « Sans matière » for studies, « Sans sujet » for work and personal life. */
+export const noSubjectLabel = (usage?: Usage) => (usage && usage !== 'etudes' ? 'Sans sujet' : NO_SUBJECT);
 
 /** « Cours de maths » → « Maths », « Amphi d'histoire » → « Histoire ». */
 export function subjectFromCourse(title: string) {
@@ -34,11 +38,11 @@ export function subjectSuggestions(sessions: FocusSession[], events: CalendarEve
 }
 
 /** Minutes per subject since `from` (YYYY-MM-DD, or null for all time), biggest first. */
-export function minutesBySubject(sessions: FocusSession[], from: string | null) {
+export function minutesBySubject(sessions: FocusSession[], from: string | null, noSubject = NO_SUBJECT) {
   const map = new Map<string, { subject: string; minutes: number; sessions: number }>();
   for (const s of sessions) {
     if (from && toKey(new Date(s.startedAt)) < from) continue;
-    const name = s.subject || NO_SUBJECT;
+    const name = s.subject || noSubject;
     const k = normalize(name);
     const row = map.get(k) ?? { subject: name, minutes: 0, sessions: 0 };
     row.minutes += s.minutes;

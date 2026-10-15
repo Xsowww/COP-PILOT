@@ -63,7 +63,7 @@ function Toolbar({ editor }: { editor: Editor }) {
     </div>
   );
   const editLink = async () => {
-    const url = await askText(link !== null ? 'Modifier le lien' : 'Adresse du lien', link ?? '', link !== null ? 'Modifier' : 'Ajouter');
+    const url = await askText(link !== null ? 'Modifier le lien' : 'Adresse du lien', link ?? '', link !== null ? 'Modifier' : 'Ajouter', { url: true });
     if (url === null || !url.trim()) return void c().run();
     c().extendMarkRange('link').setLink({ href: withProtocol(url) }).run();
   };

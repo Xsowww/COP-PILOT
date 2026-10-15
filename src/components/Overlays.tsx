@@ -13,10 +13,16 @@ function ToastRow({ t }: { t: Toast }) {
       <span className="min-w-0">{t.text}</span>
       {t.action && (
         <button
-          className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
+          className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 shrink-0 whitespace-nowrap rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
           onClick={() => {
             dismiss(t.id);
             t.action!.run();
+            // This button goes away with the toast. Unless the action focused what it brought back,
+            // the focus goes to the page, not to <body> (keyboard and screen readers would start over at the top).
+            setTimeout(() => {
+              const now = document.activeElement;
+              if (!now || now === document.body) document.getElementById('contenu')?.focus({ preventScroll: true });
+            }, 0);
           }}
         >
           {t.action.label}
@@ -112,9 +118,10 @@ function DialogBody() {
     const el = inputRef.current;
     if (!el) return;
     el.focus();
-    // Select the name without its extension, like a real file manager.
-    const dot = el.value.lastIndexOf('.');
+    // Everything, except the extension of a file name (« Chap. 3 », a link, a folder « v1.2 » are whole).
+    const dot = dialog.fileName ? el.value.lastIndexOf('.') : -1;
     el.setSelectionRange(0, dot > 0 ? dot : el.value.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the dialog opens
   }, []);
 
   return (
@@ -126,7 +133,17 @@ function DialogBody() {
     >
       <h3 className="text-[15px] font-semibold">{dialog.title}</h3>
       {dialog.message && <p className="mt-1 text-[13px] text-stone-500">{dialog.message}</p>}
-      {dialog.kind === 'prompt' && <input ref={inputRef} value={value} onChange={e => setValue(e.target.value)} className="field mt-4 w-full" />}
+      {dialog.kind === 'prompt' && (
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          aria-label={dialog.title}
+          // Not type="url": « kompaly.com » (no https://) is accepted, the browser would refuse it.
+          {...(dialog.url && { inputMode: 'url' as const, autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false })}
+          className="field mt-4 w-full"
+        />
+      )}
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={() => close(null)}>
           Annuler

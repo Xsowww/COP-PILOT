@@ -150,7 +150,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
             ['file', 'Fichiers'],
           ] as const
         ).map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)} aria-pressed={tab === k} className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors', tab === k ? 'bg-stone-100 text-ink' : 'text-stone-500 hover:text-ink')}>
+          <button key={k} onClick={() => setTab(k)} aria-pressed={tab === k} className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors pointer-coarse:h-9', tab === k ? 'bg-stone-100 text-ink' : 'text-stone-500 hover:text-ink')}>
             {label}
           </button>
         ))}

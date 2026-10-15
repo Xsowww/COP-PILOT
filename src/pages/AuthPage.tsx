@@ -236,9 +236,10 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                 </label>
               )}
               {needsPassword && (
-                <label className="block">
+                // A div, not a label: the eye button and « Oublié ? » must not end up in the field's name.
+                <div>
                   <span className="mb-1.5 flex items-center text-[12px] font-medium text-stone-600">
-                    {mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}
+                    <label htmlFor="auth-password">{mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}</label>
                     {mode === 'login' && cloudEnabled && (
                       <Link to="/mot-de-passe-oublie" className="ml-auto font-normal text-stone-500 hover:text-ink">
                         Oublié ?
@@ -252,6 +253,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                         refs.current.password = el;
                       }}
                       {...invalid('password')}
+                      id="auth-password"
                       className="field w-full pr-10"
                       type={show ? 'text' : 'password'}
                       value={password}
@@ -265,7 +267,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                     </button>
                   </span>
                   {errAt('password')}
-                </label>
+                </div>
               )}
               {mode === 'reset' && needsCode && (
                 <label className="block">

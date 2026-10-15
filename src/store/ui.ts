@@ -21,6 +21,10 @@ interface DialogRequest {
   defaultValue?: string;
   confirmLabel?: string;
   danger?: boolean;
+  /** Text dialog: a file name (only the part before the extension is selected, like in a file manager). */
+  fileName?: boolean;
+  /** Text dialog: a web address (keyboard with « / » and « .com » on phones). */
+  url?: boolean;
   resolve: (value: string | boolean | null) => void;
 }
 
@@ -49,9 +53,9 @@ export const useUi = create<UiState>((set, get) => ({
 
 export const toast = (text: string, tone?: Toast['tone'], action?: ToastAction) => useUi.getState().toast(text, tone, action);
 
-export function askText(title: string, defaultValue = '', confirmLabel = 'Valider'): Promise<string | null> {
+export function askText(title: string, defaultValue = '', confirmLabel = 'Valider', options: { fileName?: boolean; url?: boolean } = {}): Promise<string | null> {
   return new Promise(resolve =>
-    useUi.setState({ dialog: { kind: 'prompt', title, defaultValue, confirmLabel, resolve: v => resolve(typeof v === 'string' ? v : null) } }),
+    useUi.setState({ dialog: { kind: 'prompt', title, defaultValue, confirmLabel, ...options, resolve: v => resolve(typeof v === 'string' ? v : null) } }),
   );
 }
 

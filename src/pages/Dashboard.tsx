@@ -13,6 +13,7 @@ import { toast } from '../store/ui';
 import TodoList from './tasks/TodoList';
 import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
+import { startTitleBuffer } from './notes/titleBuffer';
 
 function Widget({ title, to, linkLabel, className, children }: { title: string; to?: string; linkLabel?: string; className?: string; children: React.ReactNode }) {
   return (
@@ -44,7 +45,8 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
         {e.done && <Check size={10} strokeWidth={3} className="text-paper" />}
       </button>
       <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: c.color }} />
-      <Link to={linkToDay(e.date)} className="min-w-0 flex-1">
+      {/* Taller on touch screens (36 px) without moving the row. */}
+      <Link to={linkToDay(e.date)} className="min-w-0 flex-1 pointer-coarse:-my-2 pointer-coarse:py-2">
         <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-500 line-through' : muted ? 'text-stone-600' : 'font-medium')}>{e.title}</span>
       </Link>
       <span className="tabular shrink-0 text-[12px] text-stone-500">
@@ -93,8 +95,14 @@ export default function Dashboard() {
     const r = runOffer({ label: 'Planifier', kind: 'plan_revisions', payload: { eventId: nextExam.id } });
     // Only a plan with sessions links to the schedule: too late, Kompaly only made the sheet.
     const planned = r.links?.some(l => l.label === 'Voir le planning');
-    toast(planned ? `${words.planned}, ${words === WORDS.etudes ? 'fiche créée' : 'note créée'}` : r.text, planned ? 'success' : 'info');
+    if (planned) return toast(`${words.planned}, ${words === WORDS.etudes ? 'fiche créée' : 'note créée'}`, 'success');
+    // Too late for a session: the sheet Kompaly made anyway is one tap away.
+    const sheet = r.links?.find(l => l.to.startsWith('/notes'));
+    toast(r.text, 'info', sheet && { label: sheet.label, run: () => navigate(sheet.to) });
   };
+
+  // The sheet made for the next exam (with its sessions, or alone when it was too late for one).
+  const examSheet = nextExam && notes.find(n => n.title === `Fiche · ${nextExam.title}` || n.title === `À préparer · ${nextExam.title}`);
 
   const examDays = nextExam ? daysUntil(nextExam.date) : 0;
 
@@ -108,8 +116,16 @@ export default function Dashboard() {
               {hello}, {user.name}
             </h1>
           </div>
-          {/* Notes page loaded on approach: the title typed right after the click isn't lost while it loads. */}
-          <button onPointerEnter={preloadNotes} onFocus={preloadNotes} onPointerDown={preloadNotes} onClick={() => navigate('/notes?nouvelle=1')} className="btn-ghost h-8 px-2.5 text-[13px]">
+          {/* The page takes ~0.5 s to show up: what is typed meanwhile is kept and lands in the new note's title. */}
+          <button
+            onPointerEnter={preloadNotes}
+            onFocus={preloadNotes}
+            onClick={() => {
+              startTitleBuffer();
+              navigate('/notes?nouvelle=1');
+            }}
+            className="btn-ghost h-8 px-2.5 text-[13px]"
+          >
             <Plus size={15} /> Note
           </button>
           <button onClick={() => navigate('/calendrier?ajout=1')} className="btn-ghost h-8 px-2.5 text-[13px]">
@@ -159,10 +175,15 @@ export default function Dashboard() {
                   </span>
                 </Link>
                 <div className="mt-auto pt-4">
-                  {hasRevisionPlan(nextExam.title) ? (
+                  {hasRevisionPlan(nextExam) ? (
                     <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
                       <Check size={13} className="text-emerald-600" /> {words.planned}
                     </p>
+                  ) : examSheet && examDays === 0 ? (
+                    // Today with a sheet but no session: it was too late, asking again would only repeat it.
+                    <Link to={linkToNote(examSheet.id)} className="btn-secondary h-8 text-[12px]">
+                      {words === WORDS.etudes ? 'Ouvrir la fiche' : 'Ouvrir la note'}
+                    </Link>
                   ) : (
                     <button onClick={planExam} className="btn-secondary h-8 text-[12px]">
                       {words.plan}

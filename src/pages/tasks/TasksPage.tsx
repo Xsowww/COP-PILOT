@@ -8,7 +8,9 @@ import { cx } from '../../lib/utils';
 import FocusTimer from '../../components/FocusTimer';
 import TodoList from './TodoList';
 import { SubjectBars, DailyFocus, DataTable } from './FocusCharts';
-import { dailyMinutes, formatMinutes, minutesBySubject, weekMinutes } from './focusStats';
+import { dailyMinutes, formatMinutes, minutesBySubject, noSubjectLabel, weekMinutes } from './focusStats';
+import { useSettings } from '../../store/settings';
+import { usageWords } from '../../lib/usage';
 
 type Range = '7' | '30' | 'all';
 const RANGES: { key: Range; label: string }[] = [
@@ -25,9 +27,12 @@ function WorkTime() {
   const [range, setRange] = useState<Range>('30');
   const [asTable, setAsTable] = useState(false);
 
+  const usage = useSettings(s => s.usage);
+  const subject = usageWords(usage).subject; // « matière », « sujet »
+  const none = noSubjectLabel(usage);
   const week = weekMinutes(sessions);
-  const last7 = useMemo(() => minutesBySubject(sessions, toKey(addDays(new Date(), -6))), [sessions]);
-  const bySubject = useMemo(() => minutesBySubject(sessions, range === 'all' ? null : toKey(addDays(new Date(), 1 - Number(range)))), [sessions, range]);
+  const last7 = useMemo(() => minutesBySubject(sessions, toKey(addDays(new Date(), -6)), none), [sessions, none]);
+  const bySubject = useMemo(() => minutesBySubject(sessions, range === 'all' ? null : toKey(addDays(new Date(), 1 - Number(range))), none), [sessions, range, none]);
   const daily = useMemo(() => dailyMinutes(sessions, 30), [sessions]);
   const month = daily.reduce((a, d) => a + d.minutes, 0);
 
@@ -65,7 +70,7 @@ function WorkTime() {
               <div id="travail-detail" className="mt-4 space-y-6">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="mr-auto text-[13px] font-medium text-stone-600">Par matière</h3>
+                    <h3 className="mr-auto text-[13px] font-medium text-stone-600">Par {subject}</h3>
                     <div className="flex rounded-lg bg-stone-100 p-0.5" role="group" aria-label="Période">
                       {RANGES.map(r => (
                         <button
@@ -80,7 +85,7 @@ function WorkTime() {
                     </div>
                   </div>
                   <div className="mt-3">
-                    {asTable ? <DataTable head={['Matière', 'Temps', 'Sessions']} rows={bySubject.map(r => [r.subject, formatMinutes(r.minutes), r.sessions])} /> : <SubjectBars rows={bySubject} />}
+                    {asTable ? <DataTable head={[subject.charAt(0).toUpperCase() + subject.slice(1), 'Temps', 'Sessions']} rows={bySubject.map(r => [r.subject, formatMinutes(r.minutes), r.sessions])} /> : <SubjectBars rows={bySubject} />}
                   </div>
                 </div>
                 <div>

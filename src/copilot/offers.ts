@@ -4,12 +4,14 @@ import { useCopilot, type CopilotOffer, type CopilotLink } from '../store/copilo
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import type { Note } from '../store/notes';
-import { alreadyPlanned, createRevisionNote, hasRevisionPlan, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems } from './actions';
+import { alreadyPlanned, createRevisionNote, hasRevisionPlan, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems, openNoteLabel } from './actions';
 import { fmt, fromKey } from '../lib/dates';
 import { getSettings } from '../store/settings';
 
 type OfferResult = { text: string; links?: CopilotLink[] };
 const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
+
+const gone = () => `Je ne retrouve plus ${studying() ? 'cet examen' : 'cet événement'}, il a peut-être été supprimé.`;
 
 /** What the student did with buttons since the AI last spoke (it doesn't see the clicks otherwise). */
 export const offerLog: string[] = [];
@@ -27,7 +29,7 @@ function tooLate(note: Note | null): OfferResult {
     text: studying()
       ? "Plus le temps de caler une séance avant l'examen. Je t'ai quand même préparé une fiche pour une dernière relecture."
       : "Plus le temps de bloquer un créneau avant. Je t'ai quand même préparé une note « À préparer » pour ne rien oublier.",
-    links: note ? [{ label: studying() ? 'Ouvrir la fiche' : 'Ouvrir la note', to: linkToNote(note.id) }] : [],
+    links: note ? [{ label: openNoteLabel(), to: linkToNote(note.id) }] : [],
   };
 }
 
@@ -36,10 +38,10 @@ function run(offer: CopilotOffer): OfferResult {
   switch (offer.kind) {
     case 'plan_revisions': {
       const exam = useCalendar.getState().events.find(e => e.id === p.eventId);
-      if (!exam) return { text: "Je ne retrouve plus cet examen, il a peut-être été supprimé." };
-      if (hasRevisionPlan(exam.title)) return alreadyPlanned(exam.title);
+      if (!exam) return { text: gone() };
+      if (hasRevisionPlan(exam)) return alreadyPlanned(exam);
       const res = planRevisions(exam.id, Number(p.sessions) || getSettings().revisionSessions);
-      if (!res) return { text: "Je ne retrouve plus cet examen, il a peut-être été supprimé." };
+      if (!res) return { text: gone() };
       if (!res.created.length) return tooLate(res.note);
       const days = res.created.map(e => fmt(fromKey(e.date), 'EEEE d')).join(', ');
       return {
@@ -48,16 +50,16 @@ function run(offer: CopilotOffer): OfferResult {
           : `C'est calé : ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer (${days}) et une note « ${res.note?.title} » pour ne rien oublier.`,
         links: [
           { label: 'Voir le planning', to: linkToDay(res.created[0].date) },
-          ...(res.note ? [{ label: studying() ? 'Ouvrir la fiche' : 'Ouvrir la note', to: linkToNote(res.note.id) }] : []),
+          ...(res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : []),
         ],
       };
     }
     case 'revision_note': {
       const note = createRevisionNote(p.eventId);
-      if (!note) return { text: "Je ne retrouve plus cet examen." };
+      if (!note) return { text: studying() ? 'Je ne retrouve plus cet examen.' : 'Je ne retrouve plus cet événement.' };
       return {
         text: `${studying() ? 'Fiche' : 'Note'} « ${note.title} » prête, avec une structure pour aller à l'essentiel.`,
-        links: [{ label: studying() ? 'Ouvrir la fiche' : 'Ouvrir la note', to: linkToNote(note.id) }],
+        links: [{ label: openNoteLabel(), to: linkToNote(note.id) }],
       };
     }
     case 'mark_done': {

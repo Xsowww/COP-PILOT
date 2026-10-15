@@ -16,6 +16,7 @@ import { isMenuKey, menuPoint } from '../../lib/a11y';
 import { flushNoteEditor } from './noteUtils';
 import { isTrashedNote } from '../../lib/trash';
 import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
+import { takeTitleBuffer } from './titleBuffer';
 
 const DRAG_NOTE = 'application/x-cop-note';
 const DRAG_FOLDER = 'application/x-cop-note-folder';
@@ -108,8 +109,14 @@ export default function NotesPage() {
     if (!activeId || focusTitleFor.current !== activeId) return;
     focusTitleFor.current = null;
     const el = document.getElementById('note-title') as HTMLTextAreaElement | null;
+    // Keys typed since « + Note » on another page, while this page was coming up.
+    const typed = takeTitleBuffer();
     el?.focus();
-    el?.select();
+    if (el && typed) {
+      el.value = typed;
+      el.setSelectionRange(typed.length, typed.length);
+      useNotes.getState().updateNote(activeId, { title: typed.trim() || 'Sans titre' });
+    } else el?.select();
   }, [activeId]);
 
   const templateMenu = (folderId: string | null = targetFolder): MenuItem[] =>
@@ -142,6 +149,12 @@ export default function NotesPage() {
     return false;
   };
 
+  // « Annuler » in the toast: the focus goes to what came back, not to <body> with the toast's button.
+  const restoreAndFocus = (id: string, kind: 'note' | 'folder') => {
+    useNotes.getState().restore([id]);
+    setTimeout(() => document.querySelector<HTMLElement>(kind === 'note' ? `[data-note-open="${id}"]` : `[data-folder-open="${id}"]`)?.focus({ preventScroll: true }), 0);
+  };
+
   const deleteFolder = (f: NoteFolder) => {
     if (active?.folderId && isInside(active.folderId, f.id)) {
       flushNoteEditor();
@@ -149,7 +162,7 @@ export default function NotesPage() {
     }
     if (focusFolder === f.id) setFocusFolder(null);
     store.removeFolder(f.id);
-    toast('Mis à la corbeille', 'info', { label: 'Annuler', run: () => useNotes.getState().restore([f.id]) });
+    toast('Mis à la corbeille', 'info', { label: 'Annuler', run: () => restoreAndFocus(f.id, 'folder') });
   };
 
   // After a deletion the keyboard focus goes to the next note in the list (or the previous one),
@@ -172,7 +185,7 @@ export default function NotesPage() {
       openNote(null);
     }
     store.removeNote(n.id);
-    toast('Mis à la corbeille', 'info', { label: 'Annuler', run: () => useNotes.getState().restore([n.id]) });
+    toast('Mis à la corbeille', 'info', { label: 'Annuler', run: () => restoreAndFocus(n.id, 'note') });
   };
 
   const folderPath = (id: string | null) => {
@@ -314,6 +327,7 @@ export default function NotesPage() {
           )}
         >
           <div
+            data-folder-open={f.id}
             onClick={() => {
               setFocusFolder(f.id);
               setExpanded(s => {
@@ -439,18 +453,20 @@ export default function NotesPage() {
       <section className={cx('card min-w-0 flex-1 flex-col overflow-hidden md:mt-2', mainOpen ? 'flex' : 'hidden md:flex')}>
         {active ? (
           <>
-            <div className="flex items-start gap-1 px-4 pt-6 md:px-12">
+            {/* Under lg the actions sit above the title, which gets the whole width (it was 173 px wide at 768). */}
+            <div className="flex flex-wrap items-start gap-1 px-4 pt-6 md:px-12 max-lg:pt-4">
               <button className="icon-btn mt-1 md:hidden" onClick={() => openNote(null)} title="Retour" aria-label="Retour">
                 <ArrowLeft size={17} />
               </button>
-              <div className="min-w-0 flex-1">
+              <div className="order-last w-full min-w-0 lg:order-none lg:w-auto lg:flex-1">
                 <NoteTitle key={active.id} note={active} />
                 <p className="mt-1 text-[12px] text-stone-500">
-                  {folders.find(f => f.id === active.folderId)?.name ?? 'Sans dossier'} · <span className="whitespace-nowrap">modifiée {relativeTime(active.updatedAt)}</span>
+                  {folders.find(f => f.id === active.folderId)?.name ?? 'Sans dossier'}{' '}
+                  <span className="whitespace-nowrap">· modifiée {relativeTime(active.updatedAt)}</span>
                 </p>
                 <LinkChips note={active} />
               </div>
-              <button className="btn-ghost mt-0.5 h-8 px-2.5" title="Lier à des fichiers du Drive ou des événements" onClick={() => setLinking(true)}>
+              <button className="btn-ghost mt-0.5 ml-auto h-8 px-2.5 lg:ml-0" title="Lier à des fichiers du Drive ou des événements" onClick={() => setLinking(true)}>
                 <Paperclip size={15} /> <span className="hidden sm:inline">Lier…</span>
               </button>
               <button className="icon-btn mt-0.5" title={active.pinned ? 'Désépingler' : 'Épingler'} aria-label={active.pinned ? 'Désépingler' : 'Épingler'} onClick={() => store.updateNote(active.id, { pinned: !active.pinned })}>
@@ -530,7 +546,7 @@ function NoteTitle({ note }: { note: Note }) {
         useNotes.getState().updateNote(note.id, { title: e.target.value.trim() || 'Sans titre' });
       }}
       onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), document.querySelector<HTMLElement>('.prose-note')?.focus())}
-      className="block w-full resize-none overflow-hidden bg-transparent text-[22px] font-semibold md:text-[26px] leading-[1.25] tracking-[-0.02em] outline-none placeholder:text-stone-400"
+      className="block w-full resize-none overflow-hidden bg-transparent hyphens-auto text-[22px] font-semibold md:text-[26px] leading-[1.25] tracking-[-0.02em] outline-none placeholder:text-stone-400"
     />
   );
 }

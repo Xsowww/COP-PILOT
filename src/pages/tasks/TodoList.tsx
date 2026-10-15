@@ -54,7 +54,35 @@ const focusDueButton = (id: string) => setTimeout(() => document.querySelector<H
 function removeWithUndo(gone: Todo[]) {
   if (!gone.length) return;
   const text = gone.length === 1 ? `Tâche « ${gone[0].title} » supprimée` : `${gone.length} tâches terminées effacées`;
-  toast(text, 'info', { label: 'Annuler', run: () => useTodos.getState().restore(gone) });
+  toast(text, 'info', {
+    label: 'Annuler',
+    run: () => {
+      useTodos.getState().restore(gone);
+      // The toast's button goes away: the focus goes to the task that came back (once it's on screen).
+      setTimeout(() => document.querySelector<HTMLElement>(`[data-todo="${gone[0].id}"]`)?.focus(), 0);
+    },
+  });
+}
+
+// A press in progress (mouse down, or a tap that has just been lifted and is about to click).
+let lastPress = 0;
+if (typeof window !== 'undefined') for (const type of ['pointerdown', 'pointerup']) window.addEventListener(type, () => (lastPress = Date.now()), true);
+
+/**
+ * Runs `fn` after the click of the press that caused a blur: saving a date moves the row to another
+ * group, and the click would then miss what was under the pointer (another task's date button).
+ */
+function afterPress(fn: () => void) {
+  if (Date.now() - lastPress > 1000) return fn(); // keyboard (Tab)
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener('click', run, true);
+    setTimeout(fn, 0); // after the click's own handlers
+  };
+  window.addEventListener('click', run, true);
+  setTimeout(run, 800); // no click came (scroll, drag)
 }
 
 function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
@@ -93,6 +121,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
   return (
     <li className="group flex min-h-9 items-center gap-3 rounded-lg px-1.5 py-1 transition-colors hover:bg-stone-50">
       <button
+        data-todo={t.id}
         onClick={() => toggle(t.id)}
         className={cx(
           'hit flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
@@ -133,10 +162,11 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
               setEditing(true);
             },
           })}
-          className={cx('line-clamp-2 min-w-0 flex-1 break-words rounded text-[13px]', t.done ? 'text-stone-500 line-through' : 'text-ink')}
+          // As tall as the row on touch screens (36 px), the clamped text inside.
+          className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', t.done ? 'text-stone-500 line-through' : 'text-ink')}
           title={canEdit ? 'Double-clic (ou Entrée) pour modifier' : t.title}
         >
-          {t.title}
+          <span className="line-clamp-2 min-w-0 break-words">{t.title}</span>
         </span>
       )}
       {isTourTodo(t.title) && !t.done && (
@@ -147,7 +177,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
       {!t.done && editable ? (
         dating ? (
           // Only while changing it: a date field on every row meant 4 Tab stops per task.
-          <span className="flex shrink-0 items-center" onBlur={e => !e.currentTarget.contains(e.relatedTarget) && closeDate(true, false)}>
+          <span className="flex shrink-0 items-center" onBlur={e => !e.currentTarget.contains(e.relatedTarget) && afterPress(() => closeDate(true, false))}>
             <input
               ref={dateRef}
               type="date"

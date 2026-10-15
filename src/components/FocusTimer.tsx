@@ -10,7 +10,7 @@ import { cx } from '../lib/utils';
 
 /** Asks what the session is about before starting (optional, free text + quick chips). */
 function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => void; onCancel: () => void }) {
-  const { focusMinutes } = useSettings();
+  const { focusMinutes, usage } = useSettings();
   const sessions = useFocusLog(s => s.sessions);
   const events = useCalendar(s => s.events);
   const [subject, setSubject] = useState('');
@@ -45,7 +45,8 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
           if (e.key === 'Enter') onStart(subject);
           if (e.key === 'Escape') onCancel();
         }}
-        placeholder="Matière (facultatif)"
+        // « Matière » is a school word: a subject for the other uses of the account.
+        placeholder={usage === 'travail' || usage === 'perso' ? 'Sujet (facultatif)' : 'Matière (facultatif)'}
         maxLength={40}
         className="field mt-1.5 h-8 w-full px-2.5 text-[12px]"
       />
@@ -122,8 +123,8 @@ export default function FocusTimer() {
     <div className={cx('mb-2 rounded-lg border p-2.5', focus.phase === 'focus' ? 'border-brand-200 bg-brand-50' : 'border-emerald-200 bg-emerald-50')}>
       <div className="flex items-center gap-2">
         <span className={cx('min-w-0 truncate text-[11px] font-medium', focus.phase === 'focus' ? 'text-brand-700' : 'text-emerald-700')}>
-          {focus.phase === 'focus' ? 'Concentration' : 'Temps de pause'}
-          {paused && ' · en pause'}
+          {/* A paused break is « suspended »: « Temps de pause · en pause » said the same word twice. */}
+          {focus.phase === 'focus' ? (paused ? 'Concentration · en pause' : 'Concentration') : paused ? 'Pause suspendue' : 'Temps de pause'}
         </span>
         <span role="timer" aria-label={`Temps restant : ${mmss(left)}`} className="tabular ml-auto font-mono text-[15px] font-medium">{mmss(left)}</span>
       </div>
@@ -133,7 +134,7 @@ export default function FocusTimer() {
       </div>
       <div className="mt-2 flex gap-1">
         <button onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
-          {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? 'Reprendre' : 'Pause'}
+          {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? 'Reprendre' : focus.phase === 'break' ? 'Suspendre' : 'Pause'}
         </button>
         <button onClick={focus.stop} className="flex h-7 w-8 items-center justify-center rounded-md bg-surface text-stone-500 shadow-card hover:text-red-600" title="Arrêter" aria-label="Arrêter">
           <Square size={11} />

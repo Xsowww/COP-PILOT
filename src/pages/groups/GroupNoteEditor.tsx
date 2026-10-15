@@ -12,6 +12,7 @@ import { useGroups } from '../../store/groups';
 import { askText, confirmAction, toast } from '../../store/ui';
 import { deleteNote, fetchNote, groupError, saveNote, summary, type GroupNote } from '../../lib/groups';
 import { cx, relativeTime } from '../../lib/utils';
+import { withProtocol } from '../notes/noteUtils';
 import { groupWordsNow, useGroupWords, useMemberName } from './util';
 
 function Toolbar({ editor }: { editor: Editor }) {
@@ -47,10 +48,10 @@ function Toolbar({ editor }: { editor: Editor }) {
       {btn('Bloc de code', Code2, editor.isActive('codeBlock'), () => c().toggleCodeBlock().run())}
       {btn('Lien', Link2, editor.isActive('link'), () => {
         const prev = editor.getAttributes('link').href as string | undefined;
-        void askText('Adresse du lien', prev ?? 'https://', 'Valider').then(url => {
+        void askText(prev ? 'Modifier le lien' : 'Adresse du lien', prev ?? '', 'Valider', { url: true }).then(url => {
           if (url === null) return;
           if (!url.trim() || url.trim() === 'https://') c().unsetLink().run();
-          else c().extendMarkRange('link').setLink({ href: url.trim() }).run();
+          else c().extendMarkRange('link').setLink({ href: withProtocol(url) }).run();
         });
       })}
       {sep('s4')}

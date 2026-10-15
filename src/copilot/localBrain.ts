@@ -1,8 +1,7 @@
 // Built-in French command engine: works offline, no API key needed.
 
-import { addDays } from 'date-fns';
 import { normalize } from '../lib/utils';
-import { parseQuickAdd, toKey, todayKey, daysUntil, fmt, fromKey } from '../lib/dates';
+import { parseQuickAdd, todayKey, daysUntil, fmt, fromKey } from '../lib/dates';
 import { useCalendar } from '../store/calendar';
 import { buildQuiz, checkAnswer, type Quiz } from './quiz';
 import {
@@ -27,9 +26,11 @@ import {
 import { useNotes } from '../store/notes';
 import { useCopilot } from '../store/copilot';
 import { runOffer } from './offers';
-import { alreadyPlanned, findExam, hasRevisionPlan, planRevisions } from './actions';
+import { alreadyPlanned, findExam, hasRevisionPlan, planRevisions, openNoteLabel } from './actions';
+import { subjectStart } from './revisionPlan';
+import { askedDay } from './dayQuestion';
 import { getSettings } from '../store/settings';
-import { WORDS, groupWords } from '../lib/usage';
+import { WORDS, groupWords, type Usage } from '../lib/usage';
 
 export interface BotReply {
   text: string;
@@ -261,6 +262,46 @@ function moreCommands(input: string, q: string): BotReply | null {
   return null;
 }
 
+const JOKES: Record<Usage, string[]> = {
+  etudes: [
+    "Pourquoi les étudiants aiment les ascenseurs ? Parce que c'est le seul endroit où ils prennent de l'avance.",
+    "J'ai voulu réviser avec toi, mais j'ai paniqué en voyant le programme. Je suis qu'un petit casque, moi.",
+    "Un partiel, c'est comme une série : tu ne regardes pas le dernier épisode sans avoir vu les précédents. Enfin… en théorie.",
+    "Mon prof de maths m'a dit que j'étais moyen. C'était méchant, mais statistiquement juste.",
+  ],
+  travail: [
+    "Une réunion qui aurait pu être un e-mail, c'est comme un casque sans écran : ça fait du bruit, mais on ne voit rien.",
+    "J'ai demandé une augmentation à mon écran. Il m'a répondu : « Luminosité, oui. Salaire, non. »",
+    "Mon agenda et moi, c'est compliqué : il dit « 30 minutes », je comprends « une heure et demie ».",
+    "Le vendredi à 17h, je suis le seul ici à encore croire aux « petites modifs rapides ».",
+  ],
+  perso: [
+    "J'ai voulu ranger ma vie comme un dossier. Résultat : un dossier « Divers » de 4 Go.",
+    "Mon frigo et moi, on a un point commun : on attend tous les deux que quelqu'un fasse les courses.",
+    "La liste « à faire demain » est mon genre littéraire préféré : du suspense, chaque jour.",
+    "J'ai essayé le réveil à 6h. Lui s'est levé, moi non.",
+  ],
+};
+
+/** Examples of commands for « je n'ai pas compris », in the account's world. */
+const EXAMPLES: Record<Usage, string[]> = {
+  etudes: [
+    '« Trouve le dossier Maths »', '« Analyse mon calendrier »', '« Crée une note Révisions histoire : chapitre 3 »', '« Ajoute Exam de physique vendredi 10h »',
+    '« Ajoute la tâche acheter une calculatrice demain »', '« Interroge-moi sur Histoire »', '« Lance une session focus sur les maths »',
+    '« Renomme TD1 en TD1 corrigé », « Mets Brouillon à la corbeille »', "« Mode sombre », « Qu'est-ce que j'ai demain ? »",
+  ],
+  travail: [
+    '« Trouve le dossier Clients »', '« Analyse mon calendrier »', '« Crée une note Compte rendu : points clés »', '« Ajoute Réunion client vendredi 10h »',
+    '« Ajoute la tâche envoyer le devis demain »', '« Interroge-moi sur Procédure »', '« Lance une session focus sur le rapport »',
+    '« Renomme Devis v1 en Devis final », « Mets Brouillon à la corbeille »', "« Mode sombre », « Qu'est-ce que j'ai demain ? »",
+  ],
+  perso: [
+    '« Trouve le dossier Papiers »', '« Analyse mon calendrier »', '« Crée une note Courses : pain, lait »', '« Ajoute Dentiste vendredi 10h »',
+    '« Ajoute la tâche appeler la banque demain »', '« Interroge-moi sur Espagnol »', '« Lance une session focus sur le rangement »',
+    '« Renomme Vacances en Vacances 2026 », « Mets Brouillon à la corbeille »', "« Mode sombre », « Qu'est-ce que j'ai demain ? »",
+  ],
+};
+
 const describeDue = (key: string) => {
   const d = daysUntil(key);
   return d === 0 ? "aujourd'hui" : d === 1 ? 'demain' : d === -1 ? 'hier' : fmt(fromKey(key), 'EEEE d MMM');
@@ -295,17 +336,22 @@ export function localReply(raw: string): BotReply {
 
   // ── Plan revisions ────────────────────────────────────────────────────────
   if (/(planifi|organis|prepar|cale|programm).*(revision|revis)|(revision|reviser).*(planifi|organis)|(bloqu|planifi|cale|organis).*(temps|creneau|preparation).*prepar|planifie (ma|la) preparation/.test(q)) {
-    const subject = q.replace(/.*\b(pour|de|du|d')\s*(l'|le |la |mon |ma )?/, '').replace(/(examen|exam|partiel|controle|\?)/g, '').trim();
-    const exam = findExam(subject.length > 2 ? subject : '') ?? findExam('');
-    if (!exam) return { text: "Je ne vois aucun examen à venir dans ton calendrier. Ajoute-le et je m'occupe du reste." };
-    if (hasRevisionPlan(exam.title)) return alreadyPlanned(exam.title);
+    const w = words();
+    // « … pour le contrôle de maths du 10 novembre », « … pour préparer lancement »: the words after the request.
+    const subject = unquote(input.slice(subjectStart(q)).replace(/[\s?!.]+$/, ''));
+    const exam = findExam(subject);
+    if (!exam && subject && findExam('')) {
+      return { text: `Je ne trouve pas « ${subject} » parmi ${w.upcoming.replace(/^Tes/, 'tes')}. Donne-moi son nom tel qu'il est dans le calendrier ?`, links: [{ label: 'Calendrier', to: '/calendrier' }] };
+    }
+    if (!exam) return { text: `Je ne vois ${w.none} ${w.bigOne} à venir dans ton calendrier. Ajoute-${w.it} et je m'occupe du reste.` };
+    if (hasRevisionPlan(exam)) return alreadyPlanned(exam);
     const res = planRevisions(exam.id)!;
     if (!res.created.length) {
       return {
         text: getSettings().usage === 'etudes'
           ? `Plus le temps de caler une séance avant « ${exam.title} ». Je t'ai quand même préparé une fiche pour une dernière relecture.`
           : `Plus le temps de bloquer un créneau avant « ${exam.title} ». Je t'ai quand même préparé une note pour ne rien oublier.`,
-        links: res.note ? [{ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) }] : [],
+        links: res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : [],
       };
     }
     return {
@@ -315,21 +361,14 @@ export function localReply(raw: string): BotReply {
           : `Pour « ${exam.title} », je t'ai bloqué ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer et une note pour ne rien oublier.`,
       links: [
         { label: 'Voir le planning', to: linkToDay(res.created[0].date) },
-        ...(res.note ? [{ label: 'Ouvrir la fiche', to: linkToNote(res.note.id) }] : []),
+        ...(res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : []),
       ],
     };
   }
 
   // ── Jokes ─────────────────────────────────────────────────────────────────
   if (/(blague|fais[- ]moi rire|raconte.*(truc|histoire) drole|une vanne)/.test(q)) {
-    return {
-      text: pick([
-        "Pourquoi les étudiants aiment les ascenseurs ? Parce que c'est le seul endroit où ils prennent de l'avance.",
-        "J'ai voulu réviser avec toi, mais j'ai paniqué en voyant le programme. Je suis qu'un petit casque, moi.",
-        "Un partiel, c'est comme une série : tu ne regardes pas le dernier épisode sans avoir vu les précédents. Enfin… en théorie.",
-        "Mon prof de maths m'a dit que j'étais moyen. C'était méchant, mais statistiquement juste.",
-      ]),
-    };
+    return { text: pick(JOKES[getSettings().usage] ?? JOKES.etudes) };
   }
 
   // ── Reminder: « rappelle-moi ce soir 17h d'étendre le linge » ───────────────
@@ -423,18 +462,17 @@ export function localReply(raw: string): BotReply {
     return calendarReport();
   }
 
-  // ── What's on today / tomorrow / this week ───────────────────────────────
-  if (/(qu'?est-ce que|quoi|j'ai quoi|programme|prevu|au menu).*(aujourd'?hui|ce jour)|^aujourd'?hui\s*\??$/.test(q)) {
-    const list = eventsBetween(todayKey(), todayKey());
+  // ── What's on a day: « qu'est-ce que j'ai jeudi prochain ? », « je fais quoi demain », « demain ? » ──
+  const day = askedDay(input);
+  if (day) {
+    const list = eventsBetween(day, day);
+    const d = daysUntil(day);
+    const name = d === 0 ? "Aujourd'hui" : d === 1 ? 'Demain' : d === 2 ? 'Après-demain' : fmt(fromKey(day), 'EEEE d MMMM').replace(/^./, c => c.toUpperCase());
+    const empty = d === 0 ? "Rien de prévu aujourd'hui." : d === 1 ? 'Demain est libre pour le moment.' : `Rien de prévu ${d === 2 ? 'après-demain' : `le ${fmt(fromKey(day), 'EEEE d MMMM')}`} pour le moment.`;
     return {
-      text: list.length ? `Aujourd'hui :\n${list.map(describeEvent).join('\n')}` : "Rien de prévu aujourd'hui.",
-      links: [{ label: "Voir aujourd'hui", to: linkToDay(todayKey()) }],
+      text: list.length ? `${name} :\n${list.map(describeEvent).join('\n')}` : empty,
+      links: [{ label: d === 0 ? "Voir aujourd'hui" : d === 1 ? 'Voir demain' : 'Voir le jour', to: linkToDay(day) }],
     };
-  }
-  if (/(qu'?est-ce que|quoi|j'ai quoi|programme|prevu).*demain|^demain\s*\??$/.test(q)) {
-    const d = toKey(addDays(new Date(), 1));
-    const list = eventsBetween(d, d);
-    return { text: list.length ? `Demain :\n${list.map(describeEvent).join('\n')}` : 'Demain est libre pour le moment.', links: [{ label: 'Voir demain', to: linkToDay(d) }] };
   }
   if (/(examen|exam|partiel|controle|echeance|deadline|grand jour)s?/.test(q) && /(quand|prochain|liste|quels|quelles|mes|a venir)/.test(q)) {
     const exams = eventsBetween(todayKey(), '9999-12-31').filter(e => e.category === 'examen');
@@ -500,11 +538,10 @@ export function localReply(raw: string): BotReply {
     return { text: "Moi c'est Kompaly 🤖 Je vis sur le bord de ton écran. Je peux chercher tes fichiers, analyser ton calendrier, créer des notes, des dossiers et des événements. Demande-moi !" };
   }
   if (/(fatigue|stress|motivation|demotive|j'en peux plus|flemme)/.test(q)) {
-    return { text: pick(["Respire 🌬️ Une chose à la fois. Choisis LA tâche la plus petite et fais-la maintenant, le reste suivra.", 'Méthode Pomodoro : 25 min de focus, 5 min de pause. Tu veux que je te bloque un créneau de révision dans le calendrier ?']) };
+    const slot = getSettings().usage === 'etudes' ? 'un créneau de révision' : 'un créneau pour avancer';
+    return { text: pick(["Respire 🌬️ Une chose à la fois. Choisis LA tâche la plus petite et fais-la maintenant, le reste suivra.", `Méthode Pomodoro : 25 min de focus, 5 min de pause. Tu veux que je te bloque ${slot} dans le calendrier ?`]) };
   }
 
-  return {
-    text:
-      "Je n'ai pas tout compris. Voilà ce que je sais faire sans IA :\n- « Trouve le dossier Maths »\n- « Analyse mon calendrier »\n- « Crée une note Révisions histoire : chapitre 3 »\n- « Ajoute Exam de physique vendredi 10h »\n- « Ajoute la tâche acheter une calculatrice demain »\n- « Interroge-moi sur Histoire »\n- « Lance une session focus sur les maths »\n- « Renomme TD1 en TD1 corrigé », « Mets Brouillon à la corbeille »\n- « Mode sombre », « Qu'est-ce que j'ai demain ? »",
-  };
+  const ex = EXAMPLES[getSettings().usage] ?? EXAMPLES.etudes;
+  return { text: `Je n'ai pas tout compris. Voilà ce que je sais faire sans IA :\n${ex.map(e => `- ${e}`).join('\n')}` };
 }

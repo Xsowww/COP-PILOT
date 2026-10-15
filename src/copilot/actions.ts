@@ -5,13 +5,18 @@ import { addDays } from 'date-fns';
 import { useDrive, pathOf, childrenOf, categoryOf, FOLDER_COLORS, type DriveItem } from '../store/drive';
 import { collectTrash, restoreTrash } from '../lib/trash';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
-import { useCalendar, catOf, guessCategory, customCategoryIn, isDeliverable, sortEvents, type EventCategory } from '../store/calendar';
+import { useCalendar, catOf, guessCategory, customCategoryIn, customNamed, createCategory, isDeliverable, sortEvents, type CalendarEvent, type EventCategory } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useFocus, focusLeft } from '../store/focus';
 import { normalize, stripHtml, formatBytes } from '../lib/utils';
 import { toKey, todayKey, daysUntil, fromKey, fmt, weekStart, countdownLabel } from '../lib/dates';
 import type { CopilotLink } from '../store/copilot';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
+import { usageWords } from '../lib/usage';
+import { noteFor, noteTitle, pickExam, planTag, sessionsFor } from './revisionPlan';
+
+// Studies: revision sessions and a revision sheet; work and personal life: time to prepare and a checklist.
+const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
 
 let navigateFn: ((to: string) => void) | null = null;
 export const registerNavigate = (fn: (to: string) => void) => {
@@ -121,6 +126,7 @@ const inSentence = (label: string) => label.replace(/^\p{Lu}(?=\p{Ll})/u, c => c
 
 export function calendarReport(): { text: string; links: CopilotLink[] } {
   const a = analyzeCalendar();
+  const w = usageWords(getSettings().usage);
   const lines: string[] = [];
   lines.push(
     a.today.length
@@ -132,12 +138,16 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
     lines.push(`Ta journée la plus chargée : ${fmt(fromKey(a.busiestDay.date), 'EEEE')} (${a.busiestDay.count} trucs).`);
   }
   if (a.exams.length) {
-    lines.push(`Examens à venir : ${a.exams.map(e => `${e.title} (${inSentence(countdownLabel(e.date))})`).join(', ')}.`);
+    lines.push(`${w.bigMany.charAt(0).toUpperCase()}${w.bigMany.slice(1)} à venir : ${a.exams.map(e => `${e.title} (${inSentence(countdownLabel(e.date))})`).join(', ')}.`);
     const soon = a.exams.find(e => daysUntil(e.date) <= 7);
-    if (soon) lines.push(`Conseil : commence à réviser « ${soon.title} » dès maintenant, un peu chaque jour.`);
+    if (soon) lines.push(`Conseil : commence à ${studying() ? 'réviser' : 'préparer'} « ${soon.title} » dès maintenant, un peu chaque jour.`);
   }
-  if (a.lateHomework.length) lines.push(`Attention, ${a.lateHomework.length} devoir(s) en retard : ${a.lateHomework.map(e => e.title).join(', ')}.`);
-  else if (a.nextDeadlines.length) lines.push(`Prochain rendu : ${a.nextDeadlines[0].title} (${inSentence(countdownLabel(a.nextDeadlines[0].date))}).`);
+  const late = a.lateHomework;
+  if (late.length) {
+    lines.push(studying() ? `Attention, ${late.length} devoir(s) en retard : ${late.map(e => e.title).join(', ')}.` : `Attention, en retard : ${late.map(e => e.title).join(', ')}.`);
+  } else if (a.nextDeadlines.length) {
+    lines.push(`${studying() ? 'Prochain rendu' : 'À faire ensuite'} : ${a.nextDeadlines[0].title} (${inSentence(countdownLabel(a.nextDeadlines[0].date))}).`);
+  }
   return { text: lines.join('\n'), links: [{ label: 'Ouvrir le calendrier', to: '/calendrier' }] };
 }
 
@@ -269,55 +279,66 @@ export function appendToNote(id: string, text: string) {
   return n;
 }
 
+/** The upcoming exam named in `query` (id, title words, day), or the next one when `query` names none. */
 export function findExam(query: string) {
-  const events = useCalendar.getState().events.filter(e => e.category === 'examen');
-  const byId = events.find(e => e.id === query);
-  if (byId) return byId;
-  const q = normalize(query);
-  const upcoming = events.filter(e => e.date >= todayKey()).sort(sortEvents);
-  return upcoming.find(e => normalize(e.title).includes(q)) ?? (q ? undefined : upcoming[0]);
+  return pickExam(query, useCalendar.getState().events, todayKey());
 }
 
-// Studies: revision sessions and a revision sheet; work and personal life: time to prepare and a checklist.
-const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
 const revisionTitle = (examTitle: string) => `${studying() ? 'Révision' : 'Préparation'} · ${examTitle}`;
+/** « Ouvrir la fiche » (studies) or « Ouvrir la note ». */
+export const openNoteLabel = () => (studying() ? 'Ouvrir la fiche' : 'Ouvrir la note');
 
 /** Revision (or preparation) sessions already planned for an exam, earliest first. */
-export function revisionSessions(examTitle: string) {
-  return useCalendar.getState().events
-    .filter(e => e.title === `Révision · ${examTitle}` || e.title === `Préparation · ${examTitle}`)
-    .sort(sortEvents);
+export function revisionSessions(exam: CalendarEvent) {
+  return sessionsFor(exam, useCalendar.getState().events);
 }
 
-export function hasRevisionPlan(examTitle: string) {
-  return revisionSessions(examTitle).length > 0;
+export function hasRevisionPlan(exam: CalendarEvent) {
+  return revisionSessions(exam).length > 0;
+}
+
+/** The revision sheet (« À préparer » note outside studies) of an exam, if there is one. */
+export function revisionNote(exam: CalendarEvent) {
+  return noteFor(exam, useNotes.getState().notes, useCalendar.getState().events);
 }
 
 /** Kompaly's answer when asked to plan an exam that already has its sessions (no duplicates). */
-export function alreadyPlanned(examTitle: string) {
-  const first = revisionSessions(examTitle)[0];
-  const note = useNotes.getState().notes.find(n => n.title === `Fiche · ${examTitle}` || n.title === `À préparer · ${examTitle}`);
+export function alreadyPlanned(exam: CalendarEvent) {
+  const first = revisionSessions(exam)[0];
+  const note = revisionNote(exam);
   return {
     text: studying()
-      ? `C'est déjà planifié pour « ${examTitle} » : tes séances de révision sont dans le calendrier.`
-      : `C'est déjà planifié pour « ${examTitle} » : tes créneaux de préparation sont dans le calendrier.`,
+      ? `C'est déjà planifié pour « ${exam.title} » : tes séances de révision sont dans le calendrier.`
+      : `C'est déjà planifié pour « ${exam.title} » : tes créneaux de préparation sont dans le calendrier.`,
     links: [
       ...(first ? [{ label: 'Voir le planning', to: linkToDay(first.date) }] : []),
-      ...(note ? [{ label: studying() ? 'Ouvrir la fiche' : 'Ouvrir la note', to: linkToNote(note.id) }] : []),
+      ...(note ? [{ label: openNoteLabel(), to: linkToNote(note.id) }] : []),
     ],
   };
 }
 
-/** Creates (or reuses) a revision sheet for an exam, in the "Révisions" notes folder (« Préparation » outside studies). */
+/** Creates (or reuses) the revision sheet of an exam, in the "Révisions" notes folder (« Préparation » outside studies). */
 export function createRevisionNote(examId: string) {
   const exam = useCalendar.getState().events.find(e => e.id === examId);
   if (!exam) return null;
-  const title = `${studying() ? 'Fiche' : 'À préparer'} · ${exam.title}`;
-  const existing = useNotes.getState().notes.find(n => n.title === title);
+  const existing = revisionNote(exam);
   if (existing) return existing;
-  return studying()
+  const title = noteTitle(studying() ? 'Fiche · ' : 'À préparer · ', exam, useCalendar.getState().events);
+  const note = studying()
     ? createNote(title, `# Ce qui tombe\n- Chapitres à revoir :\n- Type d'épreuve :\n# À retenir\n- \n# Mes points faibles\n[ ] \n# Questions à poser au prof\n- `, 'Révisions')
     : createNote(title, `# Objectif\n- \n# À préparer\n[ ] \n# Points à aborder\n- \n# Après\n- `, 'Préparation');
+  // Linked to its exam: two exams with the same title each get their own.
+  useNotes.getState().updateNote(note.id, { links: [{ kind: 'event', id: exam.id }] });
+  return useNotes.getState().notes.find(n => n.id === note.id) ?? note;
+}
+
+/**
+ * Category of the preparation sessions: « Devoir » for studies, « À faire » for personal life; at work the
+ * built-in ones (Réunion, Échéance, Devis…) don't fit, so a « Préparation » category of the account's own.
+ */
+function sessionCategory(): EventCategory {
+  if (getSettings().usage !== 'travail') return 'devoir';
+  return (customNamed('Préparation') ?? createCategory('Préparation', '#1f8a8a')).id;
 }
 
 const toHm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
@@ -370,8 +391,11 @@ export function planRevisions(examId: string, sessions = getSettings().revisionS
         title: revisionTitle(exam.title),
         date,
         ...slot,
-        category: 'devoir',
-        details: `Préparation de l'examen du ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`,
+        category: sessionCategory(),
+        details: studying()
+          ? `Préparation de l'examen du ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`
+          : `Pour préparer « ${exam.title} », le ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`,
+        externalId: planTag(exam.id),
       }),
     ];
   });

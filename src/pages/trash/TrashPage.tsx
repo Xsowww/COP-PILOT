@@ -391,7 +391,7 @@ export default function TrashPage() {
                     data-row-main
                     onClick={e => onRowClick(e, entry)}
                     aria-describedby={descId}
-                    className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left outline-none after:absolute after:inset-0 after:rounded-sm focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-brand-500/50"
+                    className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left outline-none after:absolute after:inset-0 after:rounded-sm focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-brand-500"
                   >
                     <EntryIcon entry={entry} />
                     <span className="min-w-0 flex-1">

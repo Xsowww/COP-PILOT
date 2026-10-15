@@ -253,7 +253,7 @@ export default function DrivePage() {
   }, [parentId]);
 
   const rename = useCallback(async (item: DriveItem) => {
-    const name = await askText(item.kind === 'folder' ? 'Renommer le dossier' : 'Renommer le fichier', item.name, 'Renommer');
+    const name = await askText(item.kind === 'folder' ? 'Renommer le dossier' : 'Renommer le fichier', item.name, 'Renommer', { fileName: item.kind !== 'folder' });
     if (name !== null && name.trim() && name !== item.name) useDrive.getState().rename(item.id, name);
   }, []);
 
@@ -291,7 +291,8 @@ export default function DrivePage() {
       // A cut that moved nothing (already in this folder) stays in the clipboard.
       if (clip.mode === 'cut' && useDrive.getState().clipboard) return toast(alreadyThere(clip.ids.length), 'info');
       if (clip.mode === 'copy' && useDrive.getState().items.length === before) return;
-      toast(clip.mode === 'cut' ? 'Éléments déplacés' : 'Éléments collés', 'success');
+      const one = clip.ids.length === 1;
+      toast(clip.mode === 'cut' ? (one ? 'Élément déplacé' : 'Éléments déplacés') : one ? 'Élément collé' : 'Éléments collés', 'success');
     },
     [],
   );
@@ -437,7 +438,7 @@ export default function DrivePage() {
         if (pasteForbidden(useDrive.getState().items, ids, target)) return toast(CANT_COPY_INTO_ITSELF, 'error');
         useDrive.getState().copy(ids);
         await useDrive.getState().paste(target);
-        toast('Éléments copiés', 'success');
+        toast(ids.length === 1 ? 'Élément copié' : 'Éléments copiés', 'success');
       } else moveTo(ids, target);
     } else if (e.dataTransfer.types.includes('Files')) {
       await doUpload(await filesFromDrop(e.dataTransfer), target);
@@ -623,7 +624,7 @@ export default function DrivePage() {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 pb-4 pt-2">
         <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">Drive</h1>
-        <div className="flex h-10 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] sm:h-8">
+        <div className="flex h-10 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] sm:h-8 pointer-coarse:h-10">
           {([
             ['all', 'Mon Drive', HardDrive],
             ['starred', 'Favoris', Star],
@@ -640,7 +641,7 @@ export default function DrivePage() {
                 setListSort(null);
                 setSelected(new Set());
               }}
-              className={cx('flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+              className={cx('flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0 pointer-coarse:h-9', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
               <Icon size={13} />
               <span className="hidden sm:inline">{label}</span>
@@ -702,7 +703,7 @@ export default function DrivePage() {
                 <Upload size={15} /> <span className="hidden sm:inline">{busy ? 'Import…' : 'Importer'}</span>
               </button>
               <button
-                className="btn-primary w-9 justify-center rounded-l-none border-l border-white/20 px-0 sm:w-auto sm:px-1.5"
+                className="btn-primary w-9 justify-center rounded-l-none border-l border-white/20 px-0 sm:w-auto sm:px-1.5 pointer-coarse:w-9 pointer-coarse:px-0"
                 disabled={busy}
                 title="Plus d’options d’import"
                 aria-label="Plus d’options d’import"

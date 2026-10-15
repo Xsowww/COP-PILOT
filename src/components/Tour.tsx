@@ -133,6 +133,8 @@ export default function Tour() {
       (el.isConnected && el.offsetParent ? el : null) ??
       visible(`[aria-label*="« ${TOUR_TODO} »"]`) ??
       (block?.isConnected ? focusables(block)[0] : null) ??
+      // Started from another page (Tâches): the tour ends on the home page, first block there.
+      focusables(document.querySelector<HTMLElement>('#contenu section') ?? document.body)[0] ??
       document.getElementById('contenu');
     target?.focus();
   }, [step]);
@@ -170,7 +172,7 @@ export default function Tour() {
     <div ref={rootRef} className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
       {rect ? (
         <div
-          className="pointer-events-none absolute rounded-lg ring-2 ring-brand-500 transition-all duration-300"
+          className="pointer-events-none absolute rounded-lg transition-all duration-300"
           style={ring(rect, vw, vh)}
         />
       ) : (
@@ -188,7 +190,7 @@ export default function Tour() {
           <p className="mt-1 text-[13px] leading-relaxed text-stone-600">{current.text(usage, isTouch())}</p>
           <div className="mt-4 flex items-center gap-2">
             {!last && (
-              <button type="button" onClick={endTour} className="text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
+              <button type="button" onClick={endTour} className="hit text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
                 Passer l’intro
               </button>
             )}
@@ -208,5 +210,5 @@ function ring(rect: DOMRect, vw: number, vh: number): React.CSSProperties {
   const top = Math.max(2, rect.top - 6);
   const right = Math.min(vw - 2, rect.right + 6);
   const bottom = Math.min(vh - 2, rect.bottom + 6);
-  return { left, top, width: right - left, height: bottom - top, boxShadow: '0 0 0 9999px rgba(22, 24, 29, 0.45)' };
+  return { left, top, width: right - left, height: bottom - top, boxShadow: '0 0 0 2px var(--color-brand-500), 0 0 0 9999px rgba(22, 24, 29, 0.45)' }; // ring and veil in one shadow
 }

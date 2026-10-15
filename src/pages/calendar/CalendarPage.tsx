@@ -85,7 +85,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
         >
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
         </button>
-        <button className="min-w-0 flex-1 text-left" onClick={onEdit}>
+        <button className="min-w-0 flex-1 text-left pointer-coarse:py-2" onClick={onEdit}>
           <p className={cx('text-[14px] font-medium leading-snug [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>{ev.title}</p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
@@ -320,7 +320,7 @@ export default function CalendarPage() {
 
         {/* Quick add */}
         {/* Keyboard focus: a brand ring (the shadow alone was invisible on the dark theme). */}
-        <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand-500/75">
+        <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand-500">
           <div className="flex h-12 items-center gap-2.5">
             <Plus size={17} className="shrink-0 text-stone-400" />
             <input
@@ -329,7 +329,7 @@ export default function CalendarPage() {
               onChange={e => setQuick(e.target.value)}
               placeholder={wide ? `Ajouter un événement, par exemple «\u00a0${words.quickExample}\u00a0»` : 'Ajouter un événement…'}
               aria-label="Ajouter un événement en une phrase"
-              className="min-w-0 flex-1 text-ellipsis bg-transparent text-[14px] outline-none placeholder:text-stone-400"
+              className="h-full min-w-0 flex-1 text-ellipsis bg-transparent text-[14px] outline-none placeholder:text-stone-400"
             />
             {parsed?.title ? (
               <button type="submit" className="btn-primary h-8 px-3">
@@ -538,7 +538,7 @@ export default function CalendarPage() {
                         aria-label={`Marquer « ${e.title} » comme ${words.markDone}`}
                       />
                     </span>
-                    <button onClick={() => selectDay(e.date)} className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline">
+                    <button onClick={() => selectDay(e.date)} className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline pointer-coarse:py-2">
                       {e.title}
                     </button>
                     <span className={cx('tabular shrink-0 text-[12px]', e.date < today ? 'font-medium text-[var(--cat-examen-text)]' : 'text-stone-500')}>

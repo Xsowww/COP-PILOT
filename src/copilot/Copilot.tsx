@@ -11,7 +11,7 @@ import { normalize, cx } from '../lib/utils';
 import { useSettings } from '../store/settings';
 import Markdown from './Markdown';
 import { stripMarkdown } from './markdown';
-import { aiPausedUntil } from './aiPause';
+import { aiPausedUntil, aiPauseReason } from './aiPause';
 import { useDictation } from './voice';
 
 // The AI part (and the Anthropic types it uses) is loaded on first use.
@@ -483,8 +483,10 @@ function ModeLine({ ai, label, until, now }: { ai: boolean; label: string; until
   const paused = ai && left > 0;
   const clock = left >= 3600 ? `${Math.floor(left / 3600)} h ${String(Math.floor((left % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   const text = !ai ? 'Mode simple' : paused ? `Mode simple · IA dans ${clock}` : `Mode intelligent${label ? ` · ${label}` : ''}`;
+  // The pause follows a quota (« limite ») or a technical problem: say which.
+  const why = paused && aiPauseReason() === 'error' ? `L'IA ne répond pas pour le moment : elle revient dans ${clock}.` : `L'IA gratuite a atteint sa limite : elle revient dans ${clock}.`;
   return (
-    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] leading-tight text-stone-500" title={paused ? `L'IA gratuite a atteint sa limite : elle revient dans ${clock}.` : text}>
+    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] leading-tight text-stone-500" title={paused ? why : text}>
       <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', !ai ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} aria-hidden="true" />
       <span className="tabular truncate">{text}</span>
     </p>

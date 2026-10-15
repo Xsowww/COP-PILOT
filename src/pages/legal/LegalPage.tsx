@@ -151,12 +151,15 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
   },
 };
 
+/** French typography: no « : », « ? », « ! », « ; » or « » » alone at the start of a line. */
+const frenchSpaces = (text: string) => text.replace(/ ([:;?!»])/g, '\u00a0$1').replace(/« /g, '«\u00a0');
+
 export default function LegalPage({ doc }: { doc: LegalDoc }) {
   const { title, sections } = DOCS[doc];
   return (
     <div className="h-full overflow-y-auto bg-paper px-6 py-6 sm:px-10">
       {/* inline-flex: around a block child, the focus outline of an inline link was drawn on an empty box. */}
-      <Link to="/" aria-label="Accueil" className="inline-flex rounded-md">
+      <Link to="/" aria-label="Accueil" className="inline-flex rounded-md pointer-coarse:py-1">
         <Logo />
       </Link>
       <article className="mx-auto max-w-[680px] py-10">
@@ -167,7 +170,7 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
             <h2 className="text-[15px] font-semibold">{s.title}</h2>
             {s.body.map(p => (
               <p key={p} className="mt-2 text-[14px] leading-relaxed text-stone-700">
-                {p.split(CONTACT).flatMap((part, i) =>
+                {frenchSpaces(p).split(CONTACT).flatMap((part, i) =>
                   i === 0
                     ? [part]
                     : [

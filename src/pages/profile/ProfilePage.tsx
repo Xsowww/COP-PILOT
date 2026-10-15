@@ -2,11 +2,11 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  Timer, HardDrive, Smartphone, Keyboard,
+  Timer, HardDrive, Smartphone, Keyboard, Briefcase, House,
 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
-import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness } from '../../store/settings';
+import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness, type PersonaKey } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { useNotes } from '../../store/notes';
@@ -25,6 +25,7 @@ import { cloudEnabled } from '../../lib/supabase';
 import { getStorageUser } from '../../lib/userStorage';
 import { currentStreak, useBadges } from '../../lib/badges';
 import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
+import { aiPausedUntil, aiPauseReason } from '../../copilot/aiPause';
 import BadgeGrid from './BadgeGrid';
 import { USAGES, WORDS, applyUsage, groupWords, type Usage } from '../../lib/usage';
 import { PERSONAS } from '../../lib/personas';
@@ -43,6 +44,20 @@ const TABS = [
   { key: 'compte', label: 'Compte', icon: ShieldCheck },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
+
+const USAGE_ICONS: Record<Usage, typeof GraduationCap> = { etudes: GraduationCap, travail: Briefcase, perso: House };
+
+/** The personality examples speak of exams and sheets: other words for work and personal life. */
+const PERSONA_EXAMPLES: Partial<Record<Usage, Partial<Record<PersonaKey, string>>>> = {
+  travail: {
+    pote: '«\u00a0Livraison jeudi\u00a0? On bloque trois créneaux et tu gères.\u00a0»',
+    taquin: '«\u00a0Douze onglets ouverts et zéro note. Audacieux.\u00a0»',
+  },
+  perso: {
+    pote: '«\u00a0Déménagement samedi\u00a0? On bloque trois créneaux et c’est réglé.\u00a0»',
+    taquin: '«\u00a0Douze onglets ouverts et zéro note. Audacieux.\u00a0»',
+  },
+};
 
 
 // ── Profile ─────────────────────────────────────────────────────────────────
@@ -317,13 +332,31 @@ function CopilotTab() {
   useEffect(() => {
     void checkAiStatus().then(st => setProvider(st.enabled ? (st.label ?? st.provider ?? '') : ''));
   }, []);
+  // The AI paused after a limit or a problem: simple mode for now, like the header of Kompaly's panel.
+  const [now, setNow] = useState(() => Date.now());
+  const pausedUntil = aiEnabled ? aiPausedUntil() : 0;
+  useEffect(() => {
+    if (!aiEnabled) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [aiEnabled]);
+  const left = Math.max(0, Math.ceil((pausedUntil - now) / 1000));
+  const clock = left >= 3600 ? `${Math.floor(left / 3600)} h ${String(Math.floor((left % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  const paused = left > 0;
   return (
     <div className="space-y-5">
       <Section label="Kompaly">
         <div className="flex items-center gap-3 px-5 py-4">
-          <span className={cx('h-2 w-2 rounded-full', aiEnabled ? 'bg-emerald-500' : 'bg-stone-400')} />
+          <span className={cx('h-2 w-2 rounded-full', !aiEnabled ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} />
           <p className="text-[13px]">
-            {aiEnabled ? (
+            {paused ? (
+              <>
+                <span className="font-medium">Mode simple pour l’instant.</span>{' '}
+                <span className="text-stone-500">
+                  {aiPauseReason() === 'error' ? 'L’IA ne répond pas' : 'L’IA gratuite a atteint sa limite'}, elle revient dans <span className="tabular">{clock}</span>. En attendant, il comprend les commandes courantes (chercher, planifier, créer…).
+                </span>
+              </>
+            ) : aiEnabled ? (
               <>
                 <span className="font-medium">Mode intelligent activé.</span>{' '}
                 <span className="text-stone-500">Il répond à toutes tes questions et peut agir sur ton espace{provider ? ` (IA\u00a0: ${provider})` : ''}.</span>
@@ -377,7 +410,7 @@ function CopilotTab() {
                 {s.persona === p.key && <Check size={14} className="text-brand-600" />}
               </span>
               <span className="mt-0.5 block text-[12px] text-stone-500">{p.description}</span>
-              <span className="mt-1.5 block text-[12px] italic text-stone-600">{p.example}</span>
+              <span className="mt-1.5 block text-[12px] italic text-stone-600">{PERSONA_EXAMPLES[s.usage]?.[p.key] ?? p.example}</span>
             </button>
           ))}
         </div>
@@ -649,7 +682,13 @@ function DataTab() {
     <div className="space-y-5">
       <Section title="Sauvegarde" description={cloudEnabled ? 'Tes données sont enregistrées dans ton compte en ligne.' : 'Tes données sont enregistrées sur cet appareil.'}>
         <Row label="Exporter mes données" hint="Fichier .json, sans le contenu des fichiers du Drive.">
-          <button className="btn-secondary h-8" onClick={exportBackup}>
+          <button
+            className="btn-secondary h-8"
+            onClick={() => {
+              exportBackup();
+              toast('Sauvegarde exportée', 'success');
+            }}
+          >
             <Download size={14} /> Exporter
           </button>
         </Row>
@@ -660,7 +699,14 @@ function DataTab() {
           <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { void onImport(e.target.files?.[0]); e.target.value = ''; }} />
         </Row>
         <Row label="Exporter le calendrier" hint="Format .ics (Google Agenda, Apple Calendrier, Outlook).">
-          <button className="btn-secondary h-8" disabled={!events} onClick={() => exportIcs()}>
+          <button
+            className="btn-secondary h-8"
+            disabled={!events}
+            onClick={() => {
+              exportIcs();
+              toast('Calendrier exporté', 'success');
+            }}
+          >
             <CalendarArrowUp size={14} /> Exporter
           </button>
         </Row>
@@ -850,7 +896,11 @@ export default function ProfilePage() {
                   tab === t.key ? 'bg-surface text-ink shadow-card ring-1 ring-stone-200' : 'text-stone-600 hover:bg-stone-100 hover:text-ink',
                 )}
               >
-                <t.icon size={15} className={tab === t.key ? 'text-brand-600' : ''} />
+                {(() => {
+                  // The « Études » tab is « Travail » or « Organisation » for other usages: its icon follows.
+                  const Icon = t.key === 'etudes' ? USAGE_ICONS[usage] ?? t.icon : t.icon;
+                  return <Icon size={15} className={tab === t.key ? 'text-brand-600' : ''} />;
+                })()}
                 {t.key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : t.label}
               </button>
             ))}
