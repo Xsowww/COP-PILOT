@@ -1,3 +1,4 @@
+import { fmt } from '../../lib/dates';
 import { useEffect, useRef, useState } from 'react';
 import { Download, X, Loader2 } from 'lucide-react';
 import { categoryOf, getFileUrl, isPlainText, type DriveItem } from '../../store/drive';
@@ -127,7 +128,7 @@ export default function PreviewModal({
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium">{item.name}</p>
           <p className="text-[12px] text-white/65">
-            {formatBytes(item.size)} · {item.deletedAt ? `supprimé ${when(item.deletedAt)}` : `modifié ${when(item.updatedAt)}`}
+            {formatBytes(item.size)} · {item.deletedAt ? `supprimé le ${fmt(new Date(item.deletedAt), "d MMM 'à' HH:mm")}` : `modifié ${when(item.updatedAt)}`}
           </p>
         </div>
         {actions}

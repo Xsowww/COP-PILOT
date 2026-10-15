@@ -158,7 +158,8 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
 
   // A day number alone: « le 15 » is the next 15th (this month, or the next one when it's past).
   if (!date) {
-    const m = find(new RegExp(`\\s${BEFORE}(?:le|du)\\s(\\d{1,2})(?:er)?${PERIOD}(?=\\s)`));
+    // Not the start of a range (« du 20 au 25 »): a single event can't hold it, the sentence stays as typed.
+    const m = find(new RegExp(`\\s${BEFORE}(?:le|du)\\s(\\d{1,2})(?:er)?${PERIOD}(?=\\s)(?!\\s+(?:au|à|a|-|jusqu'au)\\s+\\d)`));
     const day = m ? Number(m[1]) : 0;
     if (m && day >= 1) {
       for (let k = 0; k < 3 && !date; k++) {

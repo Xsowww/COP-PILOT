@@ -53,7 +53,7 @@ export const WORDS: Record<Usage, {
     quickExample: 'Dentiste mardi 17h30', noUpcoming: 'Rien d’important ni à faire de prévu.', markDone: 'fait', slot: 'rendez-vous', slots: 'rendez-vous',
     timetable: 'agenda', icsFrom: 'Google Agenda, Outlook ou Apple Calendrier', titleExample: 'Dentiste', notesExample: 'adresse, choses à apporter…',
     categoryExample: 'Famille, Vacances, Asso…', categoryHint: 'Vacances à Biarritz',
-    bigNoted: 'C’est noté', prepare: 'du temps pour préparer',
+    bigNoted: "C'est noté", prepare: 'du temps pour préparer',
     pastOne: 'grand jour passé', pastMany: 'grands jours passés', upcoming: 'Tes prochains grands jours', bigOne: 'grand jour', bigMany: 'grands jours',
   },
 };

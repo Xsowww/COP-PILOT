@@ -18,8 +18,15 @@ export default function GroupNotes({ group }: { group: Group }) {
   // Pendant la création (aller-retour réseau), le titre se tape déjà : il est repris par l'éditeur.
   const [draft, setDraft] = useState('');
   const draftRef = useRef('');
-  const [fresh, setFresh] = useState<{ note: GroupNote; title: string }>();
+  const [fresh, setFresh] = useState<GroupNote>();
   const openId = params.get('note');
+  // The draft title stays on screen until the note is really open (the URL change can come a frame later).
+  const [lastOpen, setLastOpen] = useState(openId);
+  if (openId !== lastOpen) {
+    setLastOpen(openId);
+    if (openId) setCreating(false);
+    else setFresh(undefined); // reopened later, the note is loaded again (others may have edited it)
+  }
 
   const open = (id: string | null) => setParams(id ? { g: group.id, note: id } : { g: group.id });
 
@@ -30,11 +37,10 @@ export default function GroupNotes({ group }: { group: Group }) {
     try {
       const n = await createNote(group.id);
       useGroups.getState().upsertNote(summary(n));
-      setFresh({ note: n, title: draftRef.current });
+      setFresh(n);
       open(n.id);
     } catch (e) {
       toast(groupError(e), 'error');
-    } finally {
       setCreating(false);
     }
   };
@@ -42,7 +48,7 @@ export default function GroupNotes({ group }: { group: Group }) {
   if (openId) {
     return (
       <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
-        <GroupNoteEditor key={openId} noteId={openId} readOnly={!canEdit} onClose={() => open(null)} fresh={fresh} />
+        <GroupNoteEditor key={openId} noteId={openId} readOnly={!canEdit} onClose={() => open(null)} fresh={fresh && { note: fresh, title: draftRef }} />
       </div>
     );
   }

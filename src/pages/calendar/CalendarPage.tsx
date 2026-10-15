@@ -483,7 +483,7 @@ export default function CalendarPage() {
                   onCreate={(start, end) => setForm({ date: selected, start, end })}
                 />
               ) : dayEvents.length === 0 ? (
-                <p className="py-8 text-center text-[13px] text-stone-500">{selected === today ? "Rien de prévu aujourd'hui." : 'Rien de prévu ce jour-là.'}</p>
+                <p className="py-8 text-center text-[13px] text-stone-500">{events.some(e => e.date === selected) ? 'Rien à afficher : des catégories sont masquées.' : selected === today ? "Rien de prévu aujourd'hui." : 'Rien de prévu ce jour-là.'}</p>
               ) : (
                 <div className="space-y-2">
                   {dayEvents.map(ev => (
@@ -499,7 +499,9 @@ export default function CalendarPage() {
               À venir
             </h2>
             {upcomingExams.length === 0 && homework.length === 0 ? (
-              <p className="py-1 text-[13px] text-stone-500">{words.noUpcoming}</p>
+              <p className="py-1 text-[13px] text-stone-500">
+                {hidden.size && events.some(e => hidden.has(e.category) && e.date >= today && !e.done) ? 'Rien à afficher : des catégories sont masquées.' : words.noUpcoming}
+              </p>
             ) : (
               <ul className="-mx-1.5">
                 {upcomingExams.map(e => {

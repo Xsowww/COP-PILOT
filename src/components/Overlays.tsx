@@ -64,6 +64,9 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
     // Children focus their own field first (autoFocus, effects); otherwise the first control.
     if (!el.contains(document.activeElement)) (focusables(el)[0] ?? el).focus();
     const onKey = (e: KeyboardEvent) => {
+      // Dialog over dialog (a confirmation over « Mes catégories »): only the one on top reacts.
+      const dialogs = document.querySelectorAll('[aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] !== el) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
         closeRef.current();

@@ -112,6 +112,7 @@ function onEventAdded(e: CalendarEvent) {
   if (e.title.startsWith('Révision · ') || e.title.startsWith('Préparation · ')) return; // created by Kompaly himself
   if (e.category === 'examen') {
     const d = daysUntil(e.date);
+    if (d < 0) return; // added after the fact (« Exam hier »): nothing left to prepare
     void nudge({
       key: `exam-added:${e.id}`,
       every: 365 * DAY,

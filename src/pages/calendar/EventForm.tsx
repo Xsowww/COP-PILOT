@@ -100,7 +100,17 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           </label>
           <label>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Début</span>
-            <input type="time" value={start} onChange={e => setStart(e.target.value)} required={!!end} title={end && !start ? 'Indique le début, ou efface la fin' : undefined} className="field w-full" />
+            <input
+              type="time"
+              value={start}
+              onChange={e => {
+                e.currentTarget.setCustomValidity('');
+                setStart(e.target.value);
+              }}
+              onInvalid={e => e.currentTarget.setCustomValidity(end && !start ? 'Indique le début, ou efface la fin.' : '')}
+              required={!!end}
+              className="field w-full"
+            />
           </label>
           <label>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Fin</span>

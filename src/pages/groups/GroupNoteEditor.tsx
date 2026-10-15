@@ -64,7 +64,7 @@ type Status = 'saved' | 'pending' | 'saving' | 'error';
 
 /** Charge la note, puis affiche l'éditeur. */
 /** `fresh` : la note qu'on vient de créer (pas de rechargement) et le titre déjà tapé pendant sa création. */
-export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fresh }: { noteId: string; onClose: () => void; readOnly?: boolean; fresh?: { note: GroupNote; title: string } }) {
+export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fresh }: { noteId: string; onClose: () => void; readOnly?: boolean; fresh?: { note: GroupNote; title: { current: string } } }) {
   const w = useGroupWords();
   const preset = fresh?.note.id === noteId ? fresh : undefined;
   const [note, setNote] = useState<GroupNote | null | undefined>(preset?.note);
@@ -90,7 +90,7 @@ export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fre
         <button className="btn-secondary mt-4" onClick={onClose}>Retour à la liste</button>
       </div>
     );
-  return <LoadedEditor initial={note} onClose={onClose} readOnly={readOnly} startTitle={preset?.title} />;
+  return <LoadedEditor initial={note} onClose={onClose} readOnly={readOnly} startTitle={preset?.title.current} />;
 }
 
 /** `readOnly` : lecteur du groupe (la base refuserait de toute façon l'enregistrement). */

@@ -203,7 +203,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                         <span className="min-w-0 flex-1 truncate font-medium">{e.title}</span>
                       </li>
                     ))}
-                    {plan.todo.length > sample.length && <li className="px-3 py-2 text-[12px] text-stone-500">et {plan.todo.length - sample.length} autres…</li>}
+                    {plan.todo.length > sample.length && <li className="px-3 py-2 text-[12px] text-stone-500">et {plan.todo.length - sample.length} autre{plan.todo.length - sample.length > 1 ? 's' : ''}…</li>}
                   </ul>
                 )}
 

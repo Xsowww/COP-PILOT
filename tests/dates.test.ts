@@ -31,6 +31,7 @@ describe('parseQuickAdd', () => {
     ['Rendre DM avant vendredi', { title: 'Rendre DM', date: '2026-10-16', start: null, end: null }],
     ['Exam hier', { title: 'Exam', date: '2026-10-12', start: null, end: null }],
     ['Exam de maths le 15', { title: 'Exam de maths', date: '2026-10-15', start: null, end: null }],
+    ['Vacances du 20 au 25', { title: 'Vacances du 20 au 25', date: null, start: null, end: null }], // une plage : laissée telle quelle
     ['Rdv le 2 à 9h', { title: 'Rdv', date: '2026-11-02', start: '09:00', end: null }], // le 2 est passé : mois suivant
   ])('%s', (input, expected) => {
     expect(parseQuickAdd(input, base)).toEqual(expected);
