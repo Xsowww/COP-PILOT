@@ -30,7 +30,7 @@ import { USAGES, WORDS, applyUsage, type Usage } from '../../lib/usage';
 const TABS = [
   { key: 'profil', label: 'Profil', icon: User },
   { key: 'apparence', label: 'Apparence', icon: Palette },
-  { key: 'copilot', label: 'Kompa', icon: Sparkles },
+  { key: 'copilot', label: 'Kompaly', icon: Sparkles },
   { key: 'etudes', label: 'Études', icon: GraduationCap },
   { key: 'notifications', label: 'Notifications', icon: Bell },
   { key: 'donnees', label: 'Données', icon: Database },
@@ -181,8 +181,8 @@ function ProfileTab() {
             }}
           />
         </Row>
-        <Row label="Kompa sert pour">
-          <select className="field w-56" aria-label="Kompa sert pour" value={settings.usage} onChange={e => { const usage = e.target.value as Usage; settings.set({ usage }); applyUsage(usage); }}>
+        <Row label="Kompaly sert pour">
+          <select className="field w-56" aria-label="Kompaly sert pour" value={settings.usage} onChange={e => { const usage = e.target.value as Usage; settings.set({ usage }); applyUsage(usage); }}>
             {USAGES.map(u => (
               <option key={u.key} value={u.key}>
                 {u.label}
@@ -290,7 +290,7 @@ function AppearanceTab() {
   );
 }
 
-// ── Kompa ─────────────────────────────────────────────────────────────────
+// ── Kompaly ─────────────────────────────────────────────────────────────────
 
 const PERSONAS: { key: PersonaKey; label: string; description: string; example: string }[] = [
   { key: 'pote', label: 'Meilleur pote', description: 'Drôle et détendu, sérieux quand il le faut.', example: '« Partiel jeudi ? On cale trois séances et tu gères. »' },
@@ -310,7 +310,7 @@ function CopilotTab() {
   }, []);
   return (
     <div className="space-y-5">
-      <Section label="Kompa">
+      <Section label="Kompaly">
         <div className="flex items-center gap-3 px-5 py-4">
           <span className={cx('h-2 w-2 rounded-full', aiEnabled ? 'bg-emerald-500' : 'bg-stone-400')} />
           <p className="text-[13px]">
@@ -326,8 +326,8 @@ function CopilotTab() {
             )}
           </p>
         </div>
-        <Row label="Afficher Kompa" hint="Masqué, il ne fait plus aucune remarque.">
-          <Toggle label="Afficher Kompa" checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
+        <Row label="Afficher Kompaly" hint="Masqué, il ne fait plus aucune remarque.">
+          <Toggle label="Afficher Kompaly" checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
         </Row>
         <Row label="Initiatives" hint="Propose de planifier des révisions, rappelle les rendus.">
           <Toggle label="Initiatives" checked={s.proactive} onChange={v => s.set({ proactive: v })} />
@@ -374,7 +374,7 @@ function CopilotTab() {
         </div>
         <div className="px-5 py-4">
           <label htmlFor="persona-notes" className="text-[13px] font-medium">
-            Tes instructions pour Kompa
+            Tes instructions pour Kompaly
           </label>
           <p className="mt-0.5 text-[12px] text-stone-500">Un surnom, tes centres d'intérêt, le ton que tu préfères.</p>
           <textarea
@@ -417,7 +417,7 @@ function CopilotTab() {
           </button>
         </Row>
         <Row label="Position sur l'écran">
-          <button className="btn-secondary h-8" onClick={() => { useCopilot.getState().setOffsetY(0.62); toast('Kompa est revenu à sa place'); }}>
+          <button className="btn-secondary h-8" onClick={() => { useCopilot.getState().setOffsetY(0.62); toast('Kompaly est revenu à sa place'); }}>
             Replacer
           </button>
         </Row>
@@ -460,7 +460,7 @@ function StudiesTab() {
         </Row>
       </Section>
 
-      <Section title="Planification des révisions" description="Quand Kompa prépare tes révisions avant un examen.">
+      <Section title="Planification des révisions" description="Quand Kompaly prépare tes révisions avant un examen.">
         <Row label="Nombre de séances">
           <Stepper value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
@@ -586,13 +586,13 @@ function NotificationsTab() {
             ? "Ton navigateur ne les prend pas en charge."
             : perm === 'denied'
               ? 'Bloquées : autorise-les dans les réglages du site de ton navigateur.'
-              : 'Rappels de Kompa et fin des sessions, même dans un autre onglet.'
+              : 'Rappels de Kompaly et fin des sessions, même dans un autre onglet.'
         }
       >
         <Toggle label="Notifications" checked={s.browserNotifications && perm === 'granted'} onChange={v => void toggle(v)} />
       </Row>
       <Row label="Tester">
-        <button className="btn-secondary h-8" disabled={!s.browserNotifications || perm !== 'granted'} onClick={() => notify('Kompa', 'Les notifications fonctionnent.', true)}>
+        <button className="btn-secondary h-8" disabled={!s.browserNotifications || perm !== 'granted'} onClick={() => notify('Kompaly', 'Les notifications fonctionnent.', true)}>
           <Bell size={14} /> Essayer
         </button>
       </Row>
@@ -659,11 +659,11 @@ function DataTab() {
       )}
 
       <Section title="Zone sensible" danger>
-        <Row label="Effacer toutes mes données" hint="Fichiers du Drive, notes, événements, tâches, historique et conversation avec Kompa, corbeilles comprises. Ton compte, tes réglages et tes groupes restent.">
+        <Row label="Effacer toutes mes données" hint="Fichiers du Drive, notes, événements, tâches, historique et conversation avec Kompaly, corbeilles comprises. Ton compte, tes réglages et tes groupes restent.">
           <button
             className="btn-danger h-8"
             onClick={async () => {
-              if (!(await confirmAction('Tout effacer ?', `Tous tes fichiers, notes, événements et tâches seront supprimés définitivement${cloudEnabled ? ' sur tous tes appareils' : ''}, ainsi que ta conversation avec Kompa sur cet appareil. Pense à exporter une sauvegarde avant si tu veux les garder.`, 'Tout effacer'))) return;
+              if (!(await confirmAction('Tout effacer ?', `Tous tes fichiers, notes, événements et tâches seront supprimés définitivement${cloudEnabled ? ' sur tous tes appareils' : ''}, ainsi que ta conversation avec Kompaly sur cet appareil. Pense à exporter une sauvegarde avant si tu veux les garder.`, 'Tout effacer'))) return;
               try {
                 await wipeUserData();
                 toast('Données effacées', 'success');

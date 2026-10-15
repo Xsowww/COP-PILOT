@@ -120,7 +120,7 @@ export default function CalendarPage() {
     }
   };
 
-  // Follow links like /calendrier?jour=2026-10-12 (from search, dashboard or Kompa).
+  // Follow links like /calendrier?jour=2026-10-12 (from search, dashboard or Kompaly).
   const jour = params.get('jour');
   const [lastJour, setLastJour] = useState(jour);
   if (jour !== lastJour) {

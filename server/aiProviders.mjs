@@ -1,6 +1,6 @@
-// Which AI answers for Kompa. Anthropic (Claude) goes through the official SDK;
+// Which AI answers for Kompaly. Anthropic (Claude) goes through the official SDK;
 // every other provider (free tiers of Gemini, Groq, OpenRouter, Mistral, a local Ollama…)
-// speaks the OpenAI « chat completions » format. The adapter below converts Kompa's
+// speaks the OpenAI « chat completions » format. The adapter below converts Kompaly's
 // Anthropic-shaped conversation to that format and the answer back, so the browser
 // never needs to know which provider is behind.
 
@@ -16,7 +16,7 @@ export const PRESETS = {
 
 /**
  * Reads the AI settings from the environment.
- * Returns null when Kompa's AI is not configured (it then runs its built-in French command engine).
+ * Returns null when Kompaly's AI is not configured (it then runs its built-in French command engine).
  */
 export function resolveProvider(env = process.env) {
   const v = name => String(env[name] ?? '').trim();
@@ -155,7 +155,7 @@ export function parseWait(v) {
   return Math.ceil(Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0));
 }
 
-/** HTTP status from the provider → Kompa's error codes (bad_key, rate_limited, upstream). */
+/** HTTP status from the provider → Kompaly's error codes (bad_key, rate_limited, upstream). */
 export function mapStatus(status) {
   if (status === 401 || status === 403) return 'bad_key';
   if (status === 429) return 'rate_limited';
@@ -177,7 +177,7 @@ async function callOnce(p, body, timeoutMs) {
       headers: {
         'Content-Type': 'application/json',
         ...(p.apiKey ? { Authorization: `Bearer ${p.apiKey}` } : {}),
-        ...(p.id === 'openrouter' ? { 'HTTP-Referer': 'https://kompa.app', 'X-Title': 'Kompa' } : {}),
+        ...(p.id === 'openrouter' ? { 'HTTP-Referer': 'https://kompaly.com', 'X-Title': 'Kompaly' } : {}),
       },
       body: JSON.stringify(body),
       signal: ctrl.signal,

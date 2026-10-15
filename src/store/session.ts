@@ -85,12 +85,12 @@ async function load() {
 
 export type WelcomeAnswers = Pick<Settings, 'usage' | 'year' | 'school' | 'program' | 'needs' | 'persona' | 'revisionTime'>;
 
-/** End of the welcome questionnaire: fill the profile, adapt Kompa, seed the account, never ask again. */
+/** End of the welcome questionnaire: fill the profile, adapt Kompaly, seed the account, never ask again. */
 export async function finishWelcome(answers: WelcomeAnswers) {
   const settings = useSettings.getState();
   settings.set({
     ...answers,
-    // Someone who didn't ask for help from the AI gets a quieter Kompa (still one click away).
+    // Someone who didn't ask for help from the AI gets a quieter Kompaly (still one click away).
     chattiness: answers.needs.length && !answers.needs.includes('ia') ? 'calme' : settings.chattiness,
   });
   applyUsage(answers.usage);

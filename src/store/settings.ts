@@ -8,12 +8,12 @@ export type AccentKey = 'orange' | 'bleu' | 'vert' | 'violet' | 'rose' | 'encre'
 export type Chattiness = 'calme' | 'normal' | 'bavard';
 export type ThemeMode = 'clair' | 'sombre' | 'auto';
 export type Language = 'fr' | 'en';
-/** Kompa's personality presets (the server turns them into instructions). */
+/** Kompaly's personality presets (the server turns them into instructions). */
 export type PersonaKey = 'pote' | 'coach' | 'prof' | 'zen' | 'taquin';
 
 export const ACCENTS: Record<AccentKey, { label: string; shades: Record<'50' | '100' | '200' | '500' | '600' | '700', string> }> = {
   orange: { label: 'Orange', shades: { 50: '#fdf3ef', 100: '#fbe4da', 200: '#f6c6b2', 500: '#e8613c', 600: '#c94a26', 700: '#ad3e20' } },
-  bleu: { label: 'Bleu Kompa', shades: { 50: '#eef2fd', 100: '#dbe3fb', 200: '#b8c8f6', 500: '#3d63dd', 600: '#2f4fc0', 700: '#26409c' } },
+  bleu: { label: 'Bleu Kompaly', shades: { 50: '#eef2fd', 100: '#dbe3fb', 200: '#b8c8f6', 500: '#3d63dd', 600: '#2f4fc0', 700: '#26409c' } },
   vert: { label: 'Vert', shades: { 50: '#ecf8f2', 100: '#d3efe1', 200: '#a6dec3', 500: '#2f9e6b', 600: '#238556', 700: '#1c6a45' } },
   violet: { label: 'Violet', shades: { 50: '#f4f1fd', 100: '#e7e0fb', 200: '#cfc1f6', 500: '#7a5ad6', 600: '#6545bf', 700: '#51379b' } },
   rose: { label: 'Framboise', shades: { 50: '#fdf0f4', 100: '#fbdde7', 200: '#f5b6cb', 500: '#d6457a', 600: '#bc3166', 700: '#962752' } },
@@ -36,7 +36,7 @@ export interface Settings {
   reduceMotion: boolean;
   theme: ThemeMode;
   language: Language;
-  // Kompa
+  // Kompaly
   copilotVisible: boolean;
   proactive: boolean;
   eventReminders: boolean;
@@ -57,7 +57,7 @@ export interface Settings {
   focusSound: boolean;
   // motivation
   badgesSeen: string[]; // badges already announced
-  badgeAnnouncements: boolean; // Kompa announces newly earned badges
+  badgeAnnouncements: boolean; // Kompaly announces newly earned badges
   groupsSeen: Record<string, string>; // « groupId:tab » → last time the student looked (synced across devices)
   customCategories: CustomCategory[]; // calendar categories created by the student
   renamedToKompa: boolean; // old « COP-PILOT » texts in this account already renamed (see lib/renameToKompa)

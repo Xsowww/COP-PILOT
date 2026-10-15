@@ -1,5 +1,5 @@
 // AI mode: the conversation goes through our server (/api/copilot, see server/copilot.mjs),
-// which holds the API key, Kompa's personality and picks the AI provider (Claude, Gemini,
+// which holds the API key, Kompaly's personality and picks the AI provider (Claude, Gemini,
 // Groq…). The server always answers in the Anthropic message shape, so this file doesn't
 // care which provider is behind. Tools run here, on the student's data.
 
@@ -11,7 +11,7 @@ import { useTodos } from '../store/todos';
 import { useNotes } from '../store/notes';
 import { getSettings } from '../store/settings';
 
-/** Who Kompa is talking to (welcome questionnaire). The category names in the calendar follow the same choice. */
+/** Who Kompaly is talking to (welcome questionnaire). The category names in the calendar follow the same choice. */
 const USAGE_CONTEXT: Record<string, string> = {
   etudes: 'ses études (catégories : Cours, Examen, Devoir, Perso, Sport)',
   travail: 'son travail (catégories : Réunion, Échéance, Devis, Perso, Sport ; parle de réunions, devis, échéances, pas de cours ni de révisions)',
@@ -308,7 +308,7 @@ function contextBlock(): string {
   ];
   const { school, program, year, usage, needs } = getSettings();
   const profile = [year, program, school].filter(Boolean).join(', ');
-  lines.push(`Utilise Kompa pour : ${USAGE_CONTEXT[usage] ?? USAGE_CONTEXT.etudes}${profile ? ` (${profile})` : ''}`);
+  lines.push(`Utilise Kompaly pour : ${USAGE_CONTEXT[usage] ?? USAGE_CONTEXT.etudes}${profile ? ` (${profile})` : ''}`);
   if (needs.length) lines.push(`Ce dont il/elle a le plus besoin : ${needs.join(', ')}`);
   if (recentProactive.length) lines.push(`Tu lui as dit récemment, de toi-même : ${recentProactive.join(' ')}`);
   if (offerLog.length) lines.push(`Boutons utilisés depuis : ${offerLog.splice(0).join(' | ')}`);
@@ -367,7 +367,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
 export type NudgeKind = 'remark' | 'brief' | 'review';
 const NUDGE_MAX: Record<NudgeKind, number> = { remark: 320, brief: 520, review: 640 };
 
-/** Lets the AI phrase a proactive remark in Kompa's voice. Returns null on any problem. */
+/** Lets the AI phrase a proactive remark in Kompaly's voice. Returns null on any problem. */
 export async function aiNudge(situation: Record<string, unknown>, userName: string, kind: NudgeKind = 'remark'): Promise<string | null> {
   if (aiPausedUntil()) return null;
   try {

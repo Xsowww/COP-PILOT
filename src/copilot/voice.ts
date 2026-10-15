@@ -1,4 +1,4 @@
-// Talking to Kompa: dictation with the browser's speech recognition (optional, depends on the browser).
+// Talking to Kompaly: dictation with the browser's speech recognition (optional, depends on the browser).
 
 import { useEffect, useRef, useState } from 'react';
 

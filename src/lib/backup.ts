@@ -37,7 +37,7 @@ export function exportBackup() {
     notes: { folders: useNotes.getState().folders, notes: useNotes.getState().notes },
     driveFolders: useDrive.getState().items.filter(i => i.kind === 'folder'),
   };
-  download(`kompa-sauvegarde-${stamp()}.json`, JSON.stringify(data, null, 2), 'application/json');
+  download(`kompaly-sauvegarde-${stamp()}.json`, JSON.stringify(data, null, 2), 'application/json');
 }
 
 /** What the backup has and this account doesn't (anywhere, trash included). Nothing current is replaced. */
@@ -53,7 +53,7 @@ function missing<T extends { id: string }>(incoming: unknown, ...current: T[][])
  */
 export async function importBackup(file: File): Promise<{ notes: number; events: number }> {
   const data = JSON.parse(await file.text());
-  if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error('Ce fichier n’est pas une sauvegarde Kompa.');
+  if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error('Ce fichier n’est pas une sauvegarde Kompaly.');
   const cal = useCalendar.getState();
   const events = missing(data.calendar, cal.events, cal.trash);
   useCalendar.setState(s => ({ events: [...s.events, ...events] }));
@@ -85,7 +85,7 @@ function nextDay(date: string) {
 /** .ics file that Google Agenda, Apple Calendrier or Outlook can import. */
 export function exportIcs(events: CalendarEvent[] = useCalendar.getState().events) {
   const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kompa//FR', 'CALSCALE:GREGORIAN'];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kompaly//FR', 'CALSCALE:GREGORIAN'];
   for (const e of events) {
     lines.push('BEGIN:VEVENT', `UID:${e.id}@cop-pilot`, `DTSTAMP:${now}`);
     if (e.start) {
@@ -99,7 +99,7 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');
-  download(`kompa-calendrier-${stamp()}.ics`, lines.join('\r\n'), 'text/calendar');
+  download(`kompaly-calendrier-${stamp()}.ics`, lines.join('\r\n'), 'text/calendar');
 }
 
 /** The account's own tables (group content lives in separate tables and is left alone). */
@@ -110,7 +110,7 @@ async function deleteLocalFiles() {
   await Promise.all(files.map(f => blobStore.delete(blobKey(f.id)).catch(() => undefined)));
 }
 
-/** Empties this device's copy: lists, conversation with Kompa, search index of the PDFs. */
+/** Empties this device's copy: lists, conversation with Kompaly, search index of the PDFs. */
 export function resetLocalData() {
   useDrive.setState({ items: [], trash: [], clipboard: null });
   useNotes.setState({ notes: [], folders: [], trashNotes: [], trashFolders: [] });

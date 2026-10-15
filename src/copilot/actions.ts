@@ -1,4 +1,4 @@
-// Everything Kompa can *do* on the site. Used by both the built-in French
+// Everything Kompaly can *do* on the site. Used by both the built-in French
 // command engine and the Claude-powered mode (as tools).
 
 import { addDays } from 'date-fns';
@@ -572,7 +572,7 @@ export interface SettingsPatch {
   chattiness?: string;
 }
 
-/** Applies the settings Kompa is allowed to change; returns what actually changed. */
+/** Applies the settings Kompaly is allowed to change; returns what actually changed. */
 export function updateSettings(p: SettingsPatch) {
   const patch: Partial<Settings> = {};
   if (p.accent && p.accent in ACCENTS) patch.accent = p.accent as AccentKey;

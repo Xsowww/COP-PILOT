@@ -1,15 +1,15 @@
-# E-mails Kompa pour Supabase
+# E-mails Kompaly pour Supabase
 
-Six modèles aux couleurs de Kompa, en français :
+Six modèles aux couleurs de Kompaly, en français :
 
 | Fichier | Modèle Supabase | Sujet |
 |---|---|---|
-| `confirmation.html` | Confirm signup | Confirme ton adresse e-mail · Kompa |
-| `recovery.html` | Reset password | Réinitialise ton mot de passe · Kompa |
-| `magic_link.html` | Magic link | Ton lien de connexion · Kompa |
-| `email_change.html` | Change email address | Confirme ta nouvelle adresse · Kompa |
-| `invite.html` | Invite user | Tu es invité sur Kompa |
-| `reauthentication.html` | Reauthentication | Ton code de confirmation · Kompa |
+| `confirmation.html` | Confirm signup | Confirme ton adresse e-mail · Kompaly |
+| `recovery.html` | Reset password | Réinitialise ton mot de passe · Kompaly |
+| `magic_link.html` | Magic link | Ton lien de connexion · Kompaly |
+| `email_change.html` | Change email address | Confirme ta nouvelle adresse · Kompaly |
+| `invite.html` | Invite user | Tu es invité sur Kompaly |
+| `reauthentication.html` | Reauthentication | Ton code de confirmation · Kompaly |
 
 **Prérequis : un service d’envoi personnalisé.** Sur l’offre gratuite, Supabase refuse de modifier les
 modèles tant que le projet utilise son service d’envoi par défaut. Configure d’abord Authentication ›

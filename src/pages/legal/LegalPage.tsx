@@ -18,7 +18,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Éditeur du site',
         body: [
-          'Kompa est édité par Léo Boucher, particulier, à titre non professionnel.',
+          'Kompaly est édité par Léo Boucher, particulier, à titre non professionnel.',
           'Comme le permet l’article 6, III, 2 de la loi pour la confiance dans l’économie numérique (LCEN), l’adresse de l’éditeur n’est pas publiée : son identité est connue de l’hébergeur. Contact : ' + CONTACT + '.',
           'Directeur de la publication : Léo Boucher.',
         ],
@@ -33,7 +33,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Propriété intellectuelle',
         body: [
-          'Le nom Kompa, son logo, son personnage et son interface sont protégés. Les contenus que tu ajoutes (fichiers, notes, événements) restent ta propriété.',
+          'Le nom Kompaly, son logo, son personnage et son interface sont protégés. Les contenus que tu ajoutes (fichiers, notes, événements) restent ta propriété.',
         ],
       },
     ],
@@ -44,7 +44,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'En bref',
         body: [
-          'Kompa collecte seulement ce qu’il faut pour faire fonctionner ton espace de travail. Pas de publicité, pas de revente de données, pas de traceurs publicitaires.',
+          'Kompaly collecte seulement ce qu’il faut pour faire fonctionner ton espace de travail. Pas de publicité, pas de revente de données, pas de traceurs publicitaires.',
           'Responsable du traitement : l’éditeur indiqué dans les mentions légales. Contact : ' + CONTACT + '.',
         ],
       },
@@ -64,11 +64,11 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
-        title: 'Kompa et l’intelligence artificielle',
+        title: 'Kompaly et l’intelligence artificielle',
         body: [
-          'Quand tu poses une question à Kompa en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Groq, Inc. (États-Unis). Groq ne conserve ni tes messages ni les réponses (option « zéro conservation » activée).',
-          'Ce transfert hors de l’Union européenne est encadré par les clauses contractuelles types de la Commission européenne, prévues dans le contrat de traitement des données de Groq. Le mode simple de Kompa fonctionne sans rien envoyer.',
-          'N’envoie pas à Kompa d’informations sensibles (santé, données d’autres personnes…).',
+          'Quand tu poses une question à Kompaly en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Groq, Inc. (États-Unis). Groq ne conserve ni tes messages ni les réponses (option « zéro conservation » activée).',
+          'Ce transfert hors de l’Union européenne est encadré par les clauses contractuelles types de la Commission européenne, prévues dans le contrat de traitement des données de Groq. Le mode simple de Kompaly fonctionne sans rien envoyer.',
+          'N’envoie pas à Kompaly d’informations sensibles (santé, données d’autres personnes…).',
         ],
       },
       {
@@ -89,7 +89,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Stockage sur ton appareil',
         body: [
-          'Kompa garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement. La déconnexion efface cette copie.',
+          'Kompaly garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement. La déconnexion efface cette copie.',
         ],
       },
       {
@@ -108,16 +108,16 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Le service',
         body: [
-          'Kompa est un espace pour s’organiser (études, travail ou vie perso) : Drive, calendrier, notes, tâches, groupes, et l’ami Kompa qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.',
+          'Kompaly est un espace pour s’organiser (études, travail ou vie perso) : Drive, calendrier, notes, tâches, groupes, et l’ami Kompaly qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.',
           'En créant un compte, tu acceptes ces conditions et la politique de confidentialité.',
         ],
       },
       {
         title: 'Ton compte',
         body: [
-          'Kompa est ouvert dès 15 ans. Avant 15 ans, il faut l’accord d’un parent ou d’un responsable légal pour créer un compte.',
+          'Kompaly est ouvert dès 15 ans. Avant 15 ans, il faut l’accord d’un parent ou d’un responsable légal pour créer un compte.',
           'Tu es responsable de ton mot de passe et de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.',
-          'Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, un nombre limité de questions par jour à Kompa en mode intelligent.',
+          'Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, un nombre limité de questions par jour à Kompaly en mode intelligent.',
         ],
       },
       {
@@ -129,9 +129,9 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
-        title: 'L’ami Kompa',
+        title: 'L’ami Kompaly',
         body: [
-          'Kompa est une intelligence artificielle : il peut se tromper. Vérifie ce qu’il te dit, surtout pour tes cours, tes dates d’examen et tes rendus. Il te demande toujours de confirmer avant de supprimer quelque chose.',
+          'Kompaly est une intelligence artificielle : il peut se tromper. Vérifie ce qu’il te dit, surtout pour tes cours, tes dates d’examen et tes rendus. Il te demande toujours de confirmer avant de supprimer quelque chose.',
         ],
       },
       {

@@ -373,7 +373,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       /* nothing saved */
     }
     // Earlier QR codes are kept (another tab or device may show one that was just scanned); the extras go once one is confirmed.
-    const enroll = () => supabase!.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Kompa ${Date.now()}`, issuer: 'Kompa' });
+    const enroll = () => supabase!.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Kompaly ${Date.now()}`, issuer: 'Kompaly' });
     let { data, error } = await enroll();
     if (error && pending.length) {
       // Too many unfinished attempts: start over once.
@@ -416,7 +416,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
     if (!verified) {
       const msg = (error?.message ?? '').toLowerCase();
-      throw new Error(msg.includes('ip address') ? 'Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.' : msg.includes('expired') ? 'Ce code a expiré, tape le nouveau code affiché.' : msg.includes('rate') || msg.includes('too many') ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Vérifie que tu tapes le code Kompa affiché en ce moment.');
+      throw new Error(msg.includes('ip address') ? 'Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.' : msg.includes('expired') ? 'Ce code a expiré, tape le nouveau code affiché.' : msg.includes('rate') || msg.includes('too many') ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Vérifie que tu tapes le code Kompaly affiché en ce moment.');
     }
     if (factorId) {
       // Setup done: the QR codes that weren't used are dropped.

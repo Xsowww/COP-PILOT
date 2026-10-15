@@ -10,7 +10,7 @@ export interface CopilotLink {
   to: string;
 }
 
-/** A button Kompa offers (serialisable, executed by copilot/offers.ts). */
+/** A button Kompaly offers (serialisable, executed by copilot/offers.ts). */
 export interface CopilotOffer {
   label: string;
   kind: 'plan_revisions' | 'revision_note' | 'mark_done' | 'open' | 'confirm_delete';
@@ -84,7 +84,7 @@ export const useCopilot = create<CopilotState>()(
 
       setPose: pose => set({ pose }),
 
-      /** Proactive remark: Kompa leans out and says something; it is also kept in the conversation. */
+      /** Proactive remark: Kompaly leans out and says something; it is also kept in the conversation. */
       say(bubble) {
         // In the middle of a conversation, a suggestion with buttons would hijack the next « oui ».
         if (get().pose === 'open' && bubble.offers?.length) return;
@@ -113,7 +113,7 @@ export const useCopilot = create<CopilotState>()(
       name: 'copilot',
       storage: userStorage,
       skipHydration: true,
-      // v1: conversations saved before the rename to Kompa.
+      // v1: conversations saved before the rename to Kompaly.
       version: 1,
       migrate: (saved, version) => {
         const state = saved as Pick<CopilotState, 'messages' | 'offsetY' | 'memory'>;

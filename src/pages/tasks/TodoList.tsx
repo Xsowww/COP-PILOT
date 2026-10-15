@@ -4,7 +4,7 @@ import { CalendarPlus, Check, ChevronRight, Trash2, X } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
-import { TOUR_TODO, startTour } from '../../store/tour';
+import { isTourTodo, startTour } from '../../store/tour';
 
 const OVERDUE = 'var(--cat-examen-text)';
 
@@ -70,7 +70,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           {t.title}
         </span>
       )}
-      {t.title === TOUR_TODO && !t.done && (
+      {isTourTodo(t.title) && !t.done && (
         <button type="button" onClick={startTour} className="btn-primary h-7 shrink-0 px-2.5 text-[12px]">
           Lancer
         </button>

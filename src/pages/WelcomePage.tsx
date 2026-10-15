@@ -41,7 +41,7 @@ const TIME_QUESTION: Record<Usage, string> = {
 
 const STEPS = 6;
 
-/** Six quick questions before the first visit: who is this for, so Kompa speaks their language. */
+/** Six quick questions before the first visit: who is this for, so Kompaly speaks their language. */
 export default function WelcomePage() {
   const navigate = useNavigate();
   const name = useAuth(s => s.user?.name ?? '');
@@ -84,7 +84,7 @@ export default function WelcomePage() {
           </div>
 
           {step === 0 && (
-            <Question title={`Bienvenue${name ? ` ${name}` : ''} ! Tu vas utiliser Kompa pour…`} hint="Kompa adapte ses mots et ton espace à ta réponse.">
+            <Question title={`Bienvenue${name ? ` ${name}` : ''} ! Tu vas utiliser Kompaly pour…`} hint="Kompaly adapte ses mots et ton espace à ta réponse.">
               {USAGES.map(u => {
                 const Icon = USAGE_ICONS[u.key];
                 return (
@@ -113,7 +113,7 @@ export default function WelcomePage() {
           )}
 
           {step === 2 && (
-            <Question title={a.usage === 'etudes' ? 'Où étudies-tu ?' : a.usage === 'travail' ? 'Où travailles-tu ?' : 'Un peu plus sur toi'} hint="Facultatif : Kompa s’en sert pour mieux t’aider.">
+            <Question title={a.usage === 'etudes' ? 'Où étudies-tu ?' : a.usage === 'travail' ? 'Où travailles-tu ?' : 'Un peu plus sur toi'} hint="Facultatif : Kompaly s’en sert pour mieux t’aider.">
               <label className="block text-[13px] font-medium">
                 {words.school}
                 <input className="field mt-1 h-10 w-full" value={a.school} placeholder={words.schoolHint} onChange={e => set({ school: e.target.value }, false)} />
@@ -146,7 +146,7 @@ export default function WelcomePage() {
           )}
 
           {step === 4 && (
-            <Question title="Comment Kompa doit-il te parler ?" hint="Tu pourras changer ça dans ton profil.">
+            <Question title="Comment Kompaly doit-il te parler ?" hint="Tu pourras changer ça dans ton profil.">
               {PERSONAS.map(p => (
                 <button key={p.key} type="button" className={choice(a.persona === p.key)} onClick={() => set({ persona: p.key })}>
                   <span>
@@ -159,7 +159,7 @@ export default function WelcomePage() {
           )}
 
           {step === 5 && (
-            <Question title={TIME_QUESTION[a.usage]} hint="Kompa placera tes séances de travail à ce moment-là.">
+            <Question title={TIME_QUESTION[a.usage]} hint="Kompaly placera tes séances de travail à ce moment-là.">
               {TIMES.map(t => (
                 <button key={t.value} type="button" disabled={busy} className={choice(a.revisionTime === t.value)} onClick={() => void finish({ ...a, revisionTime: t.value })}>
                   <span className="text-[14px] font-medium">{t.label}</span>

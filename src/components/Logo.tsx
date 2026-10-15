@@ -1,4 +1,4 @@
-/** Kompa's mark: you (the big dot) and your friend (the small blue one), always together. */
+/** Kompaly's mark: you (the big dot) and your friend (the small blue one), always together. */
 export function LogoMark({ size = 28 }: { size?: number }) {
   return (
     <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden>
@@ -13,7 +13,7 @@ export default function Logo() {
   return (
     <span className="flex items-center gap-2.5">
       <LogoMark />
-      <span className="text-[16px] font-semibold tracking-[-0.035em]">kompa</span>
+      <span className="text-[16px] font-semibold tracking-[-0.035em]">kompaly</span>
     </span>
   );
 }

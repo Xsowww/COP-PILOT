@@ -1,7 +1,7 @@
 {
-  "name": "Kompa",
-  "short_name": "Kompa",
-  "description": "Drive, calendrier, notes et tâches réunis pour les étudiants, avec Kompa pour s'organiser.",
+  "name": "Kompaly",
+  "short_name": "Kompaly",
+  "description": "Drive, calendrier, notes et tâches réunis pour les étudiants, avec Kompaly pour s'organiser.",
   "lang": "fr",
   "start_url": "/",
   "scope": "/",

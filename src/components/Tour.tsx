@@ -17,7 +17,7 @@ const nav = (path: string) => `nav[aria-label="Navigation principale"] a[href="$
 
 const STEPS: Step[] = [
   {
-    title: 'Bienvenue sur Kompa',
+    title: 'Bienvenue sur Kompaly',
     text: () => 'En une minute, voici où trouver chaque chose. Tu peux passer l’intro à tout moment.',
   },
   {
@@ -29,7 +29,7 @@ const STEPS: Step[] = [
     target: nav('/calendrier'),
     title: 'Le calendrier',
     text: u =>
-      `Écris simplement « ${u === 'travail' ? 'Réunion client jeudi 10h' : u === 'perso' ? 'Dentiste mardi 17h' : 'Partiel de maths vendredi 14h'} » : Kompa le range tout seul.`,
+      `Écris simplement « ${u === 'travail' ? 'Réunion client jeudi 10h' : u === 'perso' ? 'Dentiste mardi 17h' : 'Partiel de maths vendredi 14h'} » : Kompaly le range tout seul.`,
   },
   {
     target: nav('/taches'),
@@ -57,14 +57,14 @@ const STEPS: Step[] = [
     text: () => 'Retrouve n’importe quel fichier, note ou événement. Raccourci : Ctrl K.',
   },
   {
-    target: '[role="button"][aria-label="Parler à Kompa"]',
-    title: 'Kompa, ton ami',
+    target: '[role="button"][aria-label="Parler à Kompaly"]',
+    title: 'Kompaly, ton ami',
     text: () => 'Clique sur lui pour discuter : il répond, ajoute des événements et t’aide à t’organiser.',
   },
   {
     target: 'a[href="/profil"]',
     title: 'Ton profil',
-    text: () => 'Thème, couleur, ton de Kompa, notifications : tout se règle ici.',
+    text: () => 'Thème, couleur, ton de Kompaly, notifications : tout se règle ici.',
   },
 ];
 

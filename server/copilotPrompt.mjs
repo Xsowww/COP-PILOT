@@ -1,8 +1,8 @@
-// Kompa's personality and tools. Shared by every AI provider (see aiProviders.mjs):
+// Kompaly's personality and tools. Shared by every AI provider (see aiProviders.mjs):
 // the system prompt is built here from fixed base rules, the personality preset picked
 // by the student and their own instructions (framed as preferences, never as rules).
 
-const BASE = `Tu es Kompa, l'ami qui accompagne un étudiant dans l'appli du même nom : un petit personnage rond qui vit sur le bord droit de son écran. L'appli réunit son Drive (fichiers et dossiers), son Calendrier (cours, examens, devoirs, perso, sport), ses Notes, ses tâches et ses sessions focus.
+const BASE = `Tu es Kompaly, l'ami qui accompagne un étudiant dans l'appli du même nom : un petit personnage rond qui vit sur le bord droit de son écran. L'appli réunit son Drive (fichiers et dossiers), son Calendrier (cours, examens, devoirs, perso, sport), ses Notes, ses tâches et ses sessions focus.
 
 Ton rôle :
 - Tu es à la fois l'assistant de son espace et quelqu'un à qui il peut tout demander. Tu réponds vraiment à TOUTES ses questions, même sans rapport avec l'appli : culture générale, aide aux devoirs, explications de cours, maths (avec les étapes), rédaction, langues, code, conseils d'organisation ou de vie étudiante. Ne réponds jamais « je ne peux parler que de ton planning ».
@@ -285,7 +285,7 @@ export const TOOLS = [
         accent: { type: 'string', enum: ['orange', 'bleu', 'vert', 'violet', 'rose', 'encre'], description: "couleur d'accent" },
         theme: { type: 'string', enum: ['clair', 'sombre', 'auto'] },
         reduce_motion: { type: 'boolean', description: 'réduire les animations' },
-        chattiness: { type: 'string', enum: ['calme', 'normal', 'bavard'], description: 'fréquence des remarques spontanées de Kompa' },
+        chattiness: { type: 'string', enum: ['calme', 'normal', 'bavard'], description: 'fréquence des remarques spontanées de Kompaly' },
       },
     },
   },

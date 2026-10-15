@@ -14,7 +14,7 @@ interface Props {
 const INK = '#16181d';
 const ORANGE = 'var(--color-brand-500)'; // follows the accent colour chosen in settings
 
-// Kompa is a small round character wearing a pilot headset. He hides behind the
+// Kompaly is a small round character wearing a pilot headset. He hides behind the
 // right edge of the screen: his hands hold the edge, his head slides out.
 const HEAD: Record<CopilotPose, string> = {
   hidden: 'translate(74px, 4px) rotate(-18deg)',

@@ -141,7 +141,7 @@ export default function CategoriesDialog({ onClose }: { onClose: () => void }) {
       <div className="mt-4 rounded-lg bg-stone-50 p-3">
         <NewCategory onCreated={() => undefined} />
       </div>
-      <p className="mt-2 text-[12px] text-stone-500">Astuce : écris son nom dans le titre d’un événement (« Stage chez Airbus ») et Kompa la choisit tout seul.</p>
+      <p className="mt-2 text-[12px] text-stone-500">Astuce : écris son nom dans le titre d’un événement (« Stage chez Airbus ») et Kompaly la choisit tout seul.</p>
 
       <div className="mt-5 flex justify-end">
         <button className="btn-primary" onClick={onClose}>

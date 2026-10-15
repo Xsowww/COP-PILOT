@@ -34,7 +34,7 @@ function Inlines({ nodes }: { nodes: Inline[] }) {
   );
 }
 
-/** Kompa's answers with light formatting. Everything is rendered as React text: no HTML injection possible. */
+/** Kompaly's answers with light formatting. Everything is rendered as React text: no HTML injection possible. */
 export default function Markdown({ text }: { text: string }) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
   return (

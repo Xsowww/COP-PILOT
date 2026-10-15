@@ -1,4 +1,4 @@
-# Avant le lancement — liste de travail (Kompa)
+# Avant le lancement — liste de travail (Kompaly)
 
 Issue de l'audit complet du 13/10/2026. On coche au fur et à mesure.
 Ensuite : le document de lancement (hébergement, domaine, stores, légal).
@@ -67,5 +67,5 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [x] Offre Supabase : gratuite pour l'instant (1 Go pour tout le site)
 - [ ] (avant l'ouverture au public) Remettre un quota par élève : `QUOTA` dans `src/lib/blobStore.ts` + `storage_quota()` en SQL (désactivés pour l'usage perso)
 - [ ] (avant l'ouverture au public) Choisir une IA avec un plus gros quota (`AI_PROVIDER`, `AI_DAILY_QUESTIONS`, `AI_DAILY_BUDGET`)
-- [ ] (avant l'ouverture au public) Vérifier le nom « Kompa » : marque sur data.inpi.fr et nom de domaine (kompa.app, getkompa.fr…)
-- [ ] Supabase › Authentication › Emails : remplacer « COP-PILOT » par « Kompa » dans les e-mails (confirmation, mot de passe)
+- [ ] (avant l'ouverture au public) Vérifier le nom « Kompaly » : marque sur data.inpi.fr et nom de domaine (kompaly.app, getkompa.fr…)
+- [ ] Supabase › Authentication › Emails : remplacer « COP-PILOT » par « Kompaly » dans les e-mails (confirmation, mot de passe)

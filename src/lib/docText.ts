@@ -1,4 +1,4 @@
-// Text inside PDF and Word files, read in the browser (Drive search and Kompa).
+// Text inside PDF and Word files, read in the browser (Drive search and Kompaly).
 // pdf.js and mammoth are heavy: downloaded the first time a document is read.
 
 import { loadPdfjs } from './pdf';

@@ -1,4 +1,4 @@
-// Installe les e-mails Kompa dans Supabase (Authentication › Emails) en une commande.
+// Installe les e-mails Kompaly dans Supabase (Authentication › Emails) en une commande.
 //
 //   SUPABASE_ACCESS_TOKEN=sbp_… node supabase/emails/appliquer.mjs
 //
@@ -35,4 +35,4 @@ if (!res.ok) {
   console.error(`Échec (${res.status}) : ${await res.text()}`);
   process.exit(1);
 }
-console.log(`E-mails Kompa installés sur le projet ${ref} : ${Object.keys(subjects).join(', ')}.`);
+console.log(`E-mails Kompaly installés sur le projet ${ref} : ${Object.keys(subjects).join(', ')}.`);
