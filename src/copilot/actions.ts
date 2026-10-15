@@ -116,6 +116,9 @@ export function analyzeCalendar() {
   };
 }
 
+/** « Demain » → « demain » inside a sentence; « J-3 » stays. */
+const inSentence = (label: string) => label.replace(/^\p{Lu}(?=\p{Ll})/u, c => c.toLowerCase());
+
 export function calendarReport(): { text: string; links: CopilotLink[] } {
   const a = analyzeCalendar();
   const lines: string[] = [];
@@ -129,12 +132,12 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
     lines.push(`Ta journée la plus chargée : ${fmt(fromKey(a.busiestDay.date), 'EEEE')} (${a.busiestDay.count} trucs).`);
   }
   if (a.exams.length) {
-    lines.push(`Examens à venir : ${a.exams.map(e => `${e.title} (${countdownLabel(e.date)})`).join(', ')}.`);
+    lines.push(`Examens à venir : ${a.exams.map(e => `${e.title} (${inSentence(countdownLabel(e.date))})`).join(', ')}.`);
     const soon = a.exams.find(e => daysUntil(e.date) <= 7);
     if (soon) lines.push(`Conseil : commence à réviser « ${soon.title} » dès maintenant, un peu chaque jour.`);
   }
   if (a.lateHomework.length) lines.push(`Attention, ${a.lateHomework.length} devoir(s) en retard : ${a.lateHomework.map(e => e.title).join(', ')}.`);
-  else if (a.nextDeadlines.length) lines.push(`Prochain rendu : ${a.nextDeadlines[0].title} (${countdownLabel(a.nextDeadlines[0].date)}).`);
+  else if (a.nextDeadlines.length) lines.push(`Prochain rendu : ${a.nextDeadlines[0].title} (${inSentence(countdownLabel(a.nextDeadlines[0].date))}).`);
   return { text: lines.join('\n'), links: [{ label: 'Ouvrir le calendrier', to: '/calendrier' }] };
 }
 

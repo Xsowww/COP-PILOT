@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../store/settings';
 import { useCopilot } from '../store/copilot';
+import { trapTab } from '../lib/a11y';
 import { useTour, endTour } from '../store/tour';
 import type { Usage } from '../lib/usage';
 
@@ -108,10 +109,15 @@ export default function Tour() {
     };
   }, [current]);
 
+  // Keyboard: focus on « Suivant », Tab stays in the card (the page behind is only shown).
+  const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (step === null) return;
     nextBtn.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && endTour();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') endTour();
+      else if (rootRef.current) trapTab(e, rootRef.current);
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [step]);
@@ -133,7 +139,7 @@ export default function Tour() {
   }
 
   return (
-    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div ref={rootRef} className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
       {rect ? (
         <div
           className="pointer-events-none absolute rounded-lg ring-2 ring-brand-500 transition-all duration-300"

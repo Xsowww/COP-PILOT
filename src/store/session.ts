@@ -3,7 +3,6 @@ import { useCalendar } from './calendar';
 import { useNotes } from './notes';
 import { useCopilot } from './copilot';
 import { useSettings, applyAppearance, storedTheme, type Settings } from './settings';
-import { toKey } from '../lib/dates';
 import { getStorageUser, setStorageUser } from '../lib/userStorage';
 import { cloudEnabled } from '../lib/supabase';
 import { pullAll, pushLeftovers, startSync, stopSync, updateCloudProfile } from '../lib/cloudSync';
@@ -134,5 +133,5 @@ export async function finishWelcome(answers: WelcomeAnswers) {
 
 /** A brand-new account starts empty: only the task that launches the guided tour. */
 export function seedNewAccount() {
-  if (!useTodos.getState().todos.some(t => isTourTodo(t.title))) useTodos.getState().add(TOUR_TODO, toKey(new Date()));
+  if (!useTodos.getState().todos.some(t => isTourTodo(t.title))) useTodos.getState().add(TOUR_TODO); // no due date: it never turns red « En retard »
 }

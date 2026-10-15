@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Check, GraduationCap, House, Loader2 } from 'lucide-react';
 import Logo from '../components/Logo';
@@ -184,9 +184,14 @@ export default function WelcomePage() {
 }
 
 function Question({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  // Each new question takes the keyboard focus (the button that was clicked is gone with the old one).
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => heading.current?.focus({ preventScroll: true }), []);
   return (
     <section className="mt-6">
-      <h1 className="text-[22px] font-semibold leading-snug tracking-[-0.015em]">{title}</h1>
+      <h1 ref={heading} tabIndex={-1} className="text-[22px] font-semibold leading-snug tracking-[-0.015em] outline-none">
+        {title}
+      </h1>
       {hint && <p className="mt-1 text-[13px] text-stone-500">{hint}</p>}
       <div className="mt-5 space-y-2.5">{children}</div>
     </section>

@@ -5,7 +5,8 @@ const FOCUSABLE =
 
 /** Visible, keyboard-reachable elements inside `root`, in tab order. */
 export function focusables(root: HTMLElement): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => el.offsetParent !== null || el === document.activeElement);
+  // visibility:hidden keeps a layout box (offsetParent) but can't take the focus: trapping Tab on it froze the dialog.
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => (el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden') || el === document.activeElement);
 }
 
 // Last element focused outside a modal or a menu: where the focus goes back when they close

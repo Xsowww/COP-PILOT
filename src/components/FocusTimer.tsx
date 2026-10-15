@@ -120,8 +120,8 @@ export default function FocusTimer() {
     <div className={cx('mb-2 rounded-lg border p-2.5', focus.phase === 'focus' ? 'border-brand-200 bg-brand-50' : 'border-emerald-200 bg-emerald-50')}>
       <div className="flex items-center gap-2">
         <span className={cx('min-w-0 truncate text-[11px] font-medium', focus.phase === 'focus' ? 'text-brand-700' : 'text-emerald-700')}>
-          {focus.phase === 'focus' ? 'Concentration' : 'Pause'}
-          {paused && ' · en pause'}
+          {focus.phase === 'focus' ? 'Concentration' : 'Temps de pause'}
+          {paused && ' · arrêté'}
         </span>
         <span role="timer" aria-label={`Temps restant : ${mmss(left)}`} className="tabular ml-auto font-mono text-[15px] font-medium">{mmss(left)}</span>
       </div>

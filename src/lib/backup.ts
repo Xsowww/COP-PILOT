@@ -3,6 +3,8 @@ import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, catOf, type CalendarEvent, type CustomCategory } from '../store/calendar';
 import { useSettings, DEFAULT_SETTINGS, applyAppearance, type Settings } from '../store/settings';
 import { applyUsage } from './usage';
+import { addDays } from 'date-fns';
+import { fromKey, fromMinutes, toKey, toMinutes } from './dates';
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
 import { blobKey, getStorageUser } from './userStorage';
@@ -97,11 +99,8 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
 const icsDate = (date: string, time?: string) => (time ? `${date.replace(/-/g, '')}T${time.replace(':', '')}00` : date.replace(/-/g, ''));
 const icsText = (t: string) => t.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, m => `\\${m}`);
 
-function nextDay(date: string) {
-  const d = new Date(`${date}T12:00:00`);
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
+// Local calendar arithmetic (toISOString gave the same day back east of UTC+12).
+const nextDay = (date: string) => toKey(addDays(fromKey(date), 1));
 
 /** .ics file that Google Agenda, Apple Calendrier or Outlook can import. */
 export function exportIcs(events: CalendarEvent[] = useCalendar.getState().events) {
@@ -111,7 +110,8 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
     lines.push('BEGIN:VEVENT', `UID:${e.id}@cop-pilot`, `DTSTAMP:${now}`);
     if (e.start) {
       lines.push(`DTSTART:${icsDate(e.date, e.start)}`);
-      lines.push(`DTEND:${icsDate(e.date, e.end ?? e.start)}`);
+      // No end: one hour, not a zero-length event that some calendars hide.
+      lines.push(`DTEND:${icsDate(e.date, e.end ?? fromMinutes(toMinutes(e.start) + 60))}`);
     } else {
       lines.push(`DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(nextDay(e.date))}`);
     }

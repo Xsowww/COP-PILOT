@@ -57,6 +57,8 @@ interface CopilotState {
   setOffsetY: (y: number) => void;
   remember: (key: string) => void;
   clearHistory: () => void;
+  /** The welcome line, first in the conversation, unless the student already talked with Kompaly (remarks don't count). */
+  greet: (text: string) => void;
   reset: () => void;
 }
 
@@ -107,6 +109,8 @@ export const useCopilot = create<CopilotState>()(
       setOffsetY: offsetY => set({ offsetY: Math.min(0.88, Math.max(0.14, offsetY)) }),
       remember: key => set(s => ({ memory: { ...s.memory, [key]: Date.now() } })),
       clearHistory: () => set({ messages: [], pendingOffer: null }),
+      greet: text =>
+        set(s => (s.messages.some(m => !m.proactive) ? s : { messages: [{ id: uid(), role: 'bot' as const, text, at: nowIso() }, ...s.messages].slice(-MAX_MESSAGES) })),
       reset: () => set({ messages: [], pose: 'hidden', bubble: null, thinking: false, offsetY: 0.62, memory: {}, pendingOffer: null }),
     }),
     {

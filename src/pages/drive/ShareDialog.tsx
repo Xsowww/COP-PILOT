@@ -85,7 +85,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
                 </button>
               </div>
               <p className="mt-1.5 text-[12px] text-stone-500">
-                Valable {link.days === 1 ? '24 heures' : `${link.days} jours`}. Mettre le fichier à la corbeille coupe le lien (en une minute au plus).
+                Valable {link.days === 1 ? '24 heures' : `${link.days} jours`}. Mettre le fichier à la corbeille coupe le lien (en une minute au plus) ; le restaurer avant la date de fin le rouvre.
               </p>
             </div>
           )}

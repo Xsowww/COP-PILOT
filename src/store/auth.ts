@@ -301,7 +301,10 @@ export const useAuth = create<AuthState>((set, get) => ({
   async verifyPassword(password) {
     const user = get().user;
     if (supabase) {
-      if (!(await checkPassword(user?.email ?? '', password))) throw new Error('Mot de passe incorrect.');
+      const ok = await checkPassword(user?.email ?? '', password).catch((e: AuthError) => {
+        throw new Error(authMessage(e));
+      });
+      if (!ok) throw new Error('Mot de passe incorrect.');
       return;
     }
     await checkLocalPassword(user?.id, password);
@@ -310,8 +313,8 @@ export const useAuth = create<AuthState>((set, get) => ({
   async changePassword(current, next) {
     try {
       await get().verifyPassword(current);
-    } catch {
-      throw new Error('Mot de passe actuel incorrect.');
+    } catch (e) {
+      throw (e as Error).message === 'Mot de passe incorrect.' ? new Error('Mot de passe actuel incorrect.') : e;
     }
     if (supabase) {
       await cloud(supabase.auth.updateUser({ password: next }));

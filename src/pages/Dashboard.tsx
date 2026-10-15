@@ -17,7 +17,7 @@ import { WORDS } from '../lib/usage';
 function Widget({ title, to, linkLabel, className, children }: { title: string; to?: string; linkLabel?: string; className?: string; children: React.ReactNode }) {
   return (
     <section className={cx('card enter flex flex-col p-5', className)}>
-      <header className="mb-3 flex items-center gap-2">
+      <header className="mb-3 flex min-h-7 items-center gap-2">
         <h2 className="text-[13px] font-medium text-stone-600">{title}</h2>
         {to && (
           <Link to={to} className="icon-btn ml-auto -mr-1.5 h-7 w-7" title={linkLabel} aria-label={linkLabel}>

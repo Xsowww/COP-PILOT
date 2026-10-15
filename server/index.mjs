@@ -6,7 +6,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { handleCopilot, copilotProvider } from './copilot.mjs';
+import { handleCopilot, copilotProvider, ipOf } from './copilot.mjs';
 import { loadPublicEnv } from './publicEnv.mjs';
 
 try {
@@ -130,7 +130,7 @@ setInterval(() => reported.clear(), 3_600_000).unref();
 
 async function serveErrorReport(req, res) {
   if (req.method !== 'POST' || req.url !== '/api/erreurs') return false;
-  const ip = req.socket.remoteAddress ?? '';
+  const ip = ipOf(req, process.env); // behind the host's proxy, the socket address is the proxy's, the same for everyone
   const count = (reported.get(ip) ?? 0) + 1;
   if (reported.size > 5000) reported.clear();
   reported.set(ip, count);

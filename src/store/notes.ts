@@ -87,7 +87,9 @@ export const useNotes = create<NotesState>()(
 
       renameFolder(id, name) {
         if (!name.trim()) return;
-        set(s => ({ folders: s.folders.map(f => (f.id === id ? { ...f, name: name.trim() } : f)) }));
+        const folder = get().folders.find(f => f.id === id);
+        const taken = get().folders.filter(f => f.parentId === folder?.parentId && f.id !== id).map(f => f.name);
+        set(s => ({ folders: s.folders.map(f => (f.id === id ? { ...f, name: uniqueName(name.trim(), taken) } : f)) }));
       },
 
       removeFolder(id) {

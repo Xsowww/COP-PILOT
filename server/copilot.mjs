@@ -88,9 +88,14 @@ function rateLimited(key, max) {
   return list.length > max;
 }
 
-/** Behind a host's proxy every request comes from the proxy: TRUST_PROXY=1 reads the real address. */
-const ipOf = (req, env) =>
-  (env.TRUST_PROXY === '1' && String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim()) || req.socket?.remoteAddress || 'unknown';
+/**
+ * Behind a host's proxy every request comes from the proxy: TRUST_PROXY=1 reads the real address.
+ * On by itself on Render (it sets RENDER=true), where forgetting it put every visitor under one limit.
+ */
+export const ipOf = (req, env) =>
+  ((env.TRUST_PROXY === '1' || (env.RENDER === 'true' && env.TRUST_PROXY !== '0')) && String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim()) ||
+  req.socket?.remoteAddress ||
+  'unknown';
 
 // ── Daily quota ─────────────────────────────────────────────────────────────
 // A free AI has a daily allowance for the whole site (Groq: 1 000 requests). Without a cap per

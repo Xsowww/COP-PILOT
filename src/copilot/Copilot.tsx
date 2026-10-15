@@ -80,7 +80,8 @@ export default function Copilot() {
   const [providerLabel, setProviderLabel] = useState('');
   const [pausedUntil, setPausedUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  const { push, setPose, clearBubble, setThinking, setOffsetY, clearHistory } = useCopilot.getState();
+  const { push, setPose, clearBubble, setThinking, setOffsetY, clearHistory, greet } = useCopilot.getState();
+  const hello = () => greet(`Salut ${user?.name ?? ''} ! Moi c'est Kompaly. Je peux retrouver tes fichiers, organiser tes révisions, créer des notes… ou juste discuter. Dis-moi.`);
 
   const [look, setLook] = useState({ x: -1, y: 0 });
   const [blink, setBlink] = useState(false);
@@ -227,7 +228,7 @@ export default function Copilot() {
 
   const open = () => {
     clearBubble();
-    if (messages.length === 0) push('bot', `Salut ${user?.name ?? ''} ! Moi c'est Kompaly. Je peux retrouver tes fichiers, organiser tes révisions, créer des notes… ou juste discuter. Dis-moi.`);
+    hello();
     setPose('open');
   };
 
@@ -335,7 +336,7 @@ export default function Copilot() {
             <button title={wide ? 'Réduire' : 'Agrandir'} aria-label={wide ? 'Réduire' : 'Agrandir'} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
               {wide ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             </button>
-            <button title="Nouvelle conversation" aria-label="Nouvelle conversation" onClick={() => { clearHistory(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
+            <button title="Nouvelle conversation" aria-label="Nouvelle conversation" onClick={() => { clearHistory(); hello(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
               <RotateCcw size={15} />
             </button>
             <button title="Fermer (Échap)" aria-label="Fermer (Échap)" onClick={() => setPose('hidden')} className="icon-btn" tabIndex={isOpen ? 0 : -1}>
@@ -437,7 +438,7 @@ export default function Copilot() {
         {/* Only the drawn shapes take clicks (Character): the empty corners of its
             box sit over page buttons near the right edge. */}
         <div
-          className="cursor-pointer touch-none"
+          className="origin-right cursor-pointer touch-none max-sm:scale-[0.8]" // a bit smaller on phones: less over the cards' edge
           style={{ clipPath: 'inset(-80px 0 -80px -80px)' }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

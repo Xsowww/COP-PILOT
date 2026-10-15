@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
@@ -107,6 +107,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const isRegister = mode === 'register';
   const needsEmail = mode !== 'reset';
   const needsPassword = mode !== 'forgot';
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -114,7 +115,9 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     setInfo('');
     if (isRegister && name.trim().length < 2) return setError('Ton prénom doit contenir au moins 2 caractères.');
     if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return setError('Adresse e-mail invalide.');
-    if ((isRegister || mode === 'reset') && password.length < 8) return setError('Le mot de passe doit contenir au moins 8 caractères.');
+    if ((isRegister || mode === 'reset') && (password.length < 8 || !/\p{L}/u.test(password) || !/\d/.test(password))) {
+      return setError('Le mot de passe doit contenir au moins 8 caractères, avec des lettres et des chiffres.');
+    }
     if (isRegister && !agreed) return setError('Accepte les conditions d’utilisation pour créer ton compte.');
     if (isRegister && !oldEnough) return setError('Kompaly est ouvert dès 15 ans. Avant, il faut l’accord d’un parent.');
     if (mode === 'login' && !password) return setError('Entre ton mot de passe.');
@@ -155,6 +158,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     } catch (err) {
       const message = (err as Error).message;
       setError(message);
+      // The button was disabled while waiting, so the focus fell out of the form: back to the password.
+      if (needsPassword) setTimeout(() => passwordRef.current?.focus(), 0);
       if (message.startsWith("Confirme d'abord")) setCanResend(true);
     } finally {
       setBusy(false);
@@ -183,7 +188,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       <main className="flex flex-1 flex-col px-6 py-6 sm:px-10">
         <Logo />
         <div className="flex flex-1 items-center justify-center py-10">
-          <form onSubmit={onSubmit} className="enter w-full max-w-[340px]">
+          <form onSubmit={onSubmit} noValidate className="enter w-full max-w-[340px]">
             <h1 className="text-[22px] font-semibold tracking-[-0.015em]">{copy.title}</h1>
             <p className="mt-1 text-[13px] text-stone-500">{copy.subtitle}</p>
 
@@ -212,12 +217,13 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                   </span>
                   <span className="relative block">
                     <input
+                      ref={passwordRef}
                       className="field w-full pr-10"
                       type={show ? 'text' : 'password'}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                      placeholder={mode === 'login' ? undefined : '8 caractères minimum'}
+                      placeholder={mode === 'login' ? undefined : '8 caractères, lettres et chiffres'}
                       autoFocus={mode === 'reset'}
                     />
                     <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1.5 text-stone-500 hover:text-stone-700" title={show ? 'Masquer' : 'Afficher'} aria-label={show ? 'Masquer' : 'Afficher'}>
@@ -287,7 +293,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           {LEGAL_LINKS.map(l => (
             <span key={l.to}>
               {' · '}
-              <Link to={l.to} className="underline decoration-stone-300 underline-offset-2 hover:text-ink">
+              <Link to={l.to} className="whitespace-nowrap underline decoration-stone-300 underline-offset-2 hover:text-ink">
                 {l.label}
               </Link>
             </span>

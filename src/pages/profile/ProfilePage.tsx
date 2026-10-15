@@ -22,6 +22,7 @@ import Avatar from '../../components/Avatar';
 import Character from '../../copilot/Character';
 import { Section, Row, Toggle, Segmented, Stepper } from './controls';
 import { cloudEnabled } from '../../lib/supabase';
+import { getStorageUser } from '../../lib/userStorage';
 import { currentStreak, useBadges } from '../../lib/badges';
 import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
 import BadgeGrid from './BadgeGrid';
@@ -181,8 +182,12 @@ function ProfileTab() {
                     setName(user.name);
                   },
                 );
-              } else setName(user.name);
+              } else {
+                if (name.trim() !== user.name) toast('Ton prénom doit contenir au moins 2 caractères.', 'error');
+                setName(user.name);
+              }
             }}
+            onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
           />
         </Row>
         <Row label="Kompaly sert pour">
@@ -204,7 +209,7 @@ function ProfileTab() {
           <select className="field w-56" aria-label={words.level} value={settings.year} onChange={e => settings.set({ year: e.target.value })}>
             {(words.levels.includes(settings.year) ? words.levels : [...words.levels, settings.year]).map(y => (
               <option key={y} value={y}>
-                {y || 'Non renseignée'}
+                {y || '—'}
               </option>
             ))}
           </select>
@@ -318,7 +323,7 @@ function CopilotTab() {
             {aiEnabled ? (
               <>
                 <span className="font-medium">Mode intelligent activé.</span>{' '}
-                <span className="text-stone-500">Il répond à toutes tes questions et peut agir sur ton espace{provider ? ` (IA : ${provider})` : ''}.</span>
+                <span className="text-stone-500">Il répond à toutes tes questions et peut agir sur ton espace{provider ? ` (IA\u00a0: ${provider})` : ''}.</span>
               </>
             ) : (
               <>
@@ -330,10 +335,10 @@ function CopilotTab() {
         <Row label="Afficher Kompaly" hint="Masqué, il ne fait plus aucune remarque.">
           <Toggle label="Afficher Kompaly" checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
         </Row>
-        <Row label="Initiatives" hint="Propose de planifier des révisions, rappelle les rendus.">
+        <Row label="Initiatives" hint={s.usage === 'etudes' ? 'Propose de planifier des révisions, rappelle les rendus.' : 'Propose de bloquer du temps pour préparer, rappelle les échéances.'}>
           <Toggle label="Initiatives" checked={s.proactive} onChange={v => s.set({ proactive: v })} />
         </Row>
-        <Row label="Rappels avant un événement" hint="20 minutes avant un cours ou un examen.">
+        <Row label="Rappels avant un événement" hint="20 minutes avant chaque événement qui a une heure.">
           <Toggle label="Rappels" checked={s.eventReminders} onChange={v => s.set({ eventReminders: v })} />
         </Row>
         <Row label="Bavardage" hint="Il se tait toujours pendant une session focus.">
@@ -434,7 +439,7 @@ function StudiesTab() {
   const focus = useFocus();
   return (
     <div className="space-y-5">
-      <Section title="Sessions focus" description="Minuteur Pomodoro, en bas de la barre latérale.">
+      <Section title="Sessions focus" description="Minuteur Pomodoro, en bas de la barre latérale sur ordinateur et dans Tâches.">
         <Row label="Durée de travail">
           <Segmented<number> label="Durée de travail" value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: `${v} min` }))} />
         </Row>
@@ -461,7 +466,7 @@ function StudiesTab() {
         </Row>
       </Section>
 
-      <Section title="Planification des révisions" description="Quand Kompaly prépare tes révisions avant un examen.">
+      <Section title={s.usage === 'etudes' ? 'Planification des révisions' : 'Temps de préparation'} description={s.usage === 'etudes' ? 'Quand Kompaly prépare tes révisions avant un examen.' : 'Quand Kompaly bloque du temps pour préparer un moment important.'}>
         <Row label="Nombre de séances">
           <Stepper value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
@@ -609,12 +614,16 @@ function DataTab() {
   const events = useCalendar(s => s.events.length);
 
   useEffect(() => {
-    void navigator.storage?.estimate?.().then(e => setUsage({ used: e.usage ?? 0, quota: e.quota ?? 0 }));
+    // estimate() counts the files (IndexedDB) but not localStorage, where notes, events and tasks live.
+    let local = 0;
+    const prefix = `cop:${getStorageUser()}:`;
+    for (const k of Object.keys(localStorage)) if (k.startsWith(prefix)) local += (k.length + (localStorage.getItem(k)?.length ?? 0)) * 2;
+    void navigator.storage?.estimate?.().then(e => setUsage({ used: (e.usage ?? 0) + local, quota: e.quota ?? 0 }));
   }, []);
 
   const onImport = async (f?: File) => {
     if (!f) return;
-    if (!(await confirmAction('Restaurer cette sauvegarde ?', 'Les notes, événements, tâches et dossiers absents d’ici seront ajoutés. Rien d’actuel n’est remplacé (sauf les réglages).', 'Restaurer', false))) return;
+    if (!(await confirmAction('Restaurer cette sauvegarde ?', 'Les notes, événements, tâches et dossiers absents d’ici seront ajoutés. Rien d’actuel n’est remplacé, sauf tes préférences (thème, ton de Kompaly…).', 'Restaurer', false))) return;
     try {
       const r = await importBackup(f);
       const parts = [
@@ -703,7 +712,7 @@ function AccountTab() {
 
   const onChange = async (e: FormEvent) => {
     e.preventDefault();
-    if (next.length < 8) return toast('Le nouveau mot de passe doit faire au moins 8 caractères', 'error');
+    if (next.length < 8 || !/\p{L}/u.test(next) || !/\d/.test(next)) return toast('Le nouveau mot de passe doit faire au moins 8 caractères, avec des lettres et des chiffres.', 'error');
     if (next !== confirmPw) return toast('Les deux mots de passe ne correspondent pas', 'error');
     setBusy(true);
     try {
@@ -787,6 +796,7 @@ function AccountTab() {
                 await deleteAccount(deletePw, clearBeforeAccountDeletion);
                 resetLocalData(); // only once the account is gone: a failed deletion keeps the data
                 await leave();
+                toast('Ton compte et tes données ont été supprimés.', 'success');
               } catch (err) {
                 toast((err as Error).message, 'error');
               }
@@ -806,6 +816,16 @@ export default function ProfilePage() {
   const [params, setParams] = useSearchParams();
   const tab = (TABS.find(t => t.key === params.get('onglet'))?.key ?? 'profil') as TabKey;
   const usage = useSettings(s => s.usage);
+  // Phones: the tab bar scrolls sideways; bring the open tab into view (« Compte » is off screen).
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    const el = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!nav || !el || nav.scrollWidth <= nav.clientWidth) return;
+    const r = el.getBoundingClientRect();
+    const n = nav.getBoundingClientRect();
+    nav.scrollLeft += r.left - n.left - (n.width - r.width) / 2;
+  }, [tab]);
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
@@ -814,7 +834,7 @@ export default function ProfilePage() {
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Profil et réglages</h1>
         </div>
         <div className="flex flex-col gap-6 md:flex-row">
-          <nav aria-label="Sections du profil" className="-mx-1 flex shrink-0 gap-0.5 overflow-x-auto md:mx-0 md:w-48 md:flex-col">
+          <nav ref={navRef} aria-label="Sections du profil" className="-mx-1 flex shrink-0 gap-0.5 overflow-x-auto md:mx-0 md:w-48 md:flex-col">
             {TABS.map(t => (
               <button
                 key={t.key}

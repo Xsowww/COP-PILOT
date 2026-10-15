@@ -181,11 +181,12 @@ body {
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 500;
-  box-shadow: var(--shadow-pop);
   transition: top 0.15s;
 }
+/* The shadow only when shown: hidden above the page, it left a grey smear over the logo. */
 .skip-link:focus {
   top: 12px;
+  box-shadow: var(--shadow-pop);
 }
 
 /* ── Design system ───────────────────────────────────────────── */

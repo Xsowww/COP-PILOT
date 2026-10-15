@@ -166,7 +166,16 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
             <h2 className="text-[15px] font-semibold">{s.title}</h2>
             {s.body.map(p => (
               <p key={p} className="mt-2 text-[14px] leading-relaxed text-stone-700">
-                {p}
+                {p.split(CONTACT).flatMap((part, i) =>
+                  i === 0
+                    ? [part]
+                    : [
+                        <a key={i} href={`mailto:${CONTACT}`} className="text-ink underline decoration-stone-300 underline-offset-2 hover:decoration-ink">
+                          {CONTACT}
+                        </a>,
+                        part,
+                      ],
+                )}
               </p>
             ))}
           </section>

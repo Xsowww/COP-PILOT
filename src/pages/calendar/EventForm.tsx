@@ -35,7 +35,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !day) return;
-    const data = { title: title.trim(), date: day, start: start || undefined, end: end || undefined, category: effective, details: details.trim() || undefined };
+    const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined };
     if (event) update(event.id, data);
     else add(data);
     onClose();

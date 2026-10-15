@@ -216,7 +216,7 @@ export default function TrashPage() {
       const first = all.find(e => e.id === ids[0]);
       const ok = await confirmAction(
         ids.length === 1 ? `Supprimer « ${first?.name} » définitivement ?` : `Supprimer ${ids.length} éléments définitivement ?`,
-        'Impossible de les récupérer ensuite.',
+        ids.length === 1 ? 'Impossible de le récupérer ensuite.' : 'Impossible de les récupérer ensuite.',
         'Supprimer définitivement',
       );
       if (!ok) return;
@@ -313,7 +313,7 @@ export default function TrashPage() {
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-10 md:px-8">
-      <div className="mx-auto max-w-[920px]">
+      <div className="mx-auto max-w-[980px]">
         <div className="flex flex-wrap items-start gap-3 pb-4 pt-2">
           <div className="min-w-0 flex-1">
             <h1 ref={titleRef} tabIndex={-1} className="text-[24px] font-semibold tracking-[-0.02em] outline-none">

@@ -120,7 +120,7 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 
     editable: !readOnly,
     extensions: [
       StarterKit.configure({ link: { openOnClick: false, autolink: true } }),
-      Placeholder.configure({ placeholder: 'Commence à écrire… (tape « # » pour un titre, « - » pour une liste)' }),
+      Placeholder.configure({ placeholder: 'Commence à écrire… (tape «\u00a0#\u00a0» pour un titre, «\u00a0-\u00a0» pour une liste)' }),
       Highlight,
       TaskList,
       TaskItem.configure({ nested: true }),

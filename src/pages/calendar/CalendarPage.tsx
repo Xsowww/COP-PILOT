@@ -371,7 +371,7 @@ export default function CalendarPage() {
             ) : (
               <div>
                 <div className="grid grid-cols-7 pb-1.5 text-center text-[11px] font-medium text-stone-500">
-                  {['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'].map(d => (
+                  {['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'].map(d => (
                     <span key={d}>{d}</span>
                   ))}
                 </div>
@@ -445,7 +445,7 @@ export default function CalendarPage() {
                   onCreate={(start, end) => setForm({ date: selected, start, end })}
                 />
               ) : dayEvents.length === 0 ? (
-                <p className="py-8 text-center text-[13px] text-stone-500">Rien de prévu ce jour-là.</p>
+                <p className="py-8 text-center text-[13px] text-stone-500">{selected === today ? "Rien de prévu aujourd'hui." : 'Rien de prévu ce jour-là.'}</p>
               ) : (
                 <div className="space-y-2">
                   {dayEvents.map(ev => (
@@ -494,7 +494,10 @@ export default function CalendarPage() {
                     <button onClick={() => selectDay(e.date)} className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline">
                       {e.title}
                     </button>
-                    <span className={cx('tabular shrink-0 text-[12px]', e.date < today ? 'font-medium text-[var(--cat-examen-text)]' : 'text-stone-500')}>{countdownLabel(e.date)}</span>
+                    <span className={cx('tabular shrink-0 text-[12px]', e.date < today ? 'font-medium text-[var(--cat-examen-text)]' : 'text-stone-500')}>
+                      {/* Same countdown as the exams above (« J-1 », not « Demain » next to it). */}
+                      {e.date < today ? 'En retard' : e.date === today ? 'Auj.' : `J-${daysUntil(e.date)}`}
+                    </span>
                   </li>
                 ))}
               </ul>

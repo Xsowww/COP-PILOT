@@ -100,7 +100,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () 
       <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 border-transparent bg-transparent sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
       {open && q.trim() && (
         <div id="recherche-resultats" role="listbox" aria-label="Résultats de recherche" className="enter absolute left-0 right-0 top-10 z-40 overflow-hidden rounded-xl border border-stone-200 bg-surface p-1 shadow-pop">
-          {hits.length === 0 && <p className="px-3 py-5 text-center text-[13px] text-stone-500">Aucun résultat pour « {q} »</p>}
+          {hits.length === 0 && <p className="px-3 py-5 text-center text-[13px] text-stone-500">Aucun résultat pour «&nbsp;{q}&nbsp;»</p>}
           {hits.map((h, i) => {
             const Icon = HIT_ICON[h.type];
             return (
@@ -119,7 +119,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: () 
                   <span className="block truncate text-[13px] font-medium">{h.title}</span>
                   <span className="block truncate text-[12px] text-stone-500">{h.where}</span>
                 </span>
-                <span className="text-[11px] capitalize text-stone-500">{h.type}</span>
+                <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{h.type}</span>
               </button>
             );
           })}

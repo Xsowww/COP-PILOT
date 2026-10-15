@@ -24,6 +24,11 @@ export function formatBytes(bytes = 0): string {
     v /= 1024;
     i++;
   }
+  // 1023,99 Mo would round to « 1024 Mo »: that's « 1 Go ».
+  if (Number(v.toFixed(v < 10 ? 1 : 0)) >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
   return `${v.toFixed(v < 10 ? 1 : 0).replace(/\.0$/, '').replace('.', ',')} ${units[i]}`;
 }
 

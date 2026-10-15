@@ -4,6 +4,7 @@ import { Loader2, ShieldCheck, Smartphone } from 'lucide-react';
 import { useAuth, type MfaEnrollment } from '../store/auth';
 import { loadUserData, useWelcome } from '../store/session';
 import Logo from '../components/Logo';
+import { toast } from '../store/ui';
 
 /**
  * Second factor: the student scans a QR code with their phone camera (or an authenticator
@@ -130,7 +131,14 @@ export default function MfaPage() {
                     <>
                       <p className="mt-2 break-all rounded-md bg-stone-100 px-2 py-1.5 font-mono text-[12px] text-ink">{enrollment.secret}</p>
                       <div className="mt-2 flex gap-2">
-                        <button type="button" className="btn-secondary h-8" onClick={() => void navigator.clipboard?.writeText(enrollment.secret).then(() => setKeptKey(true))}>
+                        <button type="button" className="btn-secondary h-8" onClick={() => {
+                            const failed = () => toast('Copie impossible : télécharge la clé, ou recopie-la à la main.', 'error');
+                            if (!navigator.clipboard) return failed();
+                            navigator.clipboard.writeText(enrollment.secret).then(() => {
+                              setKeptKey(true);
+                              toast('Clé copiée. Colle-la dans un endroit sûr (gestionnaire de mots de passe, note privée).', 'success');
+                            }, failed);
+                          }}>
                           Copier
                         </button>
                         <button type="button" className="btn-secondary h-8" onClick={() => (downloadKey(enrollment.secret, user?.email ?? ''), setKeptKey(true))}>
