@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
@@ -82,6 +82,7 @@ function Showcase() {
 }
 
 type Mode = 'login' | 'register' | 'forgot' | 'reset';
+type Field = 'name' | 'email' | 'password' | 'code' | 'agreed' | 'age';
 
 const COPY: Record<Mode, { title: string; subtitle: string; submit: string }> = {
   login: { title: 'Connexion', subtitle: 'Retrouve ton espace là où tu l’as laissé.', submit: 'Se connecter' },
@@ -108,19 +109,35 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const needsEmail = mode !== 'reset';
   const needsPassword = mode !== 'forgot';
   const passwordRef = useRef<HTMLInputElement>(null);
+  // The field an error is about: the message goes right under it and the focus into it.
+  const [errField, setErrField] = useState<Field | null>(null);
+  const refs = useRef<Partial<Record<Field, HTMLInputElement | null>>>({});
+  const fail = (field: Field | null, message: string) => {
+    setError(message);
+    setErrField(field);
+    if (field) setTimeout(() => refs.current[field]?.focus(), 0);
+  };
+  // Reset link of an account with a phone paired: the new password also needs its code.
+  const [code, setCode] = useState('');
+  const [needsCode, setNeedsCode] = useState(false);
+  useEffect(() => {
+    if (mode === 'reset' && cloudEnabled) void useAuth.getState().resetNeedsCode().then(setNeedsCode);
+  }, [mode]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    setErrField(null);
     setInfo('');
-    if (isRegister && name.trim().length < 2) return setError('Ton prénom doit contenir au moins 2 caractères.');
-    if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return setError('Adresse e-mail invalide.');
+    if (isRegister && name.trim().length < 2) return fail('name', 'Ton prénom doit contenir au moins 2 caractères.');
+    if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return fail('email', email.trim() ? 'Adresse e-mail invalide.' : 'Entre ton adresse e-mail.');
     if ((isRegister || mode === 'reset') && (password.length < 8 || !/\p{L}/u.test(password) || !/\d/.test(password))) {
-      return setError('Le mot de passe doit contenir au moins 8 caractères, avec des lettres et des chiffres.');
+      return fail('password', 'Le mot de passe doit contenir au moins 8 caractères, avec des lettres et des chiffres.');
     }
-    if (isRegister && !agreed) return setError('Accepte les conditions d’utilisation pour créer ton compte.');
-    if (isRegister && !oldEnough) return setError('Kompaly est ouvert dès 15 ans. Avant, il faut l’accord d’un parent.');
-    if (mode === 'login' && !password) return setError('Entre ton mot de passe.');
+    if (mode === 'reset' && needsCode && !/^\d{6}$/.test(code.replace(/\s/g, ''))) return fail('code', 'Entre le code à 6 chiffres affiché sur ton téléphone.');
+    if (isRegister && !agreed) return fail('agreed', 'Accepte les conditions d’utilisation pour créer ton compte.');
+    if (isRegister && !oldEnough) return fail('age', 'Kompaly est ouvert dès 15 ans. Avant, il faut l’accord d’un parent.');
+    if (mode === 'login' && !password) return fail('password', 'Entre ton mot de passe.');
     setBusy(true);
     try {
       if (mode === 'forgot') {
@@ -129,7 +146,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         return;
       }
       if (mode === 'reset') {
-        await setNewPassword(password);
+        await setNewPassword(password, needsCode ? code : undefined);
         await loadUserData();
         navigate('/');
         return;
@@ -157,9 +174,10 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       navigate('/');
     } catch (err) {
       const message = (err as Error).message;
-      setError(message);
-      // The button was disabled while waiting, so the focus fell out of the form: back to the password.
-      if (needsPassword) setTimeout(() => passwordRef.current?.focus(), 0);
+      // The button was disabled while waiting, so the focus fell out of the form: back to the field at fault.
+      const field: Field | null = message.startsWith('Un compte existe') || message.startsWith("Confirme d'abord") ? 'email' : /\bcode\b/i.test(message) && mode === 'reset' ? 'code' : needsPassword ? 'password' : 'email';
+      if (field === 'code') setNeedsCode(true);
+      fail(field, message);
       if (message.startsWith("Confirme d'abord")) setCanResend(true);
     } finally {
       setBusy(false);
@@ -181,6 +199,14 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     }
   }
 
+  const invalid = (field: Field) => (error && errField === field ? { 'aria-invalid': true, 'aria-describedby': 'auth-error' } : {});
+  const errAt = (field: Field) =>
+    error && errField === field ? (
+      <span id="auth-error" role="alert" className="mt-1.5 block text-[12.5px] text-red-600">
+        {error}
+      </span>
+    ) : null;
+
   const copy = COPY[mode];
 
   return (
@@ -196,13 +222,15 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               {isRegister && (
                 <label className="block">
                   <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Prénom</span>
-                  <input className="field w-full" value={name} onChange={e => setName(e.target.value)} autoComplete="given-name" autoFocus />
+                  <input ref={el => { refs.current.name = el; }} {...invalid('name')} className="field w-full" value={name} onChange={e => setName(e.target.value)} autoComplete="given-name" autoFocus />
+                  {errAt('name')}
                 </label>
               )}
               {needsEmail && (
                 <label className="block">
                   <span className="mb-1.5 block text-[12px] font-medium text-stone-600">E-mail</span>
-                  <input className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" autoFocus={!isRegister} placeholder="prenom@universite.fr" />
+                  <input ref={el => { refs.current.email = el; }} {...invalid('email')} className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" autoFocus={!isRegister} placeholder="prenom@universite.fr" />
+                  {errAt('email')}
                 </label>
               )}
               {needsPassword && (
@@ -217,7 +245,11 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                   </span>
                   <span className="relative block">
                     <input
-                      ref={passwordRef}
+                      ref={el => {
+                        passwordRef.current = el;
+                        refs.current.password = el;
+                      }}
+                      {...invalid('password')}
                       className="field w-full pr-10"
                       type={show ? 'text' : 'password'}
                       value={password}
@@ -230,6 +262,27 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                       {show ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </span>
+                  {errAt('password')}
+                </label>
+              )}
+              {mode === 'reset' && needsCode && (
+                <label className="block">
+                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Code de ton application d’authentification</span>
+                  <input
+                    ref={el => {
+                      refs.current.code = el;
+                    }}
+                    {...invalid('code')}
+                    className="field w-full font-mono tracking-[0.3em]"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={7}
+                    value={code}
+                    onChange={e => setCode(e.target.value)}
+                    placeholder="123456"
+                  />
+                  <span className="mt-1 block text-[11.5px] text-stone-500">Ton compte est protégé par la double authentification : le code du téléphone est aussi demandé.</span>
+                  {errAt('code')}
                 </label>
               )}
             </div>
@@ -246,7 +299,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
 
             {isRegister && (
               <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
-                <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+                <input ref={el => { refs.current.agreed = el; }} {...invalid('agreed')} type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>
                   J’accepte les{' '}
                   <Link to="/conditions" target="_blank" className="font-medium text-ink underline decoration-stone-300 underline-offset-2">
@@ -262,12 +315,16 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             )}
             {isRegister && (
               <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
-                <input type="checkbox" checked={oldEnough} onChange={e => setOldEnough(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+                <input ref={el => { refs.current.age = el; }} {...invalid('age')} type="checkbox" checked={oldEnough} onChange={e => setOldEnough(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>J’ai 15 ans ou plus, ou l’accord d’un parent.</span>
               </label>
             )}
 
-            {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
+            {error && (errField === null || errField === 'agreed' || errField === 'age') && (
+              <p id="auth-error" role="alert" className="mt-3 text-[13px] text-red-600">
+                {error}
+              </p>
+            )}
             {info && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">{info}</p>}
             {canResend && cloudEnabled && (mode === 'login' || mode === 'register') && (
               <button type="button" onClick={() => void resend()} disabled={busy} className="mt-2 text-[13px] font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink disabled:opacity-50">

@@ -267,6 +267,8 @@ function LoadedEditor({ initial, onClose, readOnly }: { initial: GroupNote; onCl
           <input
             value={title}
             readOnly={readOnly}
+            // A note just created: its title is the first thing to type.
+            autoFocus={!readOnly && !title && !initial.content}
             placeholder="Sans titre"
             aria-label="Titre de la note"
             maxLength={200}

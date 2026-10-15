@@ -93,7 +93,10 @@ interface AuthState {
   deleteAccount: (password: string, beforeDelete?: () => Promise<void>) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resendConfirmation: (email: string) => Promise<void>;
-  setNewPassword: (password: string) => Promise<void>;
+  /** `code`: the authenticator code, needed when the account has a phone paired (always, online). */
+  setNewPassword: (password: string, code?: string) => Promise<void>;
+  /** On the reset page: the new password will need the phone's code. */
+  resetNeedsCode: () => Promise<boolean>;
 }
 
 // ── Local mode helpers ──────────────────────────────────────────────────────
@@ -142,7 +145,8 @@ function authMessage(e: AuthError | Error): string {
   if (code === 'weak_password' || msg.includes('password should')) return 'Mot de passe trop faible : au moins 8 caractères, avec lettres et chiffres.';
   if (code.startsWith('over_') || msg.includes('rate limit')) return 'Trop de tentatives, réessaie dans quelques minutes.';
   if (code === 'same_password') return "Le nouveau mot de passe doit être différent de l'ancien.";
-  if (code === 'session_not_found' || msg.includes('session missing') || code === 'insufficient_aal') return 'Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.';
+  if (code === 'insufficient_aal' || msg.includes('aal2')) return 'Entre aussi le code à 6 chiffres de ton application d’authentification.';
+  if (code === 'session_not_found' || msg.includes('session missing')) return 'Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.';
   if (msg.includes('fetch') || msg.includes('network')) return 'Connexion impossible, vérifie ton accès à internet.';
   return "Une erreur est survenue, réessaie dans un instant.";
 }
@@ -231,6 +235,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       const data = await cloud(
         supabase.auth.signUp({ email: mail, password, options: { data: { name: name.trim() }, emailRedirectTo: `${location.origin}/connexion` } }),
       ).finally(() => setTimeout(() => (ownSignIn = false), 1500));
+      // An address that already has an account gets a look-alike answer and no e-mail at all.
+      if (data.user && !data.user.identities?.length) throw new Error('Un compte existe déjà avec cet e-mail. Connecte-toi, ou choisis « Oublié ? » si tu n’as plus le mot de passe.');
       if (!data.session || !data.user) return null; // confirmation e-mail sent
       const user = fromSupabase(data.user);
       set({ user, mfaStep: 'setup' }); // the account is finished once the phone is paired
@@ -368,9 +374,22 @@ export const useAuth = create<AuthState>((set, get) => ({
     await cloud(supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: `${location.origin}/reinitialisation` }));
   },
 
-  async setNewPassword(password) {
+  async setNewPassword(password, code) {
     if (!supabase) throw new Error("La réinitialisation par e-mail n'est disponible qu'avec la version en ligne.");
+    // The e-mail link only proves the address: with a phone paired, Supabase also wants its code.
+    if (code) {
+      const { data } = await supabase.auth.mfa.listFactors();
+      const factor = data?.totp.find(f => f.status === 'verified');
+      if (factor) {
+        const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.replace(/\s/g, '') });
+        if (error) throw new Error(/rate|too many/i.test(error.message) ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Tape le code Kompaly affiché en ce moment sur ton téléphone.');
+      }
+    }
     await cloud(supabase.auth.updateUser({ password }));
+  },
+
+  async resetNeedsCode() {
+    return (await nextMfaStep()) === 'verify';
   },
 
   async startMfaSetup() {

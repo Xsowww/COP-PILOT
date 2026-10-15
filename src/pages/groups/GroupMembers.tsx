@@ -49,6 +49,8 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
     run(async () => {
       await setMemberRights(group.id, m.userId, role, canInvite);
       await useGroups.getState().refresh(group.id, ['members']);
+      const changed = role !== m.role ? `${m.name} est maintenant ${role === 'lecteur' ? 'lecteur' : 'éditeur'}` : `${m.name} ${canInvite ? 'peut maintenant' : 'ne peut plus'} inviter`;
+      toast(changed, 'success');
     });
 
   const leave = async () => {
