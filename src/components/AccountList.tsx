@@ -1,0 +1,56 @@
+import { useState } from 'react';
+import { KeyRound, X } from 'lucide-react';
+import { forgetAccount, needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
+import { relativeTime } from '../lib/utils';
+
+/**
+ * The accounts saved on this device (except `currentId`): a click opens one, the cross forgets it here
+ * (the account itself is not touched). `onPick` gets the account; the caller switches or asks for its password.
+ */
+export default function AccountList({ currentId, onPick, busy }: { currentId?: string; onPick: (a: SavedAccount) => void; busy?: string | null }) {
+  const [list, setList] = useState(() => savedAccounts().filter(a => a.id !== currentId));
+  if (!list.length) return null;
+  return (
+    <ul className="space-y-1.5">
+      {list.map(a => {
+        const locked = needsCredentials(a);
+        return (
+          <li key={a.id} className="group flex items-center gap-1 rounded-xl border border-stone-200 bg-surface pr-1 shadow-card transition-colors hover:border-stone-300">
+            <button type="button" disabled={!!busy} onClick={() => onPick(a)} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-2.5 text-left disabled:opacity-60">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-[14px] font-semibold text-stone-700" aria-hidden>
+                {(a.name || a.email).charAt(0).toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-medium">{a.name || a.email}</span>
+                <span className="block truncate text-[12px] text-stone-500">{a.email}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-1 text-[11.5px] text-stone-500">
+                {busy === a.id ? (
+                  'Ouverture…'
+                ) : locked ? (
+                  <>
+                    <KeyRound size={12} aria-hidden /> Mot de passe
+                  </>
+                ) : (
+                  relativeTime(new Date(a.lastActive).toISOString())
+                )}
+              </span>
+            </button>
+            <button
+              type="button"
+              className="icon-btn h-7 w-7 shrink-0 pointer-coarse:h-9 pointer-coarse:w-9"
+              title="Retirer de cet appareil"
+              aria-label={`Retirer le compte ${a.email} de cet appareil`}
+              onClick={() => {
+                forgetAccount(a.id);
+                setList(l => l.filter(x => x.id !== a.id));
+              }}
+            >
+              <X size={14} />
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  Timer, HardDrive, Smartphone, Keyboard, Briefcase, House,
+  Timer, HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus,
 } from 'lucide-react';
+import AccountList from '../../components/AccountList';
+import { needsCredentials, STALE_DAYS } from '../../lib/accounts';
 import { useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness, type PersonaKey } from '../../store/settings';
@@ -759,6 +761,8 @@ function AccountTab() {
   const [confirmPw, setConfirmPw] = useState('');
   const [deletePw, setDeletePw] = useState('');
   const [busy, setBusy] = useState(false);
+  const userId = useAuth(s => s.user?.id);
+  const [switching, setSwitching] = useState<string | null>(null);
 
   const onChange = async (e: FormEvent) => {
     e.preventDefault();
@@ -824,6 +828,29 @@ function AccountTab() {
             </button>
           </div>
         </form>
+      </Section>
+
+      <Section title="Comptes sur cet appareil">
+        <div className="space-y-3 px-5 py-4">
+          <p className="text-[12.5px] text-stone-500">
+            Un compte perso et un compte travail ? Ajoute-les ici pour passer de l’un à l’autre en un clic. Un compte inutilisé pendant {STALE_DAYS}&nbsp;jours redemande son mot de passe.
+          </p>
+          <AccountList
+            currentId={userId}
+            busy={switching}
+            onPick={a => {
+              if (needsCredentials(a)) return void useAuth.getState().addAccount(a.email);
+              setSwitching(a.id);
+              void useAuth.getState().switchAccount(a.id).then(r => {
+                setSwitching(null);
+                if (r === 'credentials') void useAuth.getState().addAccount(a.email);
+              });
+            }}
+          />
+          <button className="btn-secondary h-8" onClick={() => void useAuth.getState().addAccount()}>
+            <UserPlus size={14} /> Ajouter un compte
+          </button>
+        </div>
       </Section>
 
       <Section title="Session">

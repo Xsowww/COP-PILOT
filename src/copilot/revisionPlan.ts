@@ -74,8 +74,9 @@ const STOP = /^(?:pour|de|du|des|d|l|le|la|les|un|une|mon|ma|mes|ton|ta|tes|son|
  * The upcoming exam named by `subject` (id, words of its title, a day: « contrôle de maths du 10 novembre »),
  * or the next one when the subject names none. Undefined when nothing matches.
  */
-export function pickExam(subject: string, events: CalendarEvent[], today: string): CalendarEvent | undefined {
-  const exams = events.filter(e => e.category === 'examen');
+/** `withImportant`: outside studies, an event marked important is prepared for like a deadline. */
+export function pickExam(subject: string, events: CalendarEvent[], today: string, withImportant = false): CalendarEvent | undefined {
+  const exams = events.filter(e => e.category === 'examen' || (withImportant && e.important));
   const byId = exams.find(e => e.id === subject);
   if (byId) return byId;
   const upcoming = exams.filter(e => e.date >= today).sort(sortEvents);

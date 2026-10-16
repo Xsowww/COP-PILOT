@@ -152,6 +152,7 @@ export const TOOLS = [
         start: { type: 'string', description: 'HH:mm, optionnel' },
         end: { type: 'string', description: 'HH:mm, optionnel' },
         category: { type: 'string', enum: ['cours', 'examen', 'devoir', 'perso', 'sport'] },
+        important: { type: 'boolean', description: 'true si l’utilisateur dit que c’est important ou urgent' },
       },
       required: ['title', 'date'],
     },
@@ -161,7 +162,7 @@ export const TOOLS = [
     description: 'Modifie un événement existant (déplacer, renommer, marquer comme fait). Seuls les champs fournis changent.',
     input_schema: {
       type: 'object',
-      properties: { event_id: { type: 'string' }, title: { type: 'string' }, date: DATE, start: TIME, end: TIME, done: { type: 'boolean' } },
+      properties: { event_id: { type: 'string' }, title: { type: 'string' }, date: DATE, start: TIME, end: TIME, done: { type: 'boolean' }, important: { type: 'boolean' } },
       required: ['event_id'],
     },
   },

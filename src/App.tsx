@@ -87,10 +87,15 @@ export default function App() {
       .then(loadUserData)
       .finally(() => {
         setReady(true);
-        if (sessionStorage.getItem('cop-account-switched')) {
+        if (sessionStorage.getItem('cop-own-switch')) {
+          sessionStorage.removeItem('cop-own-switch');
           sessionStorage.removeItem('cop-account-switched');
           const name = useAuth.getState().user?.name;
-          toast(`Un autre compte s’est connecté dans un autre onglet${name ? ` : tu es maintenant sur le compte de ${name}` : ''}. Pour utiliser deux comptes en même temps, ouvre le second dans une fenêtre de navigation privée.`);
+          if (name) toast(`Tu es sur le compte de ${name}`, 'success');
+        } else if (sessionStorage.getItem('cop-account-switched')) {
+          sessionStorage.removeItem('cop-account-switched');
+          const name = useAuth.getState().user?.name;
+          toast(`Un autre compte s’est connecté dans un autre onglet${name ? ` : tu es maintenant sur le compte de ${name}` : ''}. Tu peux passer d’un compte à l’autre depuis le menu de ton profil.`);
         }
       });
   }, []);

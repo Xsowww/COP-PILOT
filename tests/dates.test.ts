@@ -69,3 +69,20 @@ describe('hasStarted', () => {
     expect(hasStarted({ date: '2026-10-15' }, now)).toBe(false);
   });
 });
+
+describe('parseQuickAdd : important', () => {
+  const base = new Date(2026, 9, 13, 10, 0);
+  it.each([
+    ['Rendre le dossier vendredi important', 'Rendre le dossier'],
+    ['Réunion urgente demain 10h', 'Réunion'],
+    ['Payer les impôts demain !', 'Payer les impôts'],
+    ['Dentiste mardi (très important)', 'Dentiste'],
+  ])('%s', (input, title) => {
+    const p = parseQuickAdd(input, base);
+    expect(p.important).toBe(true);
+    expect(p.title).toBe(title);
+  });
+  it('sans mot-clé : pas important', () => {
+    expect(parseQuickAdd('Sport demain 18h', base).important).toBeUndefined();
+  });
+});

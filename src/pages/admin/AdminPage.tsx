@@ -27,6 +27,8 @@ interface Stats {
   mfa_users: number;
   content: { notes: number; note_folders: number; events: number; events_done: number; files: number; folders: number; storage_bytes: number };
   events_by_category: Partial<Record<string, number>>;
+  /** Categories created by the users (migration 2026-10-16), grouped by name. */
+  custom_categories?: { label: string; events: number; users: number }[];
   days: { day: string; signups: number; created: number }[];
   accounts: Account[];
 }
@@ -163,7 +165,10 @@ export default function AdminPage() {
   const u = stats?.users;
   const c = stats?.content;
   const categories = (Object.keys(CATEGORIES) as BuiltinCategory[]).map(k => ({ key: k, n: stats?.events_by_category[k] ?? 0 }));
-  const catMax = Math.max(1, ...categories.map(x => x.n));
+  // « Autres » : the events in the categories users created themselves (ids « c-… »).
+  const others = Object.entries(stats?.events_by_category ?? {}).reduce((sum, [k, n]) => (k.startsWith('c-') ? sum + (n ?? 0) : sum), 0);
+  const customs = stats?.custom_categories;
+  const catMax = Math.max(1, others, ...categories.map(x => x.n));
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
@@ -239,6 +244,37 @@ export default function AdminPage() {
                     <span className="tabular text-right text-stone-600">{n}</span>
                   </div>
                 ))}
+                <div className="grid grid-cols-[90px_1fr_48px] items-center gap-3 text-[13px]">
+                  <span className="flex items-center gap-2 text-stone-600">
+                    <span className="h-2 w-2 rounded-full bg-stone-400" />
+                    Autres
+                  </span>
+                  <span className="h-3 overflow-hidden rounded-r-[4px] bg-stone-100">
+                    <span className="block h-full rounded-r-[4px] bg-stone-400" style={{ width: `${(others / catMax) * 100}%` }} />
+                  </span>
+                  <span className="tabular text-right text-stone-600">{others}</span>
+                </div>
+              </div>
+              <div className="mt-4 border-t border-stone-100 pt-3">
+                <h3 className="text-[12px] font-medium text-stone-600">
+                  Autres : catégories créées par les utilisateurs{customs ? ` (${customs.length})` : ''}
+                </h3>
+                {!customs ? (
+                  <p className="mt-1 text-[12px] text-stone-500">Le détail s’affichera une fois la migration 2026-10-16 appliquée sur Supabase.</p>
+                ) : customs.length === 0 ? (
+                  <p className="mt-1 text-[12px] text-stone-500">Aucune catégorie personnelle pour l’instant.</p>
+                ) : (
+                  <ul className="mt-2 grid gap-x-6 gap-y-1 text-[13px] sm:grid-cols-2">
+                    {customs.map(c => (
+                      <li key={c.label} className="flex items-baseline gap-2">
+                        <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                        <span className="tabular shrink-0 text-[12px] text-stone-500">
+                          {c.events} événement{c.events > 1 ? 's' : ''} · {c.users} compte{c.users > 1 ? 's' : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </section>
 

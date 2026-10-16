@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { uid, nowIso } from '../lib/utils';
 import { setStorageUser } from '../lib/userStorage';
 import { flushNow, stopSync, updateCloudProfile } from '../lib/cloudSync';
-import { supabase, checkPassword } from '../lib/supabase';
+import { supabase, checkPassword, remembered, authStorageKey } from '../lib/supabase';
+import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, needsCredentials } from '../lib/accounts';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
 // Two modes:
@@ -86,6 +87,11 @@ interface AuthState {
   register: (name: string, email: string, password: string) => Promise<User | null>;
   login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
+  /** Opens another account saved on this device; 'credentials' when its session is gone (unused too long, revoked…). */
+  switchAccount: (id: string) => Promise<'credentials' | void>;
+  /** Keeps the current account on this device and opens the login page for another one. */
+  /** Leaves this account open on the device and goes to the sign-in page (`email`: the saved account to sign in to again). */
+  addAccount: (email?: string) => Promise<void>;
   updateName: (name: string) => Promise<void>;
   verifyPassword: (password: string) => Promise<void>;
   changePassword: (current: string, next: string) => Promise<void>;
@@ -111,6 +117,7 @@ function restoreLocalSession(): User | null {
   const found = id ? readUsers().find(u => u.id === id) : undefined;
   if (!found) return null;
   setStorageUser(found.id);
+  rememberAccount({ id: found.id, email: found.email, name: found.name }); // in use: not stale
   return publicUser(found);
 }
 
@@ -172,6 +179,18 @@ async function nextMfaStep(): Promise<MfaStep> {
   return 'setup'; // every online account is protected by an authenticator app
 }
 
+/** Saves the account in use on this device (with its session in cloud mode, if « Rester connecté »). */
+async function rememberCurrent(user: User | null) {
+  if (!user) return;
+  if (!supabase) return rememberAccount({ id: user.id, email: user.email, name: user.name });
+  if (!remembered()) return;
+  const { data } = await supabase.auth.getSession();
+  const s = data.session;
+  if (s && s.user.id === user.id) rememberAccount({ id: user.id, email: user.email, name: user.name, session: { access_token: s.access_token, refresh_token: s.refresh_token } });
+}
+
+const OWN_SWITCH = 'cop-own-switch';
+
 /** True while this tab itself is signing in (its own SIGNED_IN event must not reload it). */
 let ownSignIn = false;
 
@@ -186,13 +205,15 @@ export const useAuth = create<AuthState>((set, get) => ({
     const mfaStep = user ? await nextMfaStep() : null;
     setStorageUser(user && !mfaStep ? user.id : null);
     set({ user, mfaStep });
+    if (user && !mfaStep) void rememberCurrent(user);
     // All tabs of a browser share one Supabase session: signing in with another account in a
     // second tab silently switches this tab too. Reload so the screen matches the real account
     // (otherwise this tab would show, and send, one account's data while acting as another).
     const switched = (id: string | undefined) => {
       const shown = get().user?.id;
       if (shown && id && id !== shown) {
-        sessionStorage.setItem('cop-account-switched', '1');
+        // Switched here on purpose (account menu): no « another tab » warning.
+        if (!sessionStorage.getItem(OWN_SWITCH)) sessionStorage.setItem('cop-account-switched', '1');
         location.reload();
         return true;
       }
@@ -225,6 +246,8 @@ export const useAuth = create<AuthState>((set, get) => ({
         set({ user: null, mfaStep: null });
       }
       if (event === 'USER_UPDATED' && session) set({ user: fromSupabase(session.user) });
+      // New tokens every hour: the saved copy must stay the latest one (an older one no longer works).
+      if (event === 'TOKEN_REFRESHED' && session && remembered()) updateSession(session.user.id, { access_token: session.access_token, refresh_token: session.refresh_token });
     });
   },
 
@@ -250,6 +273,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const user = publicUser(stored);
     startSession(user);
     set({ user });
+    void rememberCurrent(user);
     return user;
   },
 
@@ -269,11 +293,14 @@ export const useAuth = create<AuthState>((set, get) => ({
     const user = publicUser(found);
     startSession(user);
     set({ user });
+    void rememberCurrent(user);
     return user;
   },
 
   async logout() {
     const userId = get().user?.id;
+    // « Se déconnecter » : still offered on the sign-in page, but with its password only.
+    if (userId) lockAccount(userId);
     let sent = false;
     if (supabase) {
       sent = await flushNow().catch(() => false);
@@ -302,6 +329,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       writeUsers(readUsers().map(u => (u.id === user.id ? { ...u, name } : u)));
     }
     set({ user: { ...user, name } });
+    void rememberCurrent({ ...user, name });
   },
 
   async verifyPassword(password) {
@@ -360,8 +388,52 @@ export const useAuth = create<AuthState>((set, get) => ({
       localStorage.removeItem(SESSION_KEY);
     }
     clearLocalCache(user.id);
+    forgetAccount(user.id);
     setStorageUser(null);
     set({ user: null });
+  },
+
+  async switchAccount(id) {
+    const current = get().user;
+    const target = savedAccount(id);
+    if (!target) return 'credentials';
+    if (supabase) {
+      if (!target.session || needsCredentials(target)) return 'credentials';
+      await flushNow().catch(() => false);
+      await rememberCurrent(current);
+      stopSync();
+      sessionStorage.setItem(OWN_SWITCH, '1');
+      ownSignIn = true;
+      const { data, error } = await supabase.auth.setSession(target.session);
+      if (error || !data.session) {
+        sessionStorage.removeItem(OWN_SWITCH);
+        rememberAccount({ id: target.id, email: target.email, name: target.name, session: null });
+        return 'credentials';
+      }
+    } else {
+      // Local accounts: no session to resume once unused for long; the password again.
+      if (!readUsers().some(u => u.id === id) || needsCredentials(target)) return 'credentials';
+      localStorage.setItem(SESSION_KEY, id);
+      sessionStorage.setItem(OWN_SWITCH, '1');
+    }
+    location.assign('/');
+  },
+
+  async addAccount(email) {
+    const current = get().user;
+    if (supabase) {
+      await flushNow().catch(() => false);
+      await rememberCurrent(current);
+      stopSync();
+      // Not signOut(): it would end this account's session for good. Only this device forgets which one is open.
+      await supabase.auth.stopAutoRefresh();
+      localStorage.removeItem(authStorageKey);
+      sessionStorage.removeItem(authStorageKey);
+    } else {
+      void rememberCurrent(current);
+      localStorage.removeItem(SESSION_KEY);
+    }
+    location.assign(`/connexion?ajout=1${email ? `&email=${encodeURIComponent(email)}` : ''}`);
   },
 
   async resendConfirmation(email) {
@@ -468,6 +540,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const user = get().user;
     if (user) setStorageUser(user.id);
     set({ mfaStep: null });
+    void rememberCurrent(user); // fully signed in: saved for quick switching
   },
 
   async resetMfa() {

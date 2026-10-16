@@ -1,10 +1,10 @@
 import { useToday } from '../../lib/useToday';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { trashEvent } from '../../lib/trash';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp } from 'lucide-react';
-import { useCalendar, catOf, allCategories, guessCategory, isDeliverable, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp } from 'lucide-react';
+import { useCalendar, catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
@@ -86,10 +86,13 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
         </button>
         <button className="min-w-0 flex-1 text-left pointer-coarse:py-2" onClick={onEdit}>
-          <p className={cx('text-[14px] font-medium leading-snug [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>{ev.title}</p>
+          <p className={cx('text-[14px] font-medium leading-snug [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>
+            {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label="Important" />}
+            {ev.title}
+          </p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
-            {ev.category === 'examen' && !ev.done && ` · ${countdownLabel(ev.date)}`}
+            {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}
           </p>
           {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
         </button>
@@ -111,13 +114,108 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
 }
 
 
+/**
+ * « Filtrer » : everything is shown by default; ticking categories (or « Importants ») shows only those.
+ * A popover of real checkboxes (keyboard, screen readers), closed by Échap or a click outside.
+ */
+function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportant, onReset, onManage }: {
+  categories: EventCategory[];
+  shown: Set<EventCategory>;
+  importantOnly: boolean;
+  onToggle: (k: EventCategory) => void;
+  onImportant: () => void;
+  onReset: () => void;
+  onManage: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const count = shown.size + (importantOnly ? 1 : 0);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent | TouchEvent) => !rootRef.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      setOpen(false);
+      btnRef.current?.focus();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('touchstart', onDown);
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('touchstart', onDown);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  }, [open]);
+  const box = 'h-4 w-4 shrink-0 accent-[var(--color-ink)]';
+  const row = 'flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md px-2 text-[13px] hover:bg-stone-50';
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        aria-controls="filtre-calendrier"
+        className={cx('btn-secondary h-8 px-2.5', count > 0 && 'border-ink/40 text-ink')}
+        title="Filtrer les événements affichés"
+      >
+        <ListFilter size={15} />
+        <span className="max-sm:sr-only">Filtrer</span>
+        {count > 0 && <span className="tabular rounded-full bg-ink px-1.5 text-[11px] leading-[18px] text-paper">{count}</span>}
+      </button>
+      {open && (
+        <div id="filtre-calendrier" role="group" aria-label="Filtrer les événements" className="pop absolute right-0 top-10 z-[60] w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop">
+          <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{count ? 'Seuls les éléments cochés sont affichés.' : 'Tout est affiché. Coche pour n’afficher que certains éléments.'}</p>
+          <label className={row}>
+            <input type="checkbox" className={box} checked={importantOnly} onChange={onImportant} />
+            <Flag size={13} className="shrink-0 fill-amber-500 text-amber-500" />
+            Importants
+          </label>
+          <div className="my-1 h-px bg-stone-100" />
+          {categories.map(k => {
+            const c = catOf(k);
+            return (
+              <label key={k} className={row}>
+                <input type="checkbox" className={box} checked={shown.has(k)} onChange={() => onToggle(k)} />
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: c.color }} />
+                <span className="min-w-0 truncate">{c.label}</span>
+              </label>
+            );
+          })}
+          <div className="mt-1 flex items-center gap-1 border-t border-stone-100 pt-2">
+            <button type="button" className="btn-ghost h-8 px-2 text-[12px]" disabled={!count} onClick={onReset}>
+              Tout afficher
+            </button>
+            <button
+              type="button"
+              className="btn-ghost ml-auto h-8 px-2 text-[12px]"
+              onClick={() => {
+                setOpen(false);
+                onManage();
+              }}
+            >
+              Gérer les catégories
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
   const events = useCalendar(s => s.events);
   const [selected, setSelected] = useState(() => validKey(params.get('jour')) ?? todayKey());
   const [mode, setModeState] = useState<Mode>(savedMode);
   const [quick, setQuick] = useState('');
-  const [hidden, setHidden] = useState<Set<EventCategory>>(new Set());
+  // Filter: nothing ticked shows everything; ticked categories (and/or « Importants ») show only those.
+  const [shown, setShown] = useState<Set<EventCategory>>(new Set());
+  const [importantOnly, setImportantOnly] = useState(false);
+  const filtering = shown.size > 0 || importantOnly;
   const custom = useSettings(s => s.customCategories);
   const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
   const wide = useWide();
@@ -158,7 +256,8 @@ export default function CalendarPage() {
     if (jour) setParams({});
   };
 
-  const visible = useMemo(() => events.filter(e => !hidden.has(e.category)), [events, hidden]);
+  const passes = useCallback((e: Pick<CalendarEvent, 'category' | 'important'>) => (shown.size === 0 || shown.has(e.category)) && (!importantOnly || !!e.important), [shown, importantOnly]);
+  const visible = useMemo(() => events.filter(passes), [events, passes]);
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
     for (const e of [...visible].sort(sortEvents)) m.set(e.date, [...(m.get(e.date) ?? []), e]);
@@ -176,15 +275,12 @@ export default function CalendarPage() {
   // The form, with what the sentence already gives (« demain 14h » has a day and an hour but no title).
   const openForm = () => setForm({ date: parsed?.date ?? selected, start: parsed?.start ?? undefined, end: parsed?.end ?? undefined, fromQuick: !!quick.trim() });
 
-  /** After an event is saved: show its day, and its category if it was hidden (it would seem not to be there). */
-  const showSaved = (ev: { date: string; category: EventCategory }) => {
+  /** After an event is saved: show its day, and clear the filter if it hid it (it would seem not to be there). */
+  const showSaved = (ev: { date: string; category: EventCategory; important?: boolean }) => {
     selectDay(ev.date);
-    if (hidden.has(ev.category)) {
-      setHidden(s => {
-        const n = new Set(s);
-        n.delete(ev.category);
-        return n;
-      });
+    if (!passes(ev)) {
+      setShown(new Set());
+      setImportantOnly(false);
     }
   };
 
@@ -193,9 +289,9 @@ export default function CalendarPage() {
     if (!parsed) return;
     if (!parsed.title) return openForm();
     const date = parsed.date ?? selected;
-    useCalendar.getState().add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat! });
+    useCalendar.getState().add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
     setQuick('');
-    showSaved({ date, category: parsedCat! });
+    showSaved({ date, category: parsedCat!, important: parsed.important });
     toast(
       parsed.weekly ? `Ajouté pour ${fmt(fromKey(date), 'EEEE d MMMM')}, seulement celui-ci : la répétition chaque semaine n’existe pas encore.` : `Ajouté : ${parsed.title}`,
       'success',
@@ -260,10 +356,11 @@ export default function CalendarPage() {
 
   // Same filter as the calendar (the category chips sit in this block).
   // An exam of today already over (its end, else its start, passed) is no longer « à venir », as on the home page.
-  const isUpcomingExam = (e: CalendarEvent) => e.category === 'examen' && !e.done && !isOver(e);
+  // Exams and events marked important (they count as big days too).
+  const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !e.done && !isOver(e);
   const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14;
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
-  const upcomingHidden = hidden.size > 0 && events.some(e => hidden.has(e.category) && (isUpcomingExam(e) || isHomeworkSoon(e)));
+  const upcomingHidden = filtering && events.some(e => !passes(e) && (isUpcomingExam(e) || isHomeworkSoon(e)));
   const allUpcomingExams = visible.filter(isUpcomingExam).sort(sortEvents);
   const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
   const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
@@ -314,6 +411,25 @@ export default function CalendarPage() {
               </button>
             ))}
           </div>
+          <CalendarFilter
+            categories={allCategories(custom)}
+            shown={shown}
+            importantOnly={importantOnly}
+            onToggle={k =>
+              setShown(prev => {
+                const n = new Set(prev);
+                if (n.has(k)) n.delete(k);
+                else n.add(k);
+                return n;
+              })
+            }
+            onImportant={() => setImportantOnly(v => !v)}
+            onReset={() => {
+              setShown(new Set());
+              setImportantOnly(false);
+            }}
+            onManage={() => setManaging(true)}
+          />
           {/* Together: on a tablet the header wraps, and the export icon was left alone on a second line. */}
           <div className="flex items-center gap-1">
           <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title={`Importer un ${words.timetable} (.ics)`} aria-label={`Importer un ${words.timetable} (.ics)`}>
@@ -366,6 +482,14 @@ export default function CalendarPage() {
               )}
               <span>·</span>
               <span style={{ color: catOf(parsedCat).text }}>{catOf(parsedCat).label}</span>
+              {parsed.important && (
+                <>
+                  <span>·</span>
+                  <span className="flex items-center gap-1 font-medium text-amber-700 dark:text-amber-400">
+                    <Flag size={11} className="fill-current" /> Important
+                  </span>
+                </>
+              )}
               {parsed.weekly && <span className="w-full text-stone-500">Seulement celui-ci&nbsp;: la répétition chaque semaine n’existe pas encore.</span>}
             </div>
           )}
@@ -491,7 +615,7 @@ export default function CalendarPage() {
                   onCreate={(start, end) => setForm({ date: selected, start, end })}
                 />
               ) : dayEvents.length === 0 ? (
-                <p className="py-8 text-center text-[13px] text-stone-500">{events.some(e => e.date === selected) ? 'Rien à afficher : des catégories sont masquées.' : selected === today ? 'Rien de prévu aujourd’hui.' : 'Rien de prévu ce jour-là.'}</p>
+                <p className="py-8 text-center text-[13px] text-stone-500">{events.some(e => e.date === selected) ? 'Rien à afficher avec ce filtre.' : selected === today ? 'Rien de prévu aujourd’hui.' : 'Rien de prévu ce jour-là.'}</p>
               ) : (
                 <div className="space-y-2">
                   {dayEvents.map(ev => (
@@ -508,7 +632,7 @@ export default function CalendarPage() {
             </h2>
             {upcomingExams.length === 0 && homework.length === 0 ? (
               <p className="py-1 text-[13px] text-stone-500">
-                {upcomingHidden ? 'Rien à afficher : des catégories sont masquées.' : words.noUpcoming}
+                {upcomingHidden ? 'Rien à afficher avec ce filtre.' : words.noUpcoming}
               </p>
             ) : (
               <ul className="-mx-1.5">
@@ -558,38 +682,6 @@ export default function CalendarPage() {
               </ul>
             )}
 
-            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-stone-100 pt-3" role="group" aria-label="Catégories affichées">
-              {allCategories(custom).map(k => {
-                const c = catOf(k);
-                const off = hidden.has(k);
-                return (
-                  <button
-                    key={k}
-                    aria-pressed={!off}
-                    title={off ? `Afficher : ${c.label}` : `Masquer : ${c.label}`}
-                    onClick={() =>
-                      setHidden(s => {
-                        const n = new Set(s);
-                        if (n.has(k)) n.delete(k);
-                        else n.add(k);
-                        return n;
-                      })
-                    }
-                    className={cx('flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] transition-colors pointer-coarse:h-9', off ? 'border-dashed border-stone-200 text-stone-500 hover:text-ink' : 'border-stone-200 bg-surface text-ink hover:bg-stone-50')}
-                  >
-                    <span className="h-2 w-2 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: c.color, background: off ? 'transparent' : c.color }} />
-                    {c.label}
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => setManaging(true)}
-                className="flex h-7 items-center gap-1 rounded-full border border-dashed border-stone-300 px-2.5 text-[12px] text-stone-500 transition-colors hover:border-stone-400 hover:text-ink pointer-coarse:h-9"
-              >
-                <Plus size={13} /> Catégorie
-              </button>
-            </div>
           </aside>
         </div>
       </div>

@@ -2,7 +2,7 @@
 // leans out of the screen edge to react or to suggest something useful.
 
 import { addDays } from 'date-fns';
-import { useCalendar, isDeliverable, sortEvents, type CalendarEvent } from '../store/calendar';
+import { useCalendar, isBigEvent, isDeliverable, sortEvents, type CalendarEvent } from '../store/calendar';
 import { useDrive } from '../store/drive';
 import { useNotes } from '../store/notes';
 import { useCopilot, type Bubble, type CopilotOffer } from '../store/copilot';
@@ -77,6 +77,8 @@ async function nudge(n: Nudge) {
 const when = (e: CalendarEvent) => `${fmt(fromKey(e.date), 'EEEE d MMMM')}${e.start ? ` à ${e.start.replace(':', 'h')}` : ''}`;
 
 const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
+/** The big days Kompaly helps prepare for: exams in studies; deadlines, « grands jours » and important events elsewhere. */
+const big = (e: CalendarEvent) => (studying() ? e.category === 'examen' : isBigEvent(e));
 
 // Work and personal accounts: a deadline or a big day is not revised for, only time blocked to get ready.
 const examOffers = (e: CalendarEvent): CopilotOffer[] | undefined =>
@@ -112,7 +114,7 @@ function bigEventFallback(e: CalendarEvent, d: number) {
 
 function onEventAdded(e: CalendarEvent) {
   if (e.title.startsWith('Révision · ') || e.title.startsWith('Préparation · ')) return; // created by Kompaly himself
-  if (e.category === 'examen') {
+  if (big(e)) {
     const d = daysUntil(e.date);
     if (hasStarted(e)) return; // added after the fact (or already under way) (« Exam hier », « Partiel aujourd'hui 8h » at 20h): nothing left to prepare
     void nudge({
@@ -137,7 +139,7 @@ function onEventAdded(e: CalendarEvent) {
 
 function onEventDone(e: CalendarEvent) {
   const today = useCalendar.getState().events.filter(x => x.date === todayKey());
-  if (e.category === 'examen' && daysUntil(e.date) <= 0) {
+  if (big(e) && daysUntil(e.date) <= 0) {
     void nudge({
       key: `exam-done:${e.id}`,
       every: 365 * DAY,
@@ -195,7 +197,7 @@ export function periodicNudges(now = new Date()): Nudge[] {
   }
 
   // Exams within 6 days and no revision plan yet
-  for (const exam of events.filter(e => e.category === 'examen' && !e.done && daysUntil(e.date) >= 0 && daysUntil(e.date) <= 6 && !hasRevisionPlan(e))) {
+  for (const exam of events.filter(e => big(e) && !e.done && daysUntil(e.date) >= 0 && daysUntil(e.date) <= 6 && !hasRevisionPlan(e))) {
     const d = daysUntil(exam.date);
     out.push({
       key: `exam-soon:${exam.id}`,
@@ -242,7 +244,7 @@ export function periodicNudges(now = new Date()): Nudge[] {
   }
 
   // Evening before an exam
-  const examTomorrow = events.find(e => e.category === 'examen' && e.date === tomorrow);
+  const examTomorrow = events.find(e => big(e) && e.date === tomorrow);
   if (examTomorrow && now.getHours() >= 21) {
     out.push({
       key: `eve:${examTomorrow.id}`,
@@ -298,7 +300,7 @@ function morningBrief(): boolean {
   const todays = events.filter(e => e.date === today).sort(sortEvents);
   const todos = useTodos.getState().todos.filter(t => !t.done);
   const dueTodos = todos.filter(t => t.due && t.due <= today);
-  const nextExam = events.filter(e => e.category === 'examen' && !e.done && e.date >= today).sort(sortEvents)[0];
+  const nextExam = events.filter(e => big(e) && !e.done && e.date >= today).sort(sortEvents)[0];
   // Discreet mode: only when there is something worth saying.
   if (settings.chattiness === 'calme' && !todays.length && !dueTodos.length && !(nextExam && daysUntil(nextExam.date) <= 7)) return false;
 
@@ -363,7 +365,7 @@ function weeklyReview(): boolean {
   const nFrom = toKey(addDays(ws, 7));
   const nTo = toKey(addDays(ws, 13));
   const next = events.filter(e => e.date >= nFrom && e.date <= nTo);
-  const nextExams = next.filter(e => e.category === 'examen');
+  const nextExams = next.filter(e => big(e));
   // Discreet mode: only when there is something to act on (an exam next week, something late).
   const late = events.some(e => isDeliverable(e) && !e.done && e.date < toKey(now)) || useTodos.getState().todos.some(t => !t.done && t.due && t.due < toKey(now));
   if (settings.chattiness === 'calme' && !nextExams.length && !late) return false;
@@ -414,7 +416,7 @@ function greet() {
   const name = useAuth.getState().user?.name ?? '';
   const events = useCalendar.getState().events;
   const today = events.filter(e => e.date === todayKey()).sort(sortEvents);
-  const nextExam = events.filter(e => e.category === 'examen' && !e.done && e.date >= todayKey()).sort(sortEvents)[0];
+  const nextExam = events.filter(e => big(e) && !e.done && e.date >= todayKey()).sort(sortEvents)[0];
   const h = new Date().getHours();
   const hello = h < 5 ? `Encore debout, ${name} ?` : h < 12 ? `Salut ${name} !` : h < 18 ? `Hey ${name}.` : `Bonsoir ${name}.`;
   const fallback = today.length

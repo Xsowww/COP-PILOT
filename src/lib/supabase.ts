@@ -37,6 +37,12 @@ export function setRememberMe(on: boolean) {
     /* storage blocked: the default (kept) applies */
   }
 }
+/** True when the session is kept on this device (« Rester connecté » ticked). */
+export const remembered = keep;
+
+/** Where Supabase keeps the current session (its default key): emptied to add another account without signing out. */
+export const authStorageKey = url ? `sb-${new URL(url).hostname.split('.')[0]}-auth-token` : '';
+
 const authStorage = {
   getItem: (k: string) => (keep() ? localStorage : sessionStorage).getItem(k),
   setItem: (k: string, v: string) => {

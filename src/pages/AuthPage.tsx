@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
+import AccountList from '../components/AccountList';
+import { needsCredentials, savedAccounts, STALE_HINT, type SavedAccount } from '../lib/accounts';
 import { toast } from '../store/ui';
 import { loadUserData, markLocalWelcome } from '../store/session';
 import { cloudEnabled, linkError, setRememberMe } from '../lib/supabase';
@@ -43,29 +45,29 @@ function Showcase() {
           </div>
           <div className="mt-3 space-y-1.5">
             <div className="flex items-center gap-2 rounded-md bg-stone-50 px-2 py-1.5 text-[12px]">
-              <span className="h-3 w-0.5 rounded-full bg-[#3b6fd8]" /> Cours de maths <span className="ml-auto tabular text-stone-500">09:00</span>
+              <span className="h-3 w-0.5 rounded-full bg-[#3b6fd8]" /> Rendez-vous chez le dentiste <span className="ml-auto tabular text-stone-500">09:00</span>
             </div>
             <div className="flex items-center gap-2 rounded-md bg-stone-50 px-2 py-1.5 text-[12px]">
-              <span className="h-3 w-0.5 rounded-full bg-[#d48a17]" /> Rendre le TP <span className="ml-auto tabular text-stone-500">18:00</span>
+              <span className="h-3 w-0.5 rounded-full bg-[#d48a17]" /> Envoyer le dossier <span className="ml-auto tabular text-stone-500">18:00</span>
             </div>
           </div>
         </div>
         <div className="card col-span-2 flex flex-col p-4">
-          <p className="eyebrow">Prochain examen</p>
+          <p className="eyebrow">Prochain grand jour</p>
           <p className="tabular mt-auto text-[34px] font-semibold leading-none tracking-tight">J-4</p>
-          <p className="mt-1.5 text-[12px] text-stone-500">Partiel d’anglais</p>
+          <p className="mt-1.5 text-[12px] text-stone-500">Présentation du projet</p>
         </div>
         <div className="card col-span-2 flex items-center gap-2.5 p-3">
           <FileIcon category="folder" size={30} />
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-medium">Semestre 1</p>
+            <p className="truncate text-[12px] font-medium">Projets 2026</p>
             <p className="text-[11px] text-stone-500">24 fichiers</p>
           </div>
         </div>
         <div className="card col-span-3 flex items-center gap-2.5 p-3">
           <FileIcon category="pdf" size={30} />
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-medium">Chapitre 4 — Thermodynamique.pdf</p>
+            <p className="truncate text-[12px] font-medium">Devis — Rénovation cuisine.pdf</p>
             <p className="text-[11px] text-stone-500">Modifié hier</p>
           </div>
         </div>
@@ -74,7 +76,7 @@ function Showcase() {
       {/* Kompaly peeking from the edge, under the preview (never over it) */}
       <div className="-mr-14 mt-6 flex items-center justify-end gap-1">
         <div className="pop mb-6 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop" style={{ animationDelay: '600ms' }}>
-          Psst. Ton partiel est dans 4&nbsp;jours, on cale des révisions&nbsp;?
+          Psst. Ta présentation est dans 4&nbsp;jours, on bloque du temps pour la préparer&nbsp;?
         </div>
         <Character pose="peek" look={{ x: -0.9, y: -0.2 }} mood="happy" size={104} />
       </div>
@@ -96,14 +98,18 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate();
   const { login, register, requestPasswordReset, setNewPassword, resendConfirmation } = useAuth.getState();
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  // « Ajouter un compte » for a saved account whose session ended: its e-mail is already known.
+  const [askedEmail] = useState(() => (mode === 'login' ? new URLSearchParams(location.search).get('email') ?? '' : ''));
+  const [email, setEmail] = useState(askedEmail);
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [oldEnough, setOldEnough] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState(mode === 'login' ? (linkError ?? '') : '');
-  const [info, setInfo] = useState('');
+  const [info, setInfo] = useState(askedEmail ? 'La session de ce compte a expiré : entre de nouveau ton mot de passe.' : '');
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [hasSaved] = useState(() => savedAccounts().length > 0);
   const [canResend, setCanResend] = useState(mode === 'login' && !!linkError);
   const [busy, setBusy] = useState(false);
   const isRegister = mode === 'register';
@@ -210,6 +216,27 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     ) : null;
 
   const copy = COPY[mode];
+  const adding = mode === 'login' && new URLSearchParams(location.search).has('ajout');
+
+  // A saved account: opened with a click, or its e-mail filled in when the password is needed again.
+  const pick = async (a: SavedAccount) => {
+    const askPassword = (msg: string) => {
+      setEmail(a.email);
+      setPassword('');
+      setError('');
+      setInfo(msg);
+      setTimeout(() => passwordRef.current?.focus(), 0);
+    };
+    if (needsCredentials(a)) return askPassword(STALE_HINT);
+    setSwitching(a.id);
+    try {
+      if ((await useAuth.getState().switchAccount(a.id)) === 'credentials') askPassword('La session de ce compte a expiré : entre de nouveau ton mot de passe.');
+    } catch {
+      askPassword('Impossible d’ouvrir ce compte directement : entre ton mot de passe.');
+    } finally {
+      setSwitching(null);
+    }
+  };
 
   return (
     <div className="flex h-full overflow-y-auto">
@@ -217,8 +244,22 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         <Logo />
         <div className="flex flex-1 items-center justify-center py-10">
           <form onSubmit={onSubmit} noValidate className="enter w-full max-w-[340px]">
-            <h1 className="text-[22px] font-semibold tracking-[-0.015em]">{copy.title}</h1>
-            <p className="mt-1 text-[13px] text-stone-500">{copy.subtitle}</p>
+            <h1 className="text-[22px] font-semibold tracking-[-0.015em]">{adding ? 'Ajouter un compte' : copy.title}</h1>
+            <p className="mt-1 text-[13px] text-stone-500">{adding ? 'Connecte-toi à un autre compte : tu pourras passer de l’un à l’autre en un clic.' : copy.subtitle}</p>
+
+            {mode === 'login' && hasSaved && (
+              <section aria-labelledby="comptes-appareil" className="mt-6">
+                <h2 id="comptes-appareil" className="eyebrow mb-2">
+                  Comptes sur cet appareil
+                </h2>
+                <AccountList onPick={a => void pick(a)} busy={switching} />
+                <p className="mt-5 flex items-center gap-3 text-[12px] text-stone-500">
+                  <span className="h-px flex-1 bg-stone-200" />
+                  ou un autre compte
+                  <span className="h-px flex-1 bg-stone-200" />
+                </p>
+              </section>
+            )}
 
             <div className="mt-7 space-y-3.5">
               {isRegister && (
@@ -231,7 +272,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               {needsEmail && (
                 <label className="block">
                   <span className="mb-1.5 block text-[12px] font-medium text-stone-600">E-mail</span>
-                  <input ref={el => { refs.current.email = el; }} {...invalid('email')} className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" autoFocus={!isRegister} placeholder="prenom@universite.fr" />
+                  <input ref={el => { refs.current.email = el; }} {...invalid('email')} className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" autoFocus={!isRegister && !askedEmail} placeholder="prenom@exemple.fr" />
                   {errAt('email')}
                 </label>
               )}
@@ -260,7 +301,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                       onChange={e => setPassword(e.target.value)}
                       autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                       placeholder={mode === 'login' ? undefined : '8 caractères, lettres et chiffres'}
-                      autoFocus={mode === 'reset'}
+                      autoFocus={mode === 'reset' || !!askedEmail}
                     />
                     <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-1.5 text-stone-500 hover:text-stone-700 pointer-coarse:h-9 pointer-coarse:w-9" title={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
                       {show ? <EyeOff size={15} /> : <Eye size={15} />}

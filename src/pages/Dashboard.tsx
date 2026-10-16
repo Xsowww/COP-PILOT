@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
-import { ArrowUpRight, CalendarDays, Check, Plus } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Check, Flag, Plus } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
-import { useCalendar, catOf, sortEvents, type CalendarEvent } from '../store/calendar';
+import { useCalendar, catOf, isBigEvent, sortEvents, type CalendarEvent } from '../store/calendar';
 import { fmt, toKey, fromKey, weekStart, daysUntil, hasStarted } from '../lib/dates';
 import { relativeTime, stripHtml, cx } from '../lib/utils';
 import { hasRevisionPlan, revisionNote, linkToDay, linkToNote } from '../copilot/actions';
@@ -80,9 +80,13 @@ export default function Dashboard() {
   const nextEvents = events.filter(e => e.date > today && !e.done).sort(sortEvents).slice(0, nextCount);
   // An exam already over today (end, else start, passed) is no longer the next one.
   const nowTime = fmt(now, 'HH:mm');
+  // The nearest big day: an exam (deadline, « grand jour ») or any event marked important.
   const nextExam = events
-    .filter(e => e.category === 'examen' && !e.done && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime)))
+    .filter(e => isBigEvent(e) && !e.done && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime)))
     .sort(sortEvents)[0];
+  const studies = words === WORDS.etudes;
+  // In studies an important event that isn't an exam (job interview…) is no « Prochain examen », nor revised for.
+  const notExam = !!nextExam && nextExam.category !== 'examen' && studies;
   const ws = weekStart(now);
   const weekDays = Array.from({ length: 7 }, (_, i) => toKey(addDays(ws, i)));
   const week = events.filter(e => e.date >= weekDays[0] && e.date <= weekDays[6]);
@@ -167,7 +171,7 @@ export default function Dashboard() {
           </Widget>
 
           {/* Next exam */}
-          <Widget title={words.nextBig} className="lg:col-start-2 lg:row-start-1">
+          <Widget title={notExam ? 'Prochain grand jour' : words.nextBig} className="lg:col-start-2 lg:row-start-1">
             {nextExam ? (
               <div className="flex flex-1 flex-col">
                 <Link to={linkToDay(nextExam.date)} className="group flex items-baseline gap-3">
@@ -175,7 +179,10 @@ export default function Dashboard() {
                     {examDays === 0 ? "Auj." : `J-${examDays}`}
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-[13px] font-medium group-hover:underline">{nextExam.title}</span>
+                    <span className="flex min-w-0 items-center gap-1 text-[13px] font-medium group-hover:underline">
+                      {nextExam.important && <Flag size={12} className="shrink-0 fill-amber-500 text-amber-500" aria-label="Important" />}
+                      <span className="truncate">{nextExam.title}</span>
+                    </span>
                     <span className="block text-[12px] first-letter:uppercase text-stone-500">
                       {fmt(fromKey(nextExam.date), 'EEEE d MMMM')}
                       {nextExam.start && ` · ${nextExam.start}`}
@@ -192,7 +199,7 @@ export default function Dashboard() {
                     <Link to={linkToNote(examSheet.id)} className="btn-secondary h-8 text-[12px]">
                       {words === WORDS.etudes ? 'Ouvrir la fiche' : 'Ouvrir la note'}
                     </Link>
-                  ) : hasStarted(nextExam) ? null : (
+                  ) : hasStarted(nextExam) || notExam ? null : (
                     <button onClick={planExam} className="btn-secondary h-8 text-[12px]">
                       {words.plan}
                     </button>
@@ -200,7 +207,12 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
-              <p className="py-1.5 text-[13px] text-stone-500">{words.noBig}</p>
+              <div className="py-1.5 text-[13px] text-stone-500">
+                <p>{words.noBig}</p>
+                <p className="mt-1 flex items-center gap-1 text-[12px]">
+                  <Flag size={12} className="shrink-0" /> Marque un événement comme important pour le voir ici.
+                </p>
+              </div>
             )}
           </Widget>
 

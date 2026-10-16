@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Plus, Trash2 } from 'lucide-react';
+import { FileText, Flag, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
 import { catOf, allCategories, guessCategory, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
@@ -19,7 +19,7 @@ interface Props {
   end?: string;
   onClose: () => void;
   /** After « Ajouter » / « Enregistrer », with the saved event (the calendar goes to its day). */
-  onSaved?: (ev: Pick<CalendarEvent, 'date' | 'category'>) => void;
+  onSaved?: (ev: Pick<CalendarEvent, 'date' | 'category' | 'important'>) => void;
 }
 
 export default function EventForm({ event, date, start: initialStart, end: initialEnd, onClose, onSaved }: Props) {
@@ -30,6 +30,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [end, setEnd] = useState(event?.end ?? initialEnd ?? '');
   const [category, setCategory] = useState<EventCategory | null>(event?.category ?? null);
   const [details, setDetails] = useState(event?.details ?? '');
+  const [important, setImportant] = useState(!!event?.important);
   const custom = useSettings(s => s.customCategories);
   const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
   const [creating, setCreating] = useState(false);
@@ -41,7 +42,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     e.preventDefault();
     if (!title.trim() || !day) return;
     // An end without a start can't be sent: the start field is required then (see below).
-    const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined };
+    const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined };
     if (event) update(event.id, data);
     else add(data);
     toast(`${event ? 'Enregistré' : 'Ajouté'} : ${data.title}`, 'success');
@@ -115,6 +116,20 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             <input type="time" value={end} min={start} onChange={e => setEnd(e.target.value)} className="field w-full" />
           </label>
         </div>
+
+        {/* What makes it a « big day » for the home page and Kompaly, whatever its category. */}
+        <button
+          type="button"
+          onClick={() => setImportant(v => !v)}
+          aria-pressed={important}
+          className={cx(
+            'mt-3 flex h-9 items-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-colors',
+            important ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300' : 'border-stone-200 text-stone-600 hover:bg-stone-50',
+          )}
+        >
+          <Flag size={14} className={important ? 'fill-current' : ''} />
+          {important ? 'Important' : 'Marquer comme important'}
+        </button>
 
         <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={`Notes (${words.notesExample})`} aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2 } from 'lucide-react';
+import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
 import Tour from '../components/Tour';
@@ -15,6 +15,8 @@ import { useGroupActivity, totalUnread } from '../store/groupActivity';
 import { useTrashCount } from '../lib/trash';
 import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
+import { ContextMenu } from '../components/Overlays';
+import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
 
@@ -111,9 +113,10 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         aria-expanded={open && !!q.trim()}
         aria-controls="recherche-resultats"
         aria-activedescendant={open && hits[active] ? `recherche-${active}` : undefined}
-        className="h-8 w-full rounded-lg border border-transparent bg-stone-100/70 pl-8 pr-14 text-[13px] text-ink outline-none transition placeholder:text-stone-500 hover:bg-stone-100 focus:border-focus focus:bg-surface focus:shadow-card focus:ring-1 focus:ring-focus"
+        // A card-like field (border + surface): the grey tint alone barely stood out from the page, light or dark.
+        className="h-8 w-full rounded-lg border border-stone-200 bg-surface pl-8 pr-14 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-500 hover:border-stone-300 focus:border-focus focus:ring-1 focus:ring-focus"
       />
-      <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 border-transparent bg-transparent sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
+      <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
       {open && q.trim() && (
         <div id="recherche-resultats" role="listbox" aria-label="Résultats de recherche" className="enter absolute left-0 right-0 top-10 z-40 overflow-hidden rounded-xl border border-stone-200 bg-surface p-1 shadow-pop">
           {hits.length === 0 && <p className="px-3 py-5 text-center text-[13px] text-stone-500">Aucun résultat pour «&nbsp;{q}&nbsp;»</p>}
@@ -142,6 +145,48 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         </div>
       )}
     </div>
+  );
+}
+
+/** Other accounts of this device in one click, or a new one (see lib/accounts). */
+function AccountSwitch({ currentId }: { currentId: string }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const others = menu ? savedAccounts().filter(a => a.id !== currentId) : [];
+  const open = (a: SavedAccount) => {
+    if (needsCredentials(a)) return void useAuth.getState().addAccount(a.email);
+    void useAuth.getState().switchAccount(a.id).then(r => {
+      if (r === 'credentials') void useAuth.getState().addAccount(a.email);
+    });
+  };
+  return (
+    <>
+      <button
+        type="button"
+        className="icon-btn"
+        title="Changer de compte"
+        aria-label="Changer de compte"
+        aria-haspopup="menu"
+        onClick={e => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setMenu({ x: r.left, y: r.top - 8 - 44 * (savedAccounts().filter(a => a.id !== currentId).length + 1) });
+        }}
+      >
+        <ArrowLeftRight size={15} />
+      </button>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          label="Changer de compte"
+          onClose={() => setMenu(null)}
+          items={[
+            ...others.map(a => ({ label: `${a.name || a.email} · ${a.email}`, icon: <UserRound size={15} />, onClick: () => open(a) })),
+            ...(others.length ? [{ label: '', divider: true, onClick: () => {} }] : []),
+            { label: 'Ajouter un compte', icon: <UserPlus size={15} />, onClick: () => void useAuth.getState().addAccount() },
+          ]}
+        />
+      )}
+    </>
   );
 }
 
@@ -261,9 +306,10 @@ export default function AppShell() {
           {trashCount > 0 && <span className="tabular text-[11px] text-stone-500">{trashCount}</span>}
         </NavLink>
         <FocusTimer />
+        <div className="flex items-center gap-1">
         <NavLink
           to="/profil"
-          className={({ isActive }) => cx('group flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-stone-100', isActive && 'bg-stone-100')}
+          className={({ isActive }) => cx('group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-stone-100', isActive && 'bg-stone-100')}
           title="Profil et réglages"
         >
           <Avatar size={28} />
@@ -273,6 +319,8 @@ export default function AppShell() {
           </span>
           <Settings2 size={15} className="text-stone-400 transition-colors group-hover:text-ink" />
         </NavLink>
+        <AccountSwitch currentId={user.id} />
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

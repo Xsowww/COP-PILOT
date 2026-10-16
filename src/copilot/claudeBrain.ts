@@ -157,6 +157,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         start: str(input.start) || undefined,
         end: str(input.end) || undefined,
         category: !picked || (picked === 'perso' && guessed !== 'perso') ? guessed : picked,
+        important: input.important === true || undefined,
       });
       links.push({ label: 'Voir le jour', to: linkToDay(ev.date) });
       return { created: describeEvent(ev), id: ev.id };
@@ -168,6 +169,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         start: str(input.start) || undefined,
         end: str(input.end) || undefined,
         done: typeof input.done === 'boolean' ? input.done : undefined,
+        important: typeof input.important === 'boolean' ? input.important : undefined,
       });
       if (!ev) throw new Error('événement introuvable');
       links.push({ label: 'Voir le jour', to: linkToDay(ev.date) });

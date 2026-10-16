@@ -39,7 +39,7 @@ export const CATEGORIES: Record<BuiltinCategory, CategoryInfo> = {
 export const CATEGORY_LABELS: Record<Usage, Record<BuiltinCategory, string>> = {
   etudes: { cours: 'Cours', examen: 'Examen', devoir: 'Devoir', perso: 'Perso', sport: 'Sport' },
   travail: { cours: 'Réunion', examen: 'Échéance', devoir: 'Devis', perso: 'Perso', sport: 'Sport' },
-  perso: { cours: 'Rendez-vous', examen: 'Important', devoir: 'À faire', perso: 'Perso', sport: 'Sport' },
+  perso: { cours: 'Rendez-vous', examen: 'Grand jour', devoir: 'À faire', perso: 'Perso', sport: 'Sport' },
 };
 
 export interface CalendarEvent {
@@ -51,6 +51,8 @@ export interface CalendarEvent {
   category: EventCategory;
   done: boolean;
   details?: string;
+  /** Marked important by the person (flag): the home page counts it among the big days to come. */
+  important?: boolean;
   /** UID of the event in an imported .ics file, so a second import doesn't duplicate it. */
   externalId?: string;
   createdAt: string;
@@ -59,6 +61,9 @@ export interface CalendarEvent {
 }
 
 export type NewEvent = Omit<CalendarEvent, 'id' | 'done' | 'createdAt'>;
+
+/** A big day: an exam (deadline, « grand jour » outside studies) or an event marked important. */
+export const isBigEvent = (e: Pick<CalendarEvent, 'category' | 'important'>) => e.category === 'examen' || !!e.important;
 
 interface CalendarState {
   events: CalendarEvent[];
@@ -122,7 +127,7 @@ function workCategory(t: string, timed: boolean): EventCategory | undefined {
 /**
  * Guess a category from the title so the student never has to think about it. `timed`: a TD or TP
  * with an hour is a class, not homework. Work and personal accounts use the same five categories under
- * other names (see lib/usage): Réunion / Échéance / Devis at work, Rendez-vous / Important / À faire at home.
+ * other names (see lib/usage): Réunion / Échéance / Devis at work, Rendez-vous / Grand jour / À faire at home.
  */
 export function guessCategory(title: string, timed = false): EventCategory {
   const own = customCategoryIn(title);

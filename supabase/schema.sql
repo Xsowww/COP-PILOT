@@ -218,6 +218,19 @@ begin
       select coalesce(jsonb_object_agg(category, n), '{}'::jsonb)
       from (select category, count(*) as n from public.events group by category) c
     ),
+    'custom_categories', (
+      select coalesce(jsonb_agg(jsonb_build_object('label', label, 'events', n, 'users', users) order by n desc, label), '[]'::jsonb)
+      from (
+        select min(btrim(cc.value ->> 'label')) as label, count(e.id) as n, count(distinct p.id) as users
+        from public.profiles p
+        cross join lateral jsonb_array_elements(
+          case when jsonb_typeof(p.settings -> 'customCategories') = 'array' then p.settings -> 'customCategories' else '[]'::jsonb end
+        ) cc
+        left join public.events e on e.user_id = p.id and e.category = cc.value ->> 'id'
+        where coalesce(btrim(cc.value ->> 'label'), '') <> ''
+        group by lower(btrim(cc.value ->> 'label'))
+      ) x
+    ),
     'days', (
       select coalesce(jsonb_agg(jsonb_build_object(
         'day', d.day,
@@ -268,6 +281,9 @@ alter table public.notes add column if not exists links jsonb not null default '
 
 -- ── Calendrier : identifiant d'origine des événements importés (.ics) ──────
 alter table public.events add column if not exists external_id text;
+
+-- ── Calendrier : événements marqués importants ─────────────────────────────
+alter table public.events add column if not exists important boolean not null default false;
 
 -- ── Liste de tâches ────────────────────────────────────────────────────────
 create table if not exists public.todos (

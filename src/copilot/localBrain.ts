@@ -2,7 +2,7 @@
 
 import { normalize } from '../lib/utils';
 import { parseQuickAdd, todayKey, daysUntil, fmt, fromKey } from '../lib/dates';
-import { useCalendar } from '../store/calendar';
+import { useCalendar, isBigEvent } from '../store/calendar';
 import { buildQuiz, checkAnswer, type Quiz } from './quiz';
 import {
   addTodo, listTodos, completeTodo, deleteTodo, listTrash, findInTrash, restoreFromTrash, trashItems, deleteEvent, renameItem, moveItem,
@@ -458,7 +458,7 @@ export function localReply(raw: string): BotReply {
     const parsed = parseQuickAdd(m[1]);
     if (parsed.title) {
       const date = parsed.date ?? todayKey();
-      const ev = addEvent({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined });
+      const ev = addEvent({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, important: parsed.important });
       return {
         text: `Ajouté au calendrier : ${describeEvent(ev)}${parsed.date ? '' : '\n(Pas de date trouvée, je l’ai mis aujourd’hui — tu peux le déplacer.)'}`,
         links: [{ label: 'Voir le jour', to: linkToDay(ev.date) }],
@@ -504,7 +504,7 @@ export function localReply(raw: string): BotReply {
     };
   }
   if (/(examen|exam|partiel|controle|echeance|deadline|grand jour)s?/.test(q) && /(quand|prochain|liste|quels|quelles|mes|a venir)/.test(q)) {
-    const exams = eventsBetween(todayKey(), '9999-12-31').filter(e => e.category === 'examen');
+    const exams = eventsBetween(todayKey(), '9999-12-31').filter(e => (getSettings().usage === 'etudes' ? e.category === 'examen' : isBigEvent(e)));
     return {
       text: exams.length ? `${words().upcoming} :\n${exams.slice(0, 6).map(describeEvent).join('\n')}` : `${words().noBig} Ajoute ce qui compte et je t’aide à t’organiser !`,
       links: [{ label: 'Calendrier', to: '/calendrier' }],

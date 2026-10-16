@@ -44,6 +44,8 @@ export interface ParsedQuickAdd {
   end: string | null;
   /** « tous les mardis », « chaque lundi »: only the next one is created (no repeating events yet). */
   weekly?: boolean;
+  /** « important », « urgent » or « ! » in the sentence: the event is flagged important. */
+  important?: boolean;
 }
 
 const hm = (h: string | number, m?: string) => (Number(h) < 24 && Number(m ?? 0) < 60 ? `${String(h).padStart(2, '0')}:${m ?? '00'}` : null);
@@ -104,6 +106,11 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
       thisNoon = !!t[1];
     }
   }
+
+  // « Rendre le dossier vendredi important », « Réunion urgente demain », « Payer les impôts ! ».
+  let important = false;
+  const flag = cut(/\s(?:\(?(?:tres\s)?(?:important|importante|urgent|urgente)\)?|!+)(?=\s)/);
+  if (flag) important = true;
 
   // Every week: the next one.
   const every = cut(new RegExp(`\\s(?:tous\\sles|chaque)\\s(${DAY})s?${PERIOD}(?=\\s)`));
@@ -198,6 +205,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
     start,
     end,
     ...(weekly && { weekly }),
+    ...(important && { important }),
   };
 }
 
