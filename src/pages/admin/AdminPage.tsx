@@ -176,7 +176,7 @@ export default function AdminPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
               </span>
-              En direct · {stats ? `mis à jour à ${fmt(new Date(stats.generated_at), 'HH:mm:ss')}` : 'chargement…'} · visible par toi seul
+              En direct · {stats ? `mis à jour à ${fmt(new Date(stats.generated_at), 'HH:mm:ss')}` : 'chargement…'} · visible par toi uniquement
             </p>
           </div>
           <button className="btn-secondary h-8" onClick={() => void load()} disabled={loading}>

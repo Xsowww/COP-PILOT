@@ -74,7 +74,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Qui y a accès',
         body: [
-          'Toi seul pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',
+          'Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',
           'L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé. Jamais le contenu de tes notes, fichiers ou événements.',
           'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande) et le fournisseur d’IA indiqué plus haut.',
         ],

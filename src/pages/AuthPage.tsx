@@ -295,7 +295,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-stone-600">
                 <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>
-                  Rester connecté sur cet appareil
+                  Garder la session ouverte sur cet appareil
                   <span className="block text-[11.5px] text-stone-500">Décoche sur un ordinateur partagé : la session se fermera avec l’onglet.</span>
                 </span>
               </label>
@@ -351,7 +351,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           </form>
         </div>
         <p className="text-[11px] text-stone-500">
-          {cloudEnabled ? 'Tes données sont chiffrées en transit et protégées : toi seul y as accès.' : 'Tes données restent enregistrées sur cet appareil.'}
+          {cloudEnabled ? 'Tes données sont chiffrées en transit et protégées : personne d’autre que toi n’y a accès.' : 'Tes données restent enregistrées sur cet appareil.'}
           {LEGAL_LINKS.map(l => (
             <span key={l.to}>
               {' · '}

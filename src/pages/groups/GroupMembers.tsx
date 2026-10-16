@@ -56,7 +56,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   const leave = async () => {
     const alone = (members?.length ?? 1) <= 1;
     const message = alone
-      ? `Tu es le seul membre, donc tout sera supprimé : ${w.the}, ses notes et ses ${w.meet.many}.`
+      ? `Il n’y a que toi, donc tout sera supprimé : ${w.the}, ses notes et ses ${w.meet.many}.`
       : isOwner
         ? 'Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec le code.'
         : `Tes notes partagées restent dans ${w.the}. Tu pourras revenir avec le code.`;
