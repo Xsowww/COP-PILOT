@@ -154,6 +154,42 @@ async function serveErrorReport(req, res) {
   return true;
 }
 
+// ── Health check for the monitoring (UptimeRobot, GitHub Actions « Surveillance ») ──
+// GET /api/sante → 200 {"ok":true,…} when the server answers AND the database does, else 503.
+// The database is asked at most every 30 s: a monitor hitting this every 5 min also keeps the
+// free Supabase project from being paused for inactivity.
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+let health = { at: 0, base: 'inconnue' };
+async function databaseHealth() {
+  if (Date.now() - health.at < 30_000) return health.base;
+  let base = 'absente';
+  if (SUPABASE && SUPABASE_KEY) {
+    try {
+      // Any table: the access rules answer an empty list to an anonymous visitor, but the query reaches the database.
+      const r = await fetch(`${SUPABASE}/rest/v1/profiles?select=id&limit=1`, { headers: { apikey: SUPABASE_KEY }, signal: AbortSignal.timeout(8000) });
+      base = r.ok ? 'ok' : `erreur ${r.status}`;
+    } catch {
+      base = 'injoignable';
+    }
+  }
+  health = { at: Date.now(), base };
+  return base;
+}
+
+async function serveHealth(req, res) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  if ((req.url ?? '').split('?')[0] !== '/api/sante') return false;
+  const base = await databaseHealth();
+  const ok = base === 'ok' || base === 'absente'; // local mode: no database to check
+  res.writeHead(ok ? 200 : 503, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(
+    req.method === 'HEAD'
+      ? undefined
+      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
+  );
+  return true;
+}
+
 // The app's former address: everything moves to the new one, same path (old links and e-mails keep working).
 const OLD_HOSTS = new Set(['kompa-app.com', 'www.kompa-app.com']);
 const NEW_ORIGIN = 'https://kompaly.com';
@@ -167,6 +203,7 @@ const server = createServer(async (req, res) => {
   for (const [k, v] of Object.entries(SECURITY)) res.setHeader(k, v);
   try {
     if (serveSeo(req, res)) return;
+    if (await serveHealth(req, res)) return;
     if (await serveErrorReport(req, res)) return;
     if (await handleCopilot(req, res)) return;
     await serveStatic(req, res);

@@ -307,14 +307,6 @@ export default function AppShell() {
           <span className="flex-1">Corbeille</span>
           {trashCount > 0 && <span className="tabular text-[11px] text-stone-500">{trashCount}</span>}
         </NavLink>
-        <button
-          type="button"
-          onClick={() => openFeedback()}
-          className="-mt-1 mb-2 flex h-9 items-center gap-3 rounded-lg px-2.5 text-left text-[13px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
-        >
-          <MessageSquareText size={17} strokeWidth={1.9} />
-          Avis ou bug
-        </button>
         <FocusTimer />
         <div className="flex items-center gap-1">
         <NavLink
@@ -378,6 +370,17 @@ export default function AppShell() {
         <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-14 outline-none lg:pb-0">
           <Outlet />
           <FeedbackDialog />
+          {/* « Avis ou bug » : always at hand, bottom right (above the tab bar on phones). */}
+          <button
+            type="button"
+            onClick={() => openFeedback()}
+            title="Donner mon avis ou signaler un bug"
+            aria-label="Donner mon avis ou signaler un bug"
+            className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-20 flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-surface px-3 text-[12.5px] font-medium text-stone-600 shadow-pop transition-colors hover:border-stone-300 hover:text-ink lg:bottom-5 lg:right-5 lg:h-9"
+          >
+            <MessageSquareText size={16} strokeWidth={1.9} aria-hidden />
+            <span className="hidden lg:inline">Avis ou bug</span>
+          </button>
         </main>
       </div>
 

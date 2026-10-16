@@ -1,0 +1,22 @@
+name: Surveillance
+
+# Chaque matin, vérifie que kompaly.com répond (serveur, base, pages, sécurité, certificat).
+# En cas d'échec, GitHub envoie un e-mail. Lancement à la main : onglet Actions › Surveillance › Run workflow.
+on:
+  schedule:
+    - cron: '17 6 * * *' # 6 h 17 UTC, soit 8 h 17 à Paris en été
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  surveiller:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: node scripts/surveillance.mjs https://kompaly.com
