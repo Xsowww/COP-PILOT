@@ -2,9 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { toast } from '../store/ui';
 import { getSettings } from '../store/settings';
-import { groupWords } from './usage';
+import { AGENDA_WORDS, groupWords } from './usage';
 
-const words = () => groupWords(getSettings().usage);
+let space: GroupKind = 'groupe';
+/** The screens in use (/groupes or /agendas): messages speak of « ce groupe » or « cet agenda ». */
+export const setGroupSpace = (kind: GroupKind) => void (space = kind);
+const words = () => (space === 'agenda' ? AGENDA_WORDS : groupWords(getSettings().usage));
 import { QUOTA, StorageError, quotaLabel } from './blobStore';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
@@ -126,16 +129,20 @@ function db(): SupabaseClient {
   return supabase;
 }
 
+/** A refusal the app words itself (« Seul le propriétaire… »): shown as it is. */
+export class Refused extends Error {}
+
 /** Message lisible pour une erreur Supabase / réseau. */
 export function groupError(e: unknown): string {
-  if (e instanceof StorageError) return e.message;
+  const w = words();
+  if (e instanceof StorageError || e instanceof Refused) return e.message;
   const msg = String((e as { message?: string })?.message ?? e ?? '');
   if (/too many attempts/i.test(msg)) return 'Trop de codes essayés. Réessaie dans un quart d’heure.';
-  if (/group full/i.test(msg)) return `Plus de place : 50 membres au maximum dans ${words().this}.`;
-  if (/too many groups/i.test(msg)) return `Tu fais déjà partie de 30 ${words().groups}, c’est le maximum.`;
+  if (/group full/i.test(msg)) return `Plus de place : 50 membres au maximum dans ${w.this}.`;
+  if (/too many groups/i.test(msg)) return `Tu fais déjà partie de 30 ${w.groups}, c’est le maximum.`;
   if (/too large|exceeded the maximum|payload too large|413/i.test(msg)) return 'Fichier trop lourd : 50 Mo au maximum.';
   if (/mfa required/i.test(msg)) return 'Confirme d’abord ta connexion avec le code de ton téléphone.';
-  if (/forbidden|row-level security|permission denied/i.test(msg)) return `Tu n’as pas le droit de faire ça dans ${words().this}.`;
+  if (/forbidden|row-level security|permission denied/i.test(msg)) return `Tu n’as pas le droit de faire ça dans ${w.this}.`;
   if (/fetch|network/i.test(msg)) return 'Pas de connexion. Réessaie dans un instant.';
   return 'Une erreur est survenue. Réessaie.';
 }
@@ -148,7 +155,7 @@ function check<T>(res: { data: T; error: unknown }): T {
 /** The database silently skips rows it doesn't allow: say so instead of pretending it worked. */
 function changed(res: { data: unknown; error: unknown }, refused: string) {
   const rows = check(res) as unknown[] | null;
-  if (!rows || rows.length === 0) throw new Error(refused);
+  if (!rows || rows.length === 0) throw new Refused(refused);
 }
 
 /** The account actually signed in (the one the database sees), not the one a stale tab displays. */
@@ -214,10 +221,10 @@ export async function updateGroup(id: string, patch: { name?: string; color?: st
 }
 
 export async function deleteGroup(id: string) {
-  // Les fichiers d'abord (ensuite plus personne n'y a accès), seulement si l'on est bien le propriétaire.
-  const [me, owner] = await Promise.all([sessionUserId(), db().from('groups').select('owner_id').eq('id', id).maybeSingle()]);
-  if (owner.data && (owner.data as Row).owner_id === me) await purgeFiles(id);
+  // Le groupe d'abord : s'il reste (coupure, refus), ses fichiers restent aussi. Ensuite celui qui l'a supprimé
+  // garde le droit d'effacer ses fichiers (table deleted_groups, migration 2026-10-18e).
   changed(await db().from('groups').delete().eq('id', id).select('id'), `Seul le propriétaire peut supprimer ${words().this}.`);
+  await purgeFiles(id);
 }
 
 /** Le code d'invitation, ou null si l'on n'a pas le droit d'inviter. */
@@ -258,8 +265,8 @@ export async function removeMember(groupId: string, userId: string) {
 /** Quitter le groupe avec le compte réellement connecté (`last` : le groupe disparaîtra avec ses fichiers). */
 export async function leaveGroup(groupId: string, last = false) {
   const me = await sessionUserId();
-  if (last) await purgeFiles(groupId);
   changed(await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', me).select('user_id'), `Tu ne fais plus partie de ${words().this}.`);
+  if (last) await purgeFiles(groupId);
 }
 
 // ── Notes partagées ───────────────────────────────────────────────────────
@@ -412,17 +419,29 @@ export async function deleteFile(f: GroupFile) {
 }
 
 /** Avant la disparition d'un groupe : retire ses fichiers du stockage (la table suit en cascade). */
+/** Efface les fichiers d'un groupe supprimé, puis l'oublie ; une coupure : on recommence à la prochaine ouverture. */
 async function purgeFiles(groupId: string) {
   try {
     for (;;) {
       const { data } = await db().storage.from(FILES).list(groupId, { limit: 1000 });
-      if (!data?.length) return;
+      if (!data?.length) break;
       const { error } = await db().storage.from(FILES).remove(data.map(o => `${groupId}/${o.name}`));
       if (error) return;
     }
+    await db().from('deleted_groups').delete().eq('id', groupId);
   } catch {
     // Au pire, des fichiers orphelins que plus personne ne peut lire.
   }
+}
+
+let leftoversDone = false;
+/** Les fichiers de groupes supprimés pendant une coupure : effacés une fois par visite. */
+export async function purgeDeletedGroups() {
+  if (leftoversDone || !supabase) return;
+  leftoversDone = true;
+  const { data, error } = await db().from('deleted_groups').select('id');
+  if (error) return; // sans la migration 2026-10-18e
+  for (const r of (data ?? []) as Row[]) await purgeFiles(String(r.id));
 }
 
 /** Suppression du compte : les groupes dont on est le dernier membre disparaissent avec nous, fichiers d'abord. */

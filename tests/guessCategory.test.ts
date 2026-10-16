@@ -52,4 +52,16 @@ describe('guessed category', () => {
     expect(guessCategory('Anniversaire de Léa')).toBe('examen');
     expect(guessCategory('Payer les impôts')).toBe('devoir');
   });
+
+  it('« Courses » (faire les courses) is not sport, a run still is', () => {
+    for (const usage of ['etudes', 'perso', 'travail'] as const) {
+      useSettings.setState({ usage });
+      expect(guessCategory('Courses', true)).toBe('perso');
+      expect(guessCategory('Faire les courses')).toBe('perso');
+      expect(guessCategory('Course à pied', true)).toBe('sport');
+      expect(guessCategory('Footing', true)).toBe('sport');
+    }
+    useSettings.setState({ usage: 'etudes' });
+    expect(guessCategory('Cours de droit', true)).toBe('cours');
+  });
 });

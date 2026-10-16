@@ -6,7 +6,7 @@ import { useGroups, watchFocus } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { Modal } from '../../components/Overlays';
 import { cloudEnabled } from '../../lib/supabase';
-import { copyInviteLink, groupError, joinAgenda } from '../../lib/groups';
+import { copyInviteLink, groupError, joinAgenda, setGroupSpace } from '../../lib/groups';
 import { cx } from '../../lib/utils';
 import { GroupBadge } from './shared';
 import { KindContext } from './util';
@@ -21,6 +21,10 @@ import { setViewingAgenda, useAgendaNews } from '../../store/agendaNews';
 const LAST = 'cop-agenda';
 
 export default function AgendasPage() {
+  useEffect(() => {
+    setGroupSpace('agenda');
+    return () => setGroupSpace('groupe');
+  }, []);
   return <KindContext.Provider value="agenda">{cloudEnabled ? <Agendas /> : <Offline />}</KindContext.Provider>;
 }
 
@@ -102,8 +106,10 @@ function Agendas() {
           setParams({}, { replace: true });
           return;
         }
+        const already = useGroups.getState().groups.some(g => g.id === id);
         await useGroups.getState().loadGroups();
-        toast(`Tu as rejoint « ${useGroups.getState().groups.find(g => g.id === id)?.name ?? 'l’agenda'} »`, 'success');
+        const name = `« ${useGroups.getState().groups.find(g => g.id === id)?.name ?? 'l’agenda'} »`;
+        toast(already ? `Tu fais déjà partie de ${name}` : `Tu as rejoint ${name}`, 'success');
         setParams({ g: id }, { replace: true });
       })
       .catch(e => {
@@ -119,7 +125,7 @@ function Agendas() {
     <div className="flex h-full flex-col">
       {/* Title, the shared calendars (scroll sideways on a phone), « Nouveau » */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-2 md:px-8">
-        <h1 className="text-[22px] font-semibold tracking-[-0.02em] md:text-[24px]">Agendas partagés</h1>
+        <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Agendas partagés</h1>
         <button className="btn-primary ml-auto h-8 px-3" onClick={() => setDialog('create')}>
           <Plus size={14} /> Nouveau
         </button>

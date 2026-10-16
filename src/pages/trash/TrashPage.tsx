@@ -316,7 +316,7 @@ export default function TrashPage() {
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-10 md:px-8">
-      <div className="mx-auto max-w-[980px]">
+      <div className="mx-auto max-w-[1180px]">
         <div className="flex flex-wrap items-start gap-3 pb-4 pt-2">
           <div className="min-w-0 flex-1">
             <h1 ref={titleRef} tabIndex={-1} className="text-[24px] font-semibold tracking-[-0.02em] outline-none">

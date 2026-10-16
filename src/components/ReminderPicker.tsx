@@ -96,7 +96,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
               <button
                 type="button"
                 onClick={() => onChange(value.filter(x => x !== m))}
-                className="flex h-6 w-6 items-center justify-center rounded text-brand-600 transition-colors hover:bg-brand-100"
+                className="hit-sm flex h-6 w-6 items-center justify-center rounded text-brand-600 transition-colors hover:bg-brand-100"
                 aria-label={`Retirer le rappel « ${reminderLabel(m, timed, date, time)} »`}
               >
                 <X size={13} />
@@ -200,7 +200,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
           {state === 'off' ? (
             <>
               <span>Sur cet appareil, tu ne seras prévenu que si Kompaly est ouvert.</span>
-              <button type="button" onClick={() => void turnOn()} className="font-medium text-brand-600 underline-offset-2 hover:underline">
+              <button type="button" onClick={() => void turnOn()} className="hit-sm font-medium text-brand-600 underline-offset-2 hover:underline">
                 Activer les notifications
               </button>
             </>

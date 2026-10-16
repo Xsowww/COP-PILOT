@@ -55,7 +55,7 @@ function FeedbackForm({ initial }: { initial: FeedbackKind }) {
               kind === k ? 'border-ink bg-surface text-ink' : 'border-stone-200 text-stone-500 hover:text-ink',
             )}
           >
-            <Icon size={15} aria-hidden /> {label}
+            <Icon size={15} aria-hidden className="max-[359px]:hidden" /> {label}
           </button>
         ))}
       </div>

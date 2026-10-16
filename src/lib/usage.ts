@@ -134,7 +134,7 @@ export const GROUP_WORDS: Record<Usage, GroupWords> = {
 export const AGENDA_WORDS: GroupWords = {
   Groups: 'Agendas partagés', groups: 'agendas partagés', a: 'un agenda partagé', the: 'l’agenda', The: 'L’agenda', of: 'de l’agenda', this: 'cet agenda', all: 'tout l’agenda',
   none: 'Aucun agenda partagé', yours: 'un de tes agendas', created: 'Agenda créé', deleted: 'Agenda supprimé',
-  namePlaceholder: 'Ex. Coloc, Famille, Nous deux', mates: 'les personnes avec qui tu le partages', others: 'tes proches',
+  namePlaceholder: 'Ex. Coloc, Famille, Nous deux', mates: 'ceux avec qui tu le partages', others: 'tes proches',
   introTitle: 'Un agenda à plusieurs', introText: 'Un calendrier commun, séparé du tien : chacun y ajoute ses événements, les autres les voient et reçoivent une notification.',
   notesHint: '',
   meet: {

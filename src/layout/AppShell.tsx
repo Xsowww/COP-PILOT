@@ -453,7 +453,7 @@ export default function AppShell() {
                   <n.icon size={19} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
                   {news(n.to) > 0 && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full ring-2 ring-paper', n.to === '/agendas' ? 'bg-red-500' : 'bg-brand-solid')} aria-label="nouveautés" />}
                 </span>
-                <span className="max-w-full truncate px-0.5">{'short' in n ? n.short : label(n)}</span>
+                <span className="max-w-full truncate">{'short' in n ? n.short : label(n)}</span>
               </>
             )}
           </NavLink>

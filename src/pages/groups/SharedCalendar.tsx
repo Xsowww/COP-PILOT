@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CalendarPage from '../calendar/CalendarPage';
 import { CalendarSourceContext, type CalendarSource } from '../calendar/source';
 import { CATEGORIES, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { createEvent, deleteEvent, groupError, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
-import { useMemberName } from './util';
+import { useMemberName, useRights } from './util';
 
 const builtin = (c: string | null | undefined): EventCategory => (c && c in CATEGORIES ? (c as EventCategory) : 'perso');
 
@@ -32,13 +32,28 @@ const toRow = (p: Partial<CalendarEvent>): Partial<NewGroupEvent> => ({
   ...('details' in p && { details: p.details ?? null, place: null }),
 });
 
+// Removed events wait for the end of the « Annuler » toast before leaving the server: undoing gives back
+// the very same event (its author, no « Ajouté » sent to the others). Leaving the page sends them at once.
+const UNDO_MS = 6000;
+const pending = new Map<string, () => void>();
+const flushPending = () => [...pending.values()].forEach(send => send());
+
 /** The Calendar page (day, week, month…) on a shared calendar: every member sees the changes live. */
 export default function SharedCalendar({ group }: { group: Group }) {
   const raw = useGroups(s => s.events[group.id]);
   const nameOf = useMemberName(group.id);
+  const { canEdit } = useRights(group);
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    addEventListener('pagehide', flushPending);
+    return () => {
+      removeEventListener('pagehide', flushPending);
+      flushPending();
+    };
+  }, []);
 
   const source = useMemo<CalendarSource>(() => {
-    const list = raw ?? [];
+    const list = (raw ?? []).filter(e => !pending.has(e.id));
     const reload = () => useGroups.getState().refresh(group.id, ['events']);
     // Shown at once; the server's answer (and the other members' changes) follow by Realtime.
     const patchLocal = (fn: (l: GroupEvent[]) => GroupEvent[]) => useGroups.setState(s => ({ events: { ...s.events, [group.id]: fn(s.events[group.id] ?? []) } }));
@@ -47,7 +62,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
       void reload();
     };
     return {
-      shared: { group, author: id => nameOf(list.find(e => e.id === id)?.createdBy ?? null) },
+      shared: { group, canEdit, author: id => nameOf(list.find(e => e.id === id)?.createdBy ?? null) },
       events: list.map(toCalendar),
       add: e => {
         void createEvent(group.id, { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: builtin(e.category), details: e.details ?? null })
@@ -61,19 +76,25 @@ export default function SharedCalendar({ group }: { group: Group }) {
       },
       toggleDone: () => undefined, // no « fait » in a shared calendar
       remove: id => {
-        const ev = list.find(e => e.id === id);
-        patchLocal(l => l.filter(e => e.id !== id));
-        void deleteEvent(id)
-          .then(() =>
-            toast('Supprimé de l’agenda', 'info', ev && {
-              label: 'Annuler',
-              run: () => void createEvent(group.id, { title: ev.title, date: ev.date, start: ev.start, end: ev.end, place: ev.place, category: ev.category, details: ev.details }).then(reload).catch(fail),
-            }),
-          )
-          .catch(fail);
+        const send = () => {
+          clearTimeout(timer);
+          pending.delete(id);
+          void deleteEvent(id).catch(fail);
+        };
+        const timer = setTimeout(send, UNDO_MS);
+        pending.set(id, send);
+        redraw(n => n + 1);
+        toast('Supprimé de l’agenda', 'info', {
+          label: 'Annuler',
+          run: () => {
+            clearTimeout(timer);
+            pending.delete(id);
+            redraw(n => n + 1);
+          },
+        });
       },
     };
-  }, [raw, group, nameOf]);
+  }, [raw, group, nameOf, canEdit]);
 
   return (
     <CalendarSourceContext.Provider value={source}>

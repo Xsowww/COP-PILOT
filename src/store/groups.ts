@@ -105,6 +105,7 @@ export const useGroups = create<GroupsState>((set, get) => {
       try {
         const groups = await api.fetchGroups();
         set({ groups, loaded: true, failed: false });
+        void api.purgeDeletedGroups().catch(() => undefined);
       } catch {
         set({ loaded: true, failed: true });
       }

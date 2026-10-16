@@ -5,6 +5,7 @@ import type { Feedback, Inbox, Report } from './inbox';
 import { REPORT_REASONS } from '../../lib/feedback';
 import { confirmAction, toast } from '../../store/ui';
 import { cx, formatBytes, relativeTime } from '../../lib/utils';
+import { fmtDay, fromKey } from '../../lib/dates';
 
 const KIND = { note: 'Note', file: 'Fichier', event: 'Événement' } as const;
 const reasonLabel = (r: string) => REPORT_REASONS.find(x => x.value === r)?.label ?? r;
@@ -51,7 +52,7 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
 
   return (
     <div>
-      <div className="mb-3 flex h-8 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[12px]" role="group" aria-label="Afficher">
+      <div className="mb-3 flex h-8 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[12px] pointer-coarse:h-10" role="group" aria-label="Afficher">
         {[
           [false, `À traiter (${openReports + openFeedback})`],
           [true, 'Déjà traités'],
@@ -60,7 +61,7 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
             key={String(v)}
             aria-pressed={history === v}
             onClick={() => setHistory(v as boolean)}
-            className={cx('h-7 rounded-md px-3 font-medium transition-colors', history === v ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+            className={cx('h-7 rounded-md px-3 font-medium transition-colors pointer-coarse:h-9', history === v ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
           >
             {label as string}
           </button>
@@ -88,7 +89,7 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
                   {r.snapshot.excerpt && <p className="mt-1 line-clamp-3 text-[12.5px] text-stone-600">{r.snapshot.excerpt}</p>}
                   {r.kind === 'event' && r.snapshot.date && (
                     <p className="mt-1 text-[12.5px] text-stone-600">
-                      {r.snapshot.date}
+                      {fmtDay(fromKey(r.snapshot.date), 'EEE d MMM')}
                       {r.snapshot.start && ` · ${r.snapshot.start}`}
                       {r.snapshot.place && ` · ${r.snapshot.place}`}
                     </p>

@@ -669,7 +669,7 @@ export default function DrivePage() {
               onKeyDown={e => e.key === 'Escape' && setQuery('')}
               placeholder="Rechercher, y compris dans les PDF"
               aria-label="Rechercher dans le Drive"
-              className="field h-8 w-full pl-8 pr-7 sm:w-52 xl:w-72"
+              className="field h-8 w-full text-ellipsis pl-8 pr-7 sm:w-52 xl:w-72"
             />
             {query && (
               <button className="hit absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-stone-500 hover:text-ink" onClick={() => setQuery('')} title="Effacer" aria-label="Effacer">
@@ -783,13 +783,14 @@ export default function DrivePage() {
           </p>
         ) : tabAll ? (
           <>
-            {breadcrumb.length > 0 && <button
+            {/* Shown at the root too: the row stays the same height for the selection bar, and is not left empty. */}
+            <button
               onClick={() => openFolder(null)}
               {...folderDropProps(null, 'crumb-root')}
               className={cx('rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100', breadcrumb.length ? 'text-stone-500' : 'text-ink', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
             >
               Mon Drive
-            </button>}
+            </button>
             {breadcrumb.map(b => (
               <span key={b.id} className="flex min-w-0 items-center gap-1">
                 <ChevronRight size={14} className="shrink-0 text-stone-300" />
@@ -833,7 +834,7 @@ export default function DrivePage() {
       {/* Content */}
       <div
         className={cx(
-          'relative mt-2 min-h-0 flex-1 overflow-y-auto rounded-xl border p-2 transition-colors',
+          'relative -mx-[9px] mt-2 min-h-0 flex-1 overflow-y-auto rounded-xl border p-2 pb-16 transition-colors lg:pb-14',
           dropTarget === 'here' ? 'border-dashed border-brand-500 bg-brand-50/50' : 'border-transparent',
         )}
         onClick={() => setSelected(new Set())}

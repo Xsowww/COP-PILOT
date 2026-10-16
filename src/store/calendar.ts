@@ -139,7 +139,7 @@ export function guessCategory(title: string, timed = false): EventCategory {
   if (usage === 'travail') {
     const work = workCategory(t, timed);
     if (work) return work;
-    return /(sport|foot|basket|gym|muscu|course|piscine|natation|yoga|tennis|danse)/.test(t) ? 'sport' : 'perso';
+    return /(sport|foot|basket|gym|muscu|\bcourse\b|piscine|natation|yoga|tennis|danse)/.test(t) ? 'sport' : 'perso';
   }
   if (usage === 'perso') {
     if (/(r[ée]union|meeting|\bcall\b|visio(?!n)|point (d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|\brdv\b|m[ée]decin|dentiste|kin[ée])/.test(t)) return 'cours';
@@ -151,8 +151,9 @@ export function guessCategory(title: string, timed = false): EventCategory {
   // « Rendre TP le 12/11 à 9h30 » is handing it in, not the class: checked before the timed TD/TP rule.
   if (timed && /\b(td|tp|cm)\b/.test(t) && !/(rendre|rendu)/.test(t)) return 'cours';
   if (/(devoir|\btp\b|\btd\b|rendre|rendu|dm\b|projet|dossier|exo|exercice|r[ée]vis)/.test(t)) return 'devoir';
-  if (/(sport|foot|basket|gym|muscu|course|piscine|natation|yoga|tennis|danse)/.test(t)) return 'sport';
-  if (/(cours|amphi|cm\b|lecture|classe|prof|math|physique|chimie|histoire|anglais|fran[cç]ais|info|bio|[ée]co|philo)/.test(t)) return 'cours';
+  if (/(sport|foot|basket|gym|muscu|\bcourse\b|piscine|natation|yoga|tennis|danse)/.test(t)) return 'sport';
+  // « Courses » (faire les courses) n'est ni du sport ni un cours.
+  if (/(cours(?!es\b)|amphi|cm\b|lecture|classe|prof|math|physique|chimie|histoire|anglais|fran[cç]ais|info|bio|[ée]co|philo)/.test(t)) return 'cours';
   return 'perso';
 }
 

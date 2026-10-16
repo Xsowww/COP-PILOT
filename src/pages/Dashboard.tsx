@@ -131,21 +131,24 @@ export default function Dashboard() {
               {hello}, {user.name}
             </h1>
           </div>
-          {/* The page takes ~0.5 s to show up: what is typed meanwhile is kept and lands in the new note's title. */}
-          <button
-            onPointerEnter={preloadNotes}
-            onFocus={preloadNotes}
-            onClick={() => {
-              startTitleBuffer();
-              navigate('/notes?nouvelle=1');
-            }}
-            className="btn-ghost h-8 px-2.5 text-[13px]"
-          >
-            <Plus size={15} /> Note
-          </button>
-          <button onClick={() => navigate('/calendrier?ajout=1')} className="btn-ghost h-8 px-2.5 text-[13px]">
-            <CalendarDays size={15} /> Événement
-          </button>
+          {/* Together: when the title is long, both shortcuts go to the next line, not just one. */}
+          <div className="flex gap-2">
+            {/* The page takes ~0.5 s to show up: what is typed meanwhile is kept and lands in the new note's title. */}
+            <button
+              onPointerEnter={preloadNotes}
+              onFocus={preloadNotes}
+              onClick={() => {
+                startTitleBuffer();
+                navigate('/notes?nouvelle=1');
+              }}
+              className="btn-ghost h-8 px-2.5 text-[13px]"
+            >
+              <Plus size={15} /> Note
+            </button>
+            <button onClick={() => navigate('/calendrier?ajout=1')} className="btn-ghost h-8 px-2.5 text-[13px]">
+              <CalendarDays size={15} /> Événement
+            </button>
+          </div>
         </div>
 
         {/* Two columns on large screens; on a phone the DOM order is the priority order. */}
@@ -200,7 +203,7 @@ export default function Dashboard() {
                         const d = daysUntil(e.date);
                         return (
                           <li key={e.id}>
-                            <Link to={linkToDay(e.date)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px]">
+                            <Link to={linkToDay(e.date)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
                               <span className={cx('tabular w-9 shrink-0 font-semibold', d <= 3 ? 'text-[var(--cat-examen-text)]' : 'text-stone-600')}>{d === 0 ? 'Auj.' : `J-${d}`}</span>
                               {e.important && <Flag size={11} className="shrink-0 fill-amber-500 text-amber-500" aria-label="Important" />}
                               <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
@@ -214,7 +217,7 @@ export default function Dashboard() {
                       })}
                     </ul>
                     {bigDays.length > 3 && (
-                      <Link to="/calendrier" className="mt-1 inline-block text-[12px] text-stone-500 hover:text-ink hover:underline">
+                      <Link to="/calendrier" className="mt-1 inline-block text-[12px] text-stone-500 hover:text-ink hover:underline pointer-coarse:py-2">
                         +{bigDays.length - 3} autre{bigDays.length > 4 ? 's' : ''} dans le calendrier
                       </Link>
                     )}

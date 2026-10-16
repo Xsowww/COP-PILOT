@@ -167,7 +167,7 @@ function ProfileTab() {
           <div className="min-w-0 flex-1">
             <p className="break-words text-[18px] font-semibold tracking-tight">{user.name}</p>
             <p className="text-[13px] text-stone-500 [overflow-wrap:anywhere]">
-              {user.email} · inscription le {fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0')}
+              {user.email}{'\u00a0'}· inscription le {fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0')}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {AVATAR_COLORS.map((c, i) => (
@@ -1002,7 +1002,7 @@ export default function ProfilePage() {
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
-      <div className="mx-auto max-w-[980px]">
+      <div className="mx-auto max-w-[1180px]">
         <div className="pb-5 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Profil et réglages</h1>
         </div>

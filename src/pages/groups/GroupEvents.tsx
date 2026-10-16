@@ -31,7 +31,7 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
     try {
       await createEvent(group.id, { title: title.trim(), date, start: start || null, end: end || null, place: place.trim() || null });
       await useGroups.getState().refresh(group.id, ['events']);
-      toast(`${w.meet.proposed} à ${w.the}`, 'success');
+      toast(`${w.meet.proposed} dans ${w.this}`, 'success');
       onDone();
     } catch (err) {
       toast(groupError(err), 'error');
@@ -113,7 +113,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
   };
 
   const remove = async () => {
-    if (!(await confirmAction(`Annuler « ${ev.title} » ?`, `${w.meet.The} disparaît pour tous les membres ${w.of}.`, `Annuler ${w.meet.the}`))) return;
+    if (!(await confirmAction(`Supprimer « ${ev.title} » ?`, `${w.meet.The} disparaît pour tous les membres ${w.of}.`, `Supprimer ${w.meet.the}`))) return;
     try {
       await deleteEvent(ev.id);
       await useGroups.getState().refresh(group.id, ['events']);
@@ -134,7 +134,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
 
   return (
     <div className="card group flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap sm:items-center">
-      <div className="flex w-14 shrink-0 flex-col items-center rounded-lg py-1.5 text-center" style={{ background: `${groupColor(group)}14`, color: groupColor(group) }}>
+      <div className="flex w-14 shrink-0 flex-col items-center rounded-lg py-1.5 text-center" style={{ background: `${groupColor(group)}14`, color: `color-mix(in srgb, ${groupColor(group)} 65%, var(--color-ink))` }}>
         <span className="text-[11px] font-medium uppercase">{fmt(fromKey(ev.date), 'MMM')}</span>
         <span className="tabular text-[20px] leading-tight font-semibold">{fmt(fromKey(ev.date), 'd')}</span>
       </div>
@@ -191,7 +191,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
         )}
         <ReportDialog target={reporting ? { kind: 'event', id: ev.id, title: ev.title } : null} onClose={() => setReporting(false)} />
         {canDelete && (
-          <button className="icon-btn hover:text-red-600" title={`Annuler ${w.meet.the}`} aria-label={`Annuler ${w.meet.the}`} onClick={() => void remove()}>
+          <button className="icon-btn hover:text-red-600" title={`Supprimer ${w.meet.the}`} aria-label={`Supprimer ${w.meet.the}`} onClick={() => void remove()}>
             <Trash2 size={15} />
           </button>
         )}

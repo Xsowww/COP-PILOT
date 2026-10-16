@@ -173,7 +173,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 onClose();
               }}
             >
-              <Trash2 size={15} /> Supprimer
+              <Trash2 size={15} /> <span className="max-sm:sr-only">Supprimer</span>
             </button>
           )}
           <button type="button" className="btn-secondary ml-auto" onClick={onClose}>

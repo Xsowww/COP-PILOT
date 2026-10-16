@@ -115,6 +115,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
   const dirty = useRef(false);
   const edits = useRef(0); // compteur : savoir si l'on a encore tapé pendant l'enregistrement
   const saving = useRef(false);
+  const failed = useRef(false); // échec réseau en cours : un seul message tant qu'il dure
   const blocked = useRef(false); // conflit ou note supprimée : plus d'enregistrement automatique
   const titleRef = useRef(title);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -136,6 +137,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
       const at = edits.current;
       try {
         const saved = await saveNote(id, { title: titleRef.current.trim() || 'Sans titre', content: html.current }, force ? null : base.current);
+        failed.current = false;
         if (saved) {
           adopt(saved);
           blocked.current = false;
@@ -156,13 +158,14 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
         }
       } catch (e) {
         setStatus('error');
-        toast(groupError(e), 'error');
+        if (!failed.current) toast(groupError(e), 'error');
+        failed.current = true;
       } finally {
         saving.current = false;
       }
       if (dirty.current && !blocked.current) {
         clearTimeout(timer.current);
-        timer.current = setTimeout(() => void save(), 800);
+        timer.current = setTimeout(() => void save(), failed.current ? 5000 : 800);
       }
     },
     [id, adopt],
@@ -328,10 +331,10 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
         <div className="mx-4 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900 md:mx-10">
           <AlertTriangle size={15} className="shrink-0" />
           <span className="min-w-0 flex-1">
-            {nameOf(conflict.updatedBy, 'Tu')} a modifié cette note {relativeTime(conflict.updatedAt)} pendant que tu écrivais. Rien n’a été écrasé.
+            {conflict.updatedBy === me ? 'Tu as modifié cette note ailleurs (autre onglet ou appareil)' : `${nameOf(conflict.updatedBy)} a modifié cette note`} {relativeTime(conflict.updatedAt)} pendant que tu écrivais. Rien n’a été écrasé.
           </span>
-          <button className="btn-secondary h-7 px-2.5" onClick={() => loadRemote(conflict)}>Charger sa version</button>
-          <button className="btn-primary h-7 px-2.5" onClick={() => void save(true)}>Garder la mienne</button>
+          <button className="btn-secondary h-7 px-2.5" onClick={() => loadRemote(conflict)}>{conflict.updatedBy === me ? 'Charger l’autre version' : 'Charger sa version'}</button>
+          <button className="btn-primary h-7 px-2.5" onClick={() => void save(true)}>{conflict.updatedBy === me ? 'Garder celle-ci' : 'Garder la mienne'}</button>
         </div>
       )}
 

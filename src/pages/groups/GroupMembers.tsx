@@ -41,7 +41,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   };
 
   const kick = async (m: GroupMember) => {
-    if (!(await confirmAction(`Retirer ${m.name} ${w.of} ?`, `Ses notes partagées restent dans ${w.the}. Il pourra revenir seulement avec ${agenda ? 'le lien' : 'le code'}.`, 'Retirer'))) return;
+    if (!(await confirmAction(`Retirer ${m.name} ${w.of} ?`, `${agenda ? 'Ses événements restent' : 'Ses notes partagées restent'} dans ${w.the}. Il pourra revenir seulement avec ${agenda ? 'le lien' : 'le code'}.`, 'Retirer'))) return;
     await run(async () => {
       await removeMember(group.id, m.userId);
       await useGroups.getState().refresh(group.id, ['members']);
@@ -59,7 +59,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   const leave = async () => {
     const alone = (members?.length ?? 1) <= 1;
     const message = alone
-      ? `Il n’y a que toi, donc tout sera supprimé : ${w.the}, ses notes et ses ${w.meet.many}.`
+      ? `Il n’y a que toi, donc tout sera supprimé : ${w.the}${agenda ? '' : ', ses notes'} et ses ${w.meet.many}.`
       : isOwner
         ? `Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec ${agenda ? 'le lien' : 'le code'}.`
         : `${agenda ? 'Tes événements restent' : 'Tes notes partagées restent'} dans ${w.the}. Tu pourras revenir avec ${agenda ? 'le lien' : 'le code'}.`;
@@ -73,7 +73,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   };
 
   const destroy = async () => {
-    if (!(await confirmAction(`Supprimer « ${group.name} » ?`, `${w.The}, ses notes partagées et ses ${w.meet.many} : tout sera supprimé pour tous les membres. Action définitive.`, `Supprimer ${w.the}`))) return;
+    if (!(await confirmAction(`Supprimer « ${group.name} » ?`, `${w.The}${agenda ? '' : ', ses notes partagées'} et ses ${w.meet.many} : tout sera supprimé pour tous les membres. Action définitive.`, `Supprimer ${w.the}`))) return;
     await run(async () => {
       await deleteGroup(group.id);
       await useGroups.getState().loadGroups();
@@ -83,7 +83,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   };
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+    <div className="min-h-0 flex-1 overflow-y-auto pb-16 lg:pb-14">
       {code && agenda ? (
         <div className="card flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-[220px] flex-1">
@@ -124,7 +124,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
       )}
       {!isOwner && mine && (
         <p className="mt-3 text-[13px] text-stone-500">
-          Tu es {mine.role === 'lecteur' ? `lecteur dans ${w.this} : tu peux tout lire et dire si tu viens aux ${w.meet.many}` : `éditeur dans ${w.this} : tu peux ajouter, modifier et supprimer notes, fichiers et ${w.meet.many}`}.
+          Tu es {mine.role === 'lecteur' ? `lecteur dans ${w.this} : tu peux ${agenda ? 'tout consulter' : `tout lire et dire si tu viens aux ${w.meet.many}`}` : `éditeur dans ${w.this} : tu peux ajouter, modifier et supprimer ${agenda ? 'des' : 'notes, fichiers et'} ${w.meet.many}`}.
         </p>
       )}
 
@@ -155,7 +155,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
                   <option value="lecteur">Lecteur</option>
                   <option value="editeur">Éditeur</option>
                 </select>
-                <label className="flex items-center gap-1.5 text-[12px] text-stone-600">
+                <label className="check-hit flex items-center gap-1.5 text-[12px] text-stone-600">
                   <input type="checkbox" className="h-4 w-4 accent-[var(--color-ink)]" checked={m.canInvite} disabled={busy} onChange={e => void setRights(m, m.role, e.target.checked)} />
                   Peut inviter
                 </label>

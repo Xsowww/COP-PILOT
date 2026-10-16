@@ -8,7 +8,7 @@ import type { Group } from '../../lib/groups';
 
 export interface CalendarSource {
   /** null: my calendar. A shared calendar has no « fait », reminders, import or custom categories. */
-  shared: { group: Group; author: (eventId: string) => string } | null;
+  shared: { group: Group; author: (eventId: string) => string; canEdit: boolean } | null;
   events: CalendarEvent[];
   add: (e: NewEvent) => void;
   update: (id: string, patch: Partial<CalendarEvent>) => void;

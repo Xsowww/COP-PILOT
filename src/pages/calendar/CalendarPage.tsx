@@ -60,6 +60,7 @@ interface EventItemProps {
 
 function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   const { toggleDone, remove, shared } = useCalendarSource();
+  const readOnly = !!shared && !shared.canEdit; // a reader of a shared calendar: nothing to change
   const c = catOf(ev.category);
   const defaults = useSettings(s => s.defaultReminders);
   const reminders = shared ? [] : eventReminders(ev, defaults);
@@ -76,8 +77,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
         )}
       </div>
       <div
-        onPointerDown={onDragStart}
-        title="Glisse sur un autre jour pour déplacer"
+        onPointerDown={readOnly ? undefined : onDragStart}
+        title={readOnly ? undefined : 'Glisse sur un autre jour pour déplacer'}
         className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-lg border border-stone-200/80 bg-surface py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:border-stone-300', ev.done && 'bg-stone-50', dragging && 'opacity-40')}
       >
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
@@ -88,7 +89,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
         >
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
         </button>}
-        <button className="min-w-0 flex-1 text-left pointer-coarse:py-2" onClick={onEdit}>
+        <button className={cx('min-w-0 flex-1 text-left pointer-coarse:py-2', readOnly && 'cursor-default')} onClick={readOnly ? undefined : onEdit}>
           <p className={cx('text-[14px] font-medium leading-snug [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>
             {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label="Important" />}
             {ev.title}
@@ -107,7 +108,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           </p>
           {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
         </button>
-        <div className="touch-show flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        {!readOnly && <div className="touch-show flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
           <button className="icon-btn" title="Modifier" aria-label={`Modifier « ${ev.title} »`} onClick={onEdit}>
             <Pencil size={14} />
           </button>
@@ -118,7 +119,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           >
             <Trash2 size={14} />
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -134,7 +135,8 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
   shown: Set<EventCategory>;
   importantOnly: boolean;
   onToggle: (k: EventCategory) => void;
-  onImportant: () => void;
+  /** Absent in a shared calendar (nothing is marked important there). */
+  onImportant?: () => void;
   onReset: () => void;
   /** Absent in a shared calendar (my categories are mine). */
   onManage?: () => void;
@@ -181,12 +183,16 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
       {open && (
         <div id="filtre-calendrier" role="group" aria-label="Filtrer les événements" className="pop absolute right-0 top-10 z-[60] w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop">
           <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{count ? 'Seuls les éléments cochés sont affichés.' : 'Tout est affiché. Coche pour n’afficher que certains éléments.'}</p>
-          <label className={row}>
-            <input type="checkbox" className={box} checked={importantOnly} onChange={onImportant} />
-            <Flag size={13} className="shrink-0 fill-amber-500 text-amber-500" />
-            Importants
-          </label>
-          <div className="my-1 h-px bg-stone-100" />
+          {onImportant && (
+            <>
+              <label className={row}>
+                <input type="checkbox" className={box} checked={importantOnly} onChange={onImportant} />
+                <Flag size={13} className="shrink-0 fill-amber-500 text-amber-500" />
+                Importants
+              </label>
+              <div className="my-1 h-px bg-stone-100" />
+            </>
+          )}
           {categories.map(k => {
             const c = catOf(k);
             return (
@@ -238,7 +244,10 @@ export default function CalendarPage() {
   const [allExams, setAllExams] = useState(false);
   const [managing, setManaging] = useState(false);
   // fromQuick: opened from the quick add (« demain 14h » without a title), whose text is cleared once saved.
-  const [form, setForm] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string; fromQuick?: boolean } | null>(null);
+  const [form, setFormState] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string; fromQuick?: boolean } | null>(null);
+  // A reader of a shared calendar sees it, without the ways to change it (the server refuses them anyway).
+  const readOnly = !!shared && !shared.canEdit;
+  const setForm = (f: typeof form) => setFormState(readOnly ? null : f);
   const [importing, setImporting] = useState<{ initial?: IcsSource } | null>(null);
   const [fileOver, setFileOver] = useState(false);
   const quickRef = useRef<HTMLInputElement>(null);
@@ -353,7 +362,8 @@ export default function CalendarPage() {
     const label = dayChanged ? `Déplacé au ${fmt(fromKey(target.day), 'EEEE d MMM')}${timeChanged ? ` à ${patch.start}` : ''}` : `Déplacé à ${patch.start}`;
     toast(label, 'success', { label: 'Annuler', run: () => update(ev.id, before) });
   };
-  const { drag, ghostRef, start: startDrag } = useEventDrag(moveEvent);
+  const { drag, ghostRef, start: dragStart } = useEventDrag(moveEvent);
+  const startDrag: typeof dragStart = (...a) => (readOnly ? undefined : dragStart(...a));
   const dropDay = drag?.target && drag.target.minutes === undefined ? drag.target.day : null;
 
   // Drop an .ics file anywhere on the page to import it.
@@ -375,7 +385,8 @@ export default function CalendarPage() {
   // An exam of today already over (its end, else its start, passed) is no longer « à venir », as on the home page.
   // Exams and events marked important (they count as big days too).
   const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !e.done && !isOver(e);
-  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14;
+  // A shared calendar has no « fait »: what is past is just past, not « en retard ».
+  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14 && (!shared || daysUntil(e.date) >= 0);
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
   const upcomingHidden = filtering && events.some(e => !passes(e) && (isUpcomingExam(e) || isHomeworkSoon(e)));
   const allUpcomingExams = visible.filter(isUpcomingExam).sort(sortEvents);
@@ -413,7 +424,7 @@ export default function CalendarPage() {
             <button className="icon-btn" onClick={() => shift(-1)} title={mode === 'day' ? 'Jour précédent' : 'Précédent'} aria-label={mode === 'day' ? 'Jour précédent' : 'Précédent'}>
               <ChevronLeft size={17} />
             </button>
-            <span className="min-w-32 text-center text-[14px] font-medium first-letter:uppercase">{fmt(selDate, mode === 'day' ? 'EEE d MMMM' : 'MMMM yyyy')}</span>
+            <span className="min-w-28 text-center text-[14px] font-medium first-letter:uppercase">{fmt(selDate, mode === 'day' ? 'EEE d MMMM' : 'MMMM yyyy')}</span>
             <button className="icon-btn" onClick={() => shift(1)} title={mode === 'day' ? 'Jour suivant' : 'Suivant'} aria-label={mode === 'day' ? 'Jour suivant' : 'Suivant'}>
               <ChevronRight size={17} />
             </button>
@@ -421,9 +432,9 @@ export default function CalendarPage() {
           <button className="btn-secondary h-8" onClick={() => selectDay(today)}>
             Aujourd’hui
           </button>
-          <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px]" role="group" aria-label="Affichage">
+          <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-10" role="group" aria-label="Affichage">
             {MODES.map(m => (
-              <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('h-7 rounded-md px-3 font-medium transition-colors pointer-coarse:h-9', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
+              <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('h-7 rounded-md px-2 font-medium transition-colors pointer-coarse:h-9 sm:px-3', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
                 {m.label}
               </button>
             ))}
@@ -440,7 +451,7 @@ export default function CalendarPage() {
                 return n;
               })
             }
-            onImportant={() => setImportantOnly(v => !v)}
+            onImportant={shared ? undefined : () => setImportantOnly(v => !v)}
             onReset={() => {
               setShown(new Set());
               setImportantOnly(false);
@@ -461,6 +472,9 @@ export default function CalendarPage() {
 
         {/* Quick add */}
         {/* Keyboard focus: a brand ring (the shadow alone was invisible on the dark theme). */}
+        {readOnly ? (
+          <p className="card px-4 py-3 text-[13px] text-stone-500">Tu peux consulter cet agenda ; seuls ses éditeurs peuvent le modifier.</p>
+        ) : (
         <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-focus">
           <div className="flex h-12 items-center gap-2.5">
             <Plus size={17} className="shrink-0 text-stone-400" />
@@ -511,6 +525,7 @@ export default function CalendarPage() {
             </div>
           )}
         </form>
+        )}
 
         <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
           <section className="card min-w-0 p-4 md:p-5">
@@ -554,7 +569,7 @@ export default function CalendarPage() {
                 })}
               </div>
             ) : (
-              <div>
+              <div className="@container">
                 <div className="grid grid-cols-7 pb-1.5 text-center text-[11px] font-medium text-stone-500">
                   {['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'].map(d => (
                     <span key={d}>{d}</span>
@@ -574,14 +589,14 @@ export default function CalendarPage() {
                         onClick={() => selectDay(key)}
                         onDoubleClick={() => setForm({ date: key })}
                         className={cx(
-                          'flex min-h-16 flex-col items-stretch p-1 text-left transition-colors md:min-h-[84px]',
+                          'flex min-h-16 flex-col items-stretch p-1 text-left transition-colors @md:min-h-[84px]',
                           dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'bg-stone-50' : 'bg-surface hover:bg-stone-50',
                           !isSameMonth(d, selDate) && 'text-stone-500',
                         )}
                       >
                         <span
                           className={cx(
-                            'tabular mb-0.5 flex h-6 w-6 items-center justify-center self-center rounded-full text-[12px] font-medium md:self-start',
+                            'tabular mb-0.5 flex h-6 w-6 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
                             isSel ? 'bg-ink text-paper' : key === today && 'text-brand-600',
                           )}
                         >
@@ -591,7 +606,7 @@ export default function CalendarPage() {
                           <span
                             key={e.id}
                             onPointerDown={p => startDrag(e, p)}
-                            className={cx('mb-0.5 hidden cursor-grab select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 md:flex', drag?.ev.id === e.id && 'opacity-40')}
+                            className={cx('mb-0.5 hidden cursor-grab select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', drag?.ev.id === e.id && 'opacity-40')}
                             style={{ textDecoration: e.done ? 'line-through' : undefined }}
                           >
                             <Dot color={catOf(e.category).color} size={6} />
@@ -599,13 +614,13 @@ export default function CalendarPage() {
                           </span>
                         ))}
                         {evs.length > 0 && (
-                          <span className="flex justify-center gap-0.5 md:hidden">
+                          <span className="flex justify-center gap-0.5 @md:hidden">
                             {evs.slice(0, 3).map(e => (
                               <Dot key={e.id} color={catOf(e.category).color} size={5} />
                             ))}
                           </span>
                         )}
-                        {evs.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 md:block">+{evs.length - 2} autre{evs.length > 3 ? 's' : ''}</span>}
+                        {evs.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 @md:block">+{evs.length - 2} autre{evs.length > 3 ? 's' : ''}</span>}
                       </button>
                     );
                   })}
@@ -617,9 +632,9 @@ export default function CalendarPage() {
             <div className="mt-5 border-t border-stone-100 pt-5">
               <div className="mb-4 flex items-baseline gap-2">
                 <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? 'Aujourd’hui' : fmt(selDate, 'EEEE d MMMM')}</h2>
-                <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>
+                {!readOnly && <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>
                   <Plus size={14} /> Ajouter
-                </button>
+                </button>}
               </div>
               {mode === 'day' ? (
                 <DayView
@@ -672,7 +687,7 @@ export default function CalendarPage() {
                 })}
                 {moreExams > 0 && (
                   <li>
-                    <button onClick={() => setAllExams(v => !v)} aria-expanded={allExams} className="w-full rounded-lg px-1.5 py-1 text-left text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-50 hover:text-ink">
+                    <button onClick={() => setAllExams(v => !v)} aria-expanded={allExams} className="w-full rounded-lg px-1.5 py-1 text-left text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-50 hover:text-ink pointer-coarse:py-2">
                       {allExams ? 'Réduire' : `Voir ${moreExams} autre${moreExams > 1 ? 's' : ''}`}
                     </button>
                   </li>
@@ -680,12 +695,12 @@ export default function CalendarPage() {
                 {homework.map(e => (
                   <li key={e.id} className="flex h-8 items-center gap-3 px-1.5">
                     <span className="flex w-9 shrink-0">
-                      <button
+                      {!shared && <button
                         onClick={() => source.toggleDone(e.id)}
                         className="hit h-4 w-4 rounded border-[1.5px] border-stone-300 transition-colors hover:border-stone-500"
                         title={`Marquer comme ${words.markDone}`}
                         aria-label={`Marquer « ${e.title} » comme ${words.markDone}`}
-                      />
+                      />}
                     </span>
                     <button onClick={() => selectDay(e.date)} className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline pointer-coarse:py-2">
                       {e.title}

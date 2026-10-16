@@ -87,8 +87,9 @@ function JoinForm({ onDone }: { onDone: (id?: string) => void }) {
         setBusy(false);
         return;
       }
+      const already = useGroups.getState().groups.some(g => g.id === id);
       await useGroups.getState().loadGroups();
-      toast(`Tu as rejoint ${w.the}`, 'success');
+      toast(already ? `Tu fais déjà partie de ${w.this}` : `Tu as rejoint ${w.the}`, 'success');
       onDone(id);
     } catch (err) {
       setError(groupError(err));
@@ -205,8 +206,10 @@ function Groups() {
     void joinGroup(invite)
       .then(async id => {
         if (!id) return toast('Ce lien d’invitation ne marche plus : demande-en un nouveau.', 'error');
+        const already = useGroups.getState().groups.some(g => g.id === id);
         await useGroups.getState().loadGroups();
-        toast(`Tu as rejoint ${useGroups.getState().groups.find(g => g.id === id)?.name ?? w.the}`, 'success');
+        const name = useGroups.getState().groups.find(g => g.id === id)?.name ?? w.the;
+        toast(already ? `Tu fais déjà partie de ${name}` : `Tu as rejoint ${name}`, 'success');
         setParams({ g: id }, { replace: true });
       })
       .catch(e => toast(groupError(e), 'error'))
@@ -275,16 +278,17 @@ function Groups() {
       <section className={cx('min-w-0 flex-1 flex-col md:mt-2', active ? 'flex' : 'hidden md:flex')}>
         {active ? (
           <>
-            <div className="flex items-center gap-3 pb-3">
+            <div className="flex items-center gap-2 pb-3 sm:gap-3">
               <button className="icon-btn md:hidden" onClick={() => go(null)} title="Retour" aria-label="Retour">
                 <ArrowLeft size={17} />
               </button>
-              <GroupBadge group={active} size={34} />
+              {/* Smallest phones: no room for the badge, the name and the code come first. */}
+              <span className="flex shrink-0 max-[359px]:hidden"><GroupBadge group={active} size={34} /></span>
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-[18px] font-semibold tracking-[-0.01em]">{active.name}</h2>
                 {code && (
                   <button
-                    className="group/code flex items-center gap-1.5 text-[12px] text-stone-500 hover:text-ink"
+                    className="group/code hit-sm flex max-w-full items-center gap-1.5 text-[12px] text-stone-500 hover:text-ink"
                     title="Copier le code d’invitation"
                     onClick={() => void copyCode(code)}
                   >
@@ -294,8 +298,8 @@ function Groups() {
                 )}
               </div>
               {code && (
-                <button className="btn-secondary h-8 px-3" onClick={() => void copyInviteLink(code, 'groupe')} title="Copier le lien d’invitation">
-                  <Link2 size={14} /> Inviter
+                <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => void copyInviteLink(code, 'groupe')} title="Copier le lien d’invitation">
+                  <Link2 size={14} /> <span className="max-sm:sr-only">Inviter</span>
                 </button>
               )}
               {rights.canEdit && (
@@ -311,7 +315,7 @@ function Groups() {
                 </button>
               )}
             </div>
-            <div className="flex gap-1 border-b border-stone-200" role="tablist">
+            <div className="flex gap-1 overflow-x-auto border-b border-stone-200" role="tablist">
               {tabs.map(t => (
                 <button
                   key={t.id}
@@ -319,7 +323,7 @@ function Groups() {
                   aria-selected={tab === t.id}
                   onClick={() => go(active.id, t.id)}
                   className={cx(
-                    '-mb-px flex h-9 items-center gap-1.5 border-b-2 px-2.5 text-[13px] font-medium transition-[color]',
+                    '-mb-px flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-[13px] font-medium transition-[color]',
                     tab === t.id ? 'text-ink' : 'border-transparent text-stone-500 hover:text-ink',
                   )}
                   style={tab === t.id ? { borderColor: groupColor(active) } : undefined}

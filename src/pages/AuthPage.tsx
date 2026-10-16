@@ -400,7 +400,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           {cloudEnabled ? 'Tes données sont chiffrées en transit et protégées : personne d’autre que toi n’y a accès.' : 'Tes données restent enregistrées sur cet appareil.'}
           {LEGAL_LINKS.map(l => (
             <span key={l.to}>
-              {' · '}
+              {'\u00a0· '}
               <Link to={l.to} className="whitespace-nowrap underline decoration-stone-300 underline-offset-2 hover:text-ink">
                 {l.label}
               </Link>

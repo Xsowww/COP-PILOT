@@ -11,10 +11,10 @@ function ToastRow({ t }: { t: Toast }) {
   return (
     <div className="pop flex max-w-[calc(100vw-32px)] items-center gap-2 rounded-lg bg-inverse px-3.5 py-2 text-[13px] text-on-inverse shadow-pop [overflow-wrap:break-word] sm:max-w-[560px]">
       {t.tone === 'success' ? <CheckCircle2 size={15} className="shrink-0 text-emerald-400" aria-hidden /> : t.tone === 'error' ? <XCircle size={15} className="shrink-0 text-red-400" aria-hidden /> : <Info size={15} className="shrink-0 text-stone-400" aria-hidden />}
-      <span className="min-w-0">{t.text}</span>
+      <span className="min-w-0 line-clamp-2">{t.text}</span>
       {t.action && (
         <button
-          className="pointer-events-auto -my-1 -mr-1.5 ml-1.5 shrink-0 whitespace-nowrap rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
+          className="hit-sm pointer-events-auto -my-1 -mr-1.5 ml-1.5 shrink-0 whitespace-nowrap rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
           onClick={() => {
             dismiss(t.id);
             t.action!.run();
@@ -292,6 +292,19 @@ export function ReminderAlerts() {
   const alerts = useUi(s => s.alerts);
   const dismiss = useUi(s => s.dismissAlert);
   const navigate = useNavigate();
+  // Échap closes the newest card, like every other window — unless a dialog is open or a field has the focus: Échap is theirs.
+  const last = alerts[alerts.length - 1]?.key;
+  useEffect(() => {
+    if (!last) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[aria-modal="true"]')) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+      dismiss(last);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [last, dismiss]);
   if (!alerts.length) return null;
   return (
     <div
@@ -309,7 +322,8 @@ export function ReminderAlerts() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="flex items-baseline justify-between gap-2 text-[12px] leading-4 text-stone-500">
-                <span className="font-medium">Rappel</span>
+                {/* A shared calendar's news: which calendar (its 2nd line, « Agenda « Coloc » »), not « Rappel ». */}
+                <span className="truncate font-medium">{a.key.startsWith('agenda') ? a.body.split('\n')[1] || 'Agenda partagé' : 'Rappel'}</span>
                 {a.at && <time className="tabular">{new Date(a.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time>}
               </p>
               <p className="mt-1 line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{a.title}</p>

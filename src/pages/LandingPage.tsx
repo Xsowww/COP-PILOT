@@ -220,10 +220,10 @@ export default function LandingPage() {
             <Logo />
           </Link>
           <nav aria-label="Sur cette page" className="hidden items-center gap-5 text-[13.5px] text-stone-600 md:flex">
-            <a href="#fonctions" className="hover:text-ink">Fonctions</a>
-            <a href="#usages" className="hover:text-ink">Usages</a>
-            <a href="#confiance" className="hover:text-ink">Vie privée</a>
-            <a href="#questions" className="hover:text-ink">Questions</a>
+            <a href="#fonctions" className="inline-flex h-9 items-center hover:text-ink">Fonctions</a>
+            <a href="#usages" className="inline-flex h-9 items-center hover:text-ink">Usages</a>
+            <a href="#confiance" className="inline-flex h-9 items-center hover:text-ink">Vie privée</a>
+            <a href="#questions" className="inline-flex h-9 items-center hover:text-ink">Questions</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <Link to="/connexion" className="btn-secondary h-9">

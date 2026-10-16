@@ -54,7 +54,7 @@ function Kpi({ icon: Icon, label, value, sub, color, className }: { icon: typeof
 }
 
 /** Daily columns, one series: 2px gaps, 4px rounded caps, hover tooltip, recessive grid. */
-function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; valueKey: 'signups' | 'created'; label: string; color: string }) {
+function DailyColumns({ data, valueKey, label, labelOne, color }: { data: Stats['days']; valueKey: 'signups' | 'created'; label: string; labelOne: string; color: string }) {
   const [hover, setHover] = useState<number | null>(null);
   const values = data.map(d => d[valueKey]);
   const max = Math.max(1, ...values);
@@ -70,7 +70,7 @@ function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; v
   return (
     <div className="relative">
       <p className="tabular text-[13px] text-stone-500">
-        <span className="text-[20px] font-semibold text-ink">{total}</span> {label} sur 30 jours
+        <span className="text-[20px] font-semibold text-ink">{total}</span> {total > 1 ? label : labelOne} sur 30 jours
       </p>
       <svg viewBox={`0 0 ${W} ${H + 18}`} className="mt-3 w-full overflow-visible" role="img" aria-label={`${label} par jour sur 30 jours : ${total} au total, maximum ${max} par jour`} onMouseLeave={() => setHover(null)}>
         {[0, 0.5, 1].map(f => (
@@ -108,12 +108,13 @@ function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; v
       </svg>
       {tip && hover !== null && (
         <div
-          className="pointer-events-none absolute top-8 z-10 rounded-md bg-inverse px-2.5 py-1.5 text-[12px] text-on-inverse shadow-pop"
-          style={{ left: `clamp(0px, calc(${((hover + 0.5) / data.length) * 100}% - 60px), calc(100% - 120px))` }}
+          className="pointer-events-none absolute top-8 z-10 whitespace-nowrap rounded-md bg-inverse px-2.5 py-1.5 text-[12px] text-on-inverse shadow-pop"
+          // Glisse sous la colonne survolée sans jamais dépasser du cadre, même au bord.
+          style={{ left: `${((hover + 0.5) / data.length) * 100}%`, transform: `translateX(-${((hover + 0.5) / data.length) * 100}%)` }}
         >
           <p className="text-on-inverse/60">{fmt(fromKey(tip.day), 'EEEE d MMMM')}</p>
           <p className="tabular font-medium">
-            {tip[valueKey]} {label}
+            {tip[valueKey]} {tip[valueKey] > 1 ? label : labelOne}
           </p>
         </div>
       )}
@@ -146,13 +147,17 @@ export default function AdminPage() {
     setLoading(true);
     const [{ data, error: err }, box] = await Promise.all([supabase.rpc('admin_stats'), fetchInbox()]);
     setLoading(false);
-    setInbox(box.inbox);
-    setInboxMissing(box.missing);
+    // Échec passager : on garde la liste déjà affichée et on prévient.
+    const boxFailed = !box.inbox && !box.missing;
+    if (!boxFailed) {
+      setInbox(box.inbox);
+      setInboxMissing(box.missing);
+    }
     if (err) {
       setError(err.message.includes('mfa') ? 'Reconnecte-toi avec ton code de sécurité pour voir ces chiffres.' : 'Impossible de charger les statistiques.');
       return;
     }
-    setError('');
+    setError(boxFailed ? 'Impossible d’actualiser les signalements à traiter : la liste affichée n’est peut-être pas à jour.' : '');
     setStats(data as Stats);
   }, []);
 
@@ -193,7 +198,7 @@ export default function AdminPage() {
   const count: Partial<Record<View, number>> = { traiter: pending, comptes: stats?.accounts.length };
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
+    <div className="h-full overflow-y-auto px-4 pb-16 md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <div className="flex flex-wrap items-center gap-3 pb-4 pt-2">
           <div className="mr-auto">
@@ -288,7 +293,7 @@ export default function AdminPage() {
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <Kpi icon={NotebookText} label="Notes" value={c!.notes} sub={`${c!.note_folders} dossiers`} color="#d48a17" />
                 <Kpi icon={CalendarDays} label="Événements" value={c!.events} sub={`${c!.events ? Math.round((c!.events_done / c!.events) * 100) : 0} % terminés`} color="#d9483b" />
-                <Kpi icon={FolderClosed} label="Fichiers" value={c!.files} sub={u!.total ? `${(c!.files / u!.total).toFixed(1)} par compte` : undefined} color="#3b6fd8" />
+                <Kpi icon={FolderClosed} label="Fichiers" value={c!.files} sub={u!.total ? `${(c!.files / u!.total).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} par compte` : undefined} color="#3b6fd8" />
                 <Kpi icon={HardDrive} label="Stockage" value={formatBytes(c!.storage_bytes)} sub={`${c!.folders} dossiers`} color="#3b6fd8" />
               </div>
             </section>
@@ -300,14 +305,14 @@ export default function AdminPage() {
                   <h3 className="text-[13px] font-medium text-stone-600">Activité</h3>
                   <p className="text-[12px] text-stone-500">Notes, événements et fichiers créés par jour</p>
                   <div className="mt-3">
-                    <DailyColumns data={stats.days} valueKey="created" label="éléments créés" color="var(--color-brand-500)" />
+                    <DailyColumns data={stats.days} valueKey="created" label="éléments créés" labelOne="élément créé" color="var(--color-brand-500)" />
                   </div>
                 </div>
                 <div className="card p-4">
                   <h3 className="text-[13px] font-medium text-stone-600">Inscriptions</h3>
                   <p className="text-[12px] text-stone-500">Nouveaux comptes par jour</p>
                   <div className="mt-3">
-                    <DailyColumns data={stats.days} valueKey="signups" label="inscriptions" color="#3b6fd8" />
+                    <DailyColumns data={stats.days} valueKey="signups" label="inscriptions" labelOne="inscription" color="#3b6fd8" />
                   </div>
                 </div>
               </div>
@@ -408,7 +413,7 @@ function Categories({ stats }: { stats: Stats }) {
     </div>
   );
   return (
-    <div className="grid items-start gap-3 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
       <section className="card p-4" aria-labelledby="admin-cats">
         <h2 id="admin-cats" className="text-[13px] font-medium text-stone-600">Événements par catégorie</h2>
         <p className="text-[12px] text-stone-500">Tous les comptes confondus</p>
