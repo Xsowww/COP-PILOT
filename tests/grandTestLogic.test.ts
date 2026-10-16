@@ -73,3 +73,11 @@ describe('import .ics', () => {
   });
 });
 
+
+describe('ajout rapide (espaces perso)', () => {
+  it('« à 14 heures », une date impossible, un « A » en fin de titre', () => {
+    expect(q('Rdv dentiste à 14 heures')).toMatchObject({ title: 'Rdv dentiste', start: '14:00' });
+    expect(q('Jour J le 30 février').date).toBeNull();
+    expect(q('Réunion équipe A demain').title).toBe('Réunion équipe A');
+  });
+});

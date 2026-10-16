@@ -208,7 +208,7 @@ export default function PreviewModal({
               </div>
             )
           ) : plain ? (
-            <pre className="max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md bg-white p-5 font-mono text-[12px] text-stone-800">{text}</pre>
+            <pre className="max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md bg-white p-5 font-mono text-[12px] text-stone-800">{text || <span className="font-sans text-stone-500">Ce fichier est vide.</span>}</pre>
           ) : (
             <div className="rounded-xl bg-white p-10 text-center">
               <FileIcon category={cat} size={64} ext={item.name.split('.').pop()} />

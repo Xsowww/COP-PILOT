@@ -2,8 +2,8 @@
 // own store; this module lists them together and restores / purges them by id.
 
 import { useMemo } from 'react';
-import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { parseISO } from 'date-fns';
+import { fmt } from './dates';
 import { useDrive, pathOf, trashRoots, withDescendants, TRASH_DAYS, type DriveItem } from '../store/drive';
 import { useNotes, notesTrashRoots, folderDescendants, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, type CalendarEvent } from '../store/calendar';
@@ -39,7 +39,7 @@ const current = (): Sources => {
   return { driveItems: d.items, driveTrash: d.trash, noteFolders: n.folders, trashFolders: n.trashFolders, trashNotes: n.trashNotes, eventTrash: useCalendar.getState().trash };
 };
 
-export const eventDay = (date: string) => format(parseISO(date), 'EEE d MMM', { locale: fr });
+export const eventDay = (date: string) => fmt(parseISO(date), 'EEE d MMM').replace(/^./, c => c.toUpperCase());
 
 function notesPlace(folders: NoteFolder[], parentId: string | null) {
   if (!parentId) return { place: 'Notes', placeGone: false };

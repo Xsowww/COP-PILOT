@@ -6,7 +6,7 @@ import { ArrowUpRight, CalendarDays, Check, Flag, Plus } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
 import { useCalendar, catOf, isBigEvent, sortEvents, type CalendarEvent } from '../store/calendar';
-import { fmt, toKey, fromKey, weekStart, daysUntil, hasStarted } from '../lib/dates';
+import { fmt, fmtDay, toKey, fromKey, weekStart, daysUntil, hasStarted } from '../lib/dates';
 import { relativeTime, stripHtml, cx } from '../lib/utils';
 import { hasRevisionPlan, revisionNote, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
@@ -51,7 +51,7 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
         <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-500 line-through' : muted ? 'text-stone-600' : 'font-medium')}>{e.title}</span>
       </Link>
       <span className="tabular shrink-0 text-[12px] text-stone-500">
-        {showDay && <span className="capitalize">{fmt(fromKey(e.date), 'EEE d')} </span>}
+        {showDay && <span className="capitalize">{fmtDay(fromKey(e.date), daysUntil(e.date) < 7 ? 'EEE d' : 'EEE d MMM')} </span>}
         {e.start ?? ''}
       </span>
     </li>
@@ -190,7 +190,7 @@ export default function Dashboard() {
                       <span className="truncate">{nextExam.title}</span>
                     </span>
                     <span className="block text-[12px] first-letter:uppercase text-stone-500">
-                      {fmt(fromKey(nextExam.date), 'EEEE d MMMM')}
+                      {fmtDay(fromKey(nextExam.date), 'EEEE d MMMM')}
                       {nextExam.start && ` · ${nextExam.start}`}
                     </span>
                   </span>
@@ -208,7 +208,7 @@ export default function Dashboard() {
                               {e.important && <Flag size={11} className="shrink-0 fill-amber-500 text-amber-500" aria-label="Important" />}
                               <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
                               <span className="ml-auto shrink-0 text-[12px] text-stone-500">
-                                {fmt(fromKey(e.date), 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
+                                {fmtDay(fromKey(e.date), 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
                                 {e.start && ` · ${e.start}`}
                               </span>
                             </Link>

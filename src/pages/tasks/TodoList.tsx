@@ -189,7 +189,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           aria-label={hasReminder ? `Changer le rappel de «\u00a0${t.title}\u00a0»` : `Me rappeler «\u00a0${t.title}\u00a0»`}
         >
           {hasReminder ? <BellRing size={13} /> : <Bell size={13} />}
-          {hasReminder && t.time && <span className="tabular">{t.time.replace(':', 'h').replace(/h00$/, 'h')}</span>}
+          {hasReminder && t.time && <span className="tabular">{t.time.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '')}</span>}
         </button>
       )}
       {reminding && <TaskReminderDialog todo={t} onClose={() => setReminding(false)} />}

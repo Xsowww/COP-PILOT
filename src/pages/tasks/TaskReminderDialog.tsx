@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Overlays';
 import ReminderPicker from '../../components/ReminderPicker';
-import { adaptReminders } from '../../lib/reminders';
+import { adaptReminders, reminderMoment } from '../../lib/reminders';
 import { useTodos, type Todo } from '../../store/todos';
 import { toast } from '../../store/ui';
 
@@ -10,7 +10,12 @@ export default function TaskReminderDialog({ todo, onClose }: { todo: Todo; onCl
   const [due, setDue] = useState(todo.due ?? '');
   const [time, setTime] = useState(todo.time ?? '');
   // A task without reminders yet: the evening before, or 15 min before when it has a time.
-  const [reminders, setReminders] = useState<number[]>(todo.reminders ?? (todo.time ? [15] : [900]));
+  // Not one already past (« la veille à 18h » of a task due today): the moment itself instead.
+  const [reminders, setReminders] = useState<number[]>(() => {
+    if (todo.reminders) return todo.reminders;
+    const first = todo.time ? 15 : 900;
+    return !todo.due || reminderMoment(todo.due, todo.time, first).getTime() > Date.now() ? [first] : [0];
+  });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();

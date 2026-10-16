@@ -203,7 +203,8 @@ async function pushTest(req) {
 export async function handlePush(req, res) {
   const path = (req.url ?? '').split('?')[0];
   if (path === '/api/push/cle' && req.method === 'GET') {
-    json(res, vapid ? 200 : 404, vapid ? { key: vapid.publicKey } : { error: 'push non configuré' });
+    // Not set up: no key (the app then reminds only while it is open), without an error on every page.
+    json(res, 200, { key: vapid ? vapid.publicKey : null });
     return true;
   }
   if (path === '/api/push/test' && req.method === 'POST') {

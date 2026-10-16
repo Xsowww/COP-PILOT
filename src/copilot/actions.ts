@@ -9,7 +9,7 @@ import { useCalendar, catOf, guessCategory, customCategoryIn, customNamed, creat
 import { useTodos } from '../store/todos';
 import { useFocus, focusLeft } from '../store/focus';
 import { normalize, stripHtml, formatBytes } from '../lib/utils';
-import { toKey, todayKey, daysUntil, fromKey, fmt, weekStart, countdownLabel } from '../lib/dates';
+import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownLabel } from '../lib/dates';
 import type { CopilotLink } from '../store/copilot';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
 import { usageWords } from '../lib/usage';
@@ -77,7 +77,7 @@ export function search(query: string, limit = 8): SearchHit[] {
   }
   for (const e of useCalendar.getState().events) {
     const s = score(e.title, q);
-    if (s) hits.push({ s, type: 'événement', id: e.id, title: e.title, where: fmt(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date) });
+    if (s) hits.push({ s, type: 'événement', id: e.id, title: e.title, where: fmtDay(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date) });
   }
   return hits.sort((a, b) => b.s - a.s).slice(0, limit).map(({ s: _s, ...h }) => h);
 }
@@ -91,8 +91,9 @@ export function eventsBetween(from: string, to: string) {
 
 export function describeEvent(e: { title: string; date: string; start?: string; end?: string; category: EventCategory; done?: boolean; important?: boolean }) {
   const c = catOf(e.category);
-  const time = e.start ? ` à ${e.start.replace(':', 'h')}${e.end ? `–${e.end.replace(':', 'h')}` : ''}` : '';
-  return `${e.title} (${c.label.toLowerCase()}) — ${fmt(fromKey(e.date), 'EEEE d MMM')}${time}${e.important ? ' · important' : ''}${e.done ? ' · fait' : ''}`;
+  const h = (t: string) => t.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, ''); // « 9h », « 14h30 »
+  const time = e.start ? ` à ${h(e.start)}${e.end ? `–${h(e.end)}` : ''}` : '';
+  return `${e.title} (${c.label.toLowerCase()}) — ${fmtDay(fromKey(e.date), 'EEEE d MMM')}${time}${e.important ? ' · important' : ''}${e.done ? ' · fait' : ''}`;
 }
 
 export function analyzeCalendar() {

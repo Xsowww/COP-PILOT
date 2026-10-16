@@ -13,6 +13,7 @@ import { cloudEnabled, supabase } from './supabase';
 import { flushNow } from './cloudSync';
 import { purgeSoleGroups } from './groups';
 import { useTodos } from '../store/todos';
+import { isTourTodo } from '../store/tour';
 import { useFocusLog } from '../store/focusLog';
 import { useCopilot } from '../store/copilot';
 
@@ -25,7 +26,7 @@ function download(name: string, content: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-const stamp = () => new Date().toISOString().slice(0, 10);
+const stamp = () => toKey(new Date()); // the local day (in UTC it was the day before until 1 or 2 am)
 
 /** Everything except file contents (those stay in the Drive). */
 export function exportBackup() {
@@ -114,7 +115,9 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   const driveFolders = valid(missing<DriveItem>(data.driveFolders, drive.items, drive.trash), x => okFolder(x) && x.kind === 'folder');
   const liveDrive = new Set([...drive.items, ...driveFolders].map(i => i.id));
   if (driveFolders.length) useDrive.setState(s => ({ items: [...s.items, ...driveFolders.map(f => (f.parentId && !liveDrive.has(f.parentId) ? { ...f, parentId: null } : f))] }));
-  const todos = valid(missing(data.todos, useTodos.getState().todos), okTodo);
+  // The tour's task of another account: not a second one here.
+  const cur = useTodos.getState().todos;
+  const todos = valid(missing(data.todos, cur), okTodo).filter(t => !(isTourTodo(String(t.title)) && cur.some(x => isTourTodo(x.title))));
   if (todos.length) useTodos.setState(s => ({ todos: [...s.todos, ...todos] }));
   return { notes: notes.length, events: events.length, todos: todos.length, folders: folders.length + driveFolders.length, inTrash };
 }

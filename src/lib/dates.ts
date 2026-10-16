@@ -66,6 +66,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
   let start: string | null = null;
   let end: string | null = null;
   let weekly = false;
+  let impossible = false; // « le 30 février »: no date, rather than « le 30 » of this month
   // Same length as `text` (accents stripped, no trim) so match indices map back.
   // The typographic apostrophe of phone keyboards (« aujourd’hui ») counts as a plain one.
   const n = () => text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'");
@@ -95,7 +96,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
   };
 
   // Times: "14h", "14h30", "14:30", "de 14h à 16h", "14h-16h", "14h–16h" (dash of the autocorrect), "midi"
-  const range = find(/\s(?:de\s)?(\d{1,2})\s?(?:h|:)\s?(\d{2})?\s?(?:-|–|—|a|à|jusqu'a)\s?(\d{1,2})\s?(?:h|:)\s?(\d{2})?(?=\s)/);
+  const range = find(/\s(?:de\s)?(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?\s?(?:-|–|—|a|à|jusqu'a)\s?(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?(?=\s)/);
   if (range) {
     start = hm(range[1], range[2]);
     end = hm(range[3], range[4]);
@@ -103,7 +104,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
     if (!start || !end || end <= start) end = null; // « de 18h à 9h »: only the start makes sense
   }
   if (!start) {
-    const t = find(/\s(?:a\s|vers\s)?(\d{1,2})\s?(?:h|:)\s?(\d{2})?(?=\s)/);
+    const t = find(/\s(?:a\s|vers\s)?(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?(?=\s)/);
     if (t && (start = hm(t[1], t[2]))) remove(t);
   }
   // « ce midi » is today.
@@ -162,6 +163,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
       const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : base.getFullYear();
       date = upcoming(y, Number(m[2]) - 1, Number(m[1]), !!m[3]);
       if (date) remove(m);
+      else impossible = true;
     }
   }
 
@@ -182,6 +184,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
     if (m) {
       date = upcoming(m[3] ? Number(m[3]) : base.getFullYear(), monthIndex(m[2]), Number(m[1]), !!m[3]);
       if (date) remove(m);
+      else impossible = true;
     }
   }
 
@@ -202,7 +205,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
   }
 
   // A day number alone: « le 15 » is the next 15th (this month, or the next one when it's past).
-  if (!date) {
+  if (!date && !impossible) {
     // Not the start of a range (« du 20 au 25 »): a single event can't hold it, the sentence stays as typed.
     const m = find(new RegExp(`\\s${BEFORE}(?:le|du)\\s(\\d{1,2})(?:er)?${PERIOD}(?=\\s)(?!\\s+(?:au|à|a|-|jusqu'au)\\s+\\d)`));
     const day = m ? Number(m[1]) : 0;
@@ -217,7 +220,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
 
   const title = text
     .replace(/\s+/g, ' ')
-    .replace(/\s(le|a|à|de|du|pour|avant)\s*$/i, '')
+    .replace(/\s(le|Le|a|à|de|De|du|Du|pour|Pour|avant|Avant)\s*$/, '')
     .trim();
 
   return {

@@ -41,7 +41,7 @@ function customMinutes(c: Custom, date: string | undefined, time: string | undef
   } else {
     if (!date || !c.day || !/^\d{2}:\d{2}$/.test(c.at)) return { error: 'Indique un jour et une heure.' };
     minutes = minutesBefore(date, time, c.day, c.at);
-    if (minutes < 0) return { error: time ? 'C’est après le début : choisis un moment avant.' : 'C’est après 9 h le jour même : choisis un moment avant.' };
+    if (minutes < 0) return { error: time ? 'C’est après le début : choisis un moment avant.' : 'C’est après 9h le jour même : choisis un moment avant.' };
   }
   if (minutes > MAX_MINUTES) return { error: '4 semaines avant au plus.' };
   if (taken.includes(minutes)) return { error: 'Ce rappel est déjà dans la liste.' };
@@ -53,6 +53,7 @@ function customMinutes(c: Custom, date: string | undefined, time: string | undef
 export default function ReminderPicker({ value, onChange, timed, date, time, disabled }: Props) {
   const [state, setState] = useState(deviceState);
   const [custom, setCustom] = useState<Custom | null>(null);
+  const [openedAt] = useState(Date.now); // « now » for the menu (a moment already past isn't offered)
   const check = custom ? customMinutes(custom, date, time, value) : null;
   const openCustom = () => {
     // Starts one hour before (or at 8:00 the same day for an item without a time).
@@ -68,7 +69,8 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
   const left = date
     ? [9, 18]
         .map(h => ({ minutes: minutesBefore(date, time, date, `${pad(h)}:00`) + 1440, label: `La veille à ${h}h` }))
-        .filter(o => !value.includes(o.minutes))
+        // Not a moment already past: it would never ring.
+        .filter(o => !value.includes(o.minutes) && reminderMoment(date, time, o.minutes).getTime() > openedAt)
     : [];
   const sorted = [...value].sort((a, b) => a - b);
 
@@ -196,10 +198,12 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
       )}
       {!disabled && value.length > 0 && state !== 'on' && (
         <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-stone-50 px-2.5 py-2 text-[12px] text-stone-600">
-          <BellOff size={13} className="shrink-0 text-stone-400" aria-hidden />
           {state === 'off' ? (
             <>
-              <span>Sur cet appareil, tu ne seras prévenu que si Kompaly est ouvert.</span>
+              <span className="flex items-start gap-2">
+                <BellOff size={13} className="mt-px shrink-0 text-stone-400" aria-hidden />
+                Sur cet appareil, tu ne seras prévenu que si Kompaly est ouvert.
+              </span>
               <button type="button" onClick={() => void turnOn()} className="hit-sm font-medium text-brand-600 underline-offset-2 hover:underline">
                 Activer les notifications
               </button>

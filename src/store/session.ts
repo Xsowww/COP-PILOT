@@ -16,6 +16,15 @@ import { renameToKompa } from '../lib/renameToKompa';
 import { applyUsage, USAGES } from '../lib/usage';
 import { create } from 'zustand';
 
+// Two tabs of the same account: what one saves, the other loads (else its next save would erase it).
+const PERSISTED = { drive: useDrive, calendar: useCalendar, notes: useNotes, copilot: useCopilot, settings: useSettings, todos: useTodos, 'focus-log': useFocusLog, focus: useFocus };
+if (typeof window !== 'undefined')
+  addEventListener('storage', e => {
+    const prefix = `cop:${getStorageUser()}:`;
+    if (!getStorageUser() || e.newValue === null || !e.key?.startsWith(prefix)) return;
+    void PERSISTED[e.key.slice(prefix.length) as keyof typeof PERSISTED]?.persist.rehydrate();
+  });
+
 /** True while a brand-new account still has to answer the welcome questionnaire. */
 export const useWelcome = create<{ pending: boolean }>(() => ({ pending: false }));
 

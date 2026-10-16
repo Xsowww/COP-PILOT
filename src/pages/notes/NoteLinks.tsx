@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Search, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fmt } from '../../lib/dates';
 import { useNotes, type Note, type NoteLink } from '../../store/notes';
 import { useDrive, categoryOf, type DriveItem } from '../../store/drive';
 import { useCalendar, catOf, sortEvents, type CalendarEvent } from '../../store/calendar';
@@ -12,8 +12,8 @@ import { cx, normalize } from '../../lib/utils';
 import { eventHref, fileHref } from './noteUtils';
 
 const todayKey = () => format(new Date(), 'yyyy-MM-dd');
-const shortDate = (d: string) => format(parseISO(d), 'd MMM', { locale: fr });
-const longDate = (d: string) => format(parseISO(d), 'EEE d MMM yyyy', { locale: fr });
+const shortDate = (d: string) => fmt(parseISO(d), 'd MMM');
+const longDate = (d: string) => fmt(parseISO(d), 'EEE d MMM yyyy').replace(/^./, c => c.toUpperCase());
 
 
 /** Resolves a note's links, dropping the ones whose file or event no longer exists. */

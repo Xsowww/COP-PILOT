@@ -450,7 +450,7 @@ function CopilotTab() {
         <Row label="Point du matin" hint="Ta journée en 3 lignes, avant midi.">
           <Toggle label="Point du matin" checked={s.morningBrief} onChange={v => s.set({ morningBrief: v })} />
         </Row>
-        <Row label="Bilan du dimanche" hint="Le dimanche à partir de 17 h.">
+        <Row label="Bilan du dimanche" hint="Le dimanche à partir de 17h.">
           <Toggle label="Bilan du dimanche" checked={s.weeklyReview} onChange={v => s.set({ weeklyReview: v })} />
         </Row>
       </Section>
@@ -724,7 +724,7 @@ function NotificationsTab() {
             ))}
           </select>
         </Row>
-        <Row label="Tâches" hint="Dans Tâches, la cloche d’une tâche lui donne une heure et un ou plusieurs rappels (la veille à 18 h, le jour même…)." />
+        <Row label="Tâches" hint="Dans Tâches, la cloche d’une tâche lui donne une heure et un ou plusieurs rappels (la veille à 18h, le jour même…)." />
       </Section>
     </div>
   );
