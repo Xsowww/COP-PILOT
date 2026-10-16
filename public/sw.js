@@ -64,7 +64,9 @@ self.addEventListener('push', e => {
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   if (e.action === 'ok') return; // « OK » : seen, nothing to open
-  const url = new URL(e.notification.data?.url || '/', self.location.origin).href;
+  const target = new URL(e.notification.data?.url || '/', self.location.origin);
+  // Only Kompaly's own pages (« //ailleurs.example » would leave the site).
+  const url = target.origin === self.location.origin ? target.href : `${self.location.origin}/`;
   e.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

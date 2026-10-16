@@ -1,3 +1,4 @@
+import { safeImageBlob } from '../../lib/safeImage';
 import { fmt } from '../../lib/dates';
 import { useEffect, useRef, useState } from 'react';
 import { Download, X, Loader2 } from 'lucide-react';
@@ -67,6 +68,19 @@ export default function PreviewModal({
         if (revoked) return;
         u = URL.createObjectURL(pdf);
       }
+      if (cat === 'image') {
+        const original = u;
+        try {
+          const img = await safeImageBlob(await (await fetch(original)).blob(), item.name);
+          URL.revokeObjectURL(original);
+          if (revoked) return;
+          u = URL.createObjectURL(img);
+        } catch {
+          URL.revokeObjectURL(original);
+          if (!revoked) setMissing(true);
+          return;
+        }
+      }
       current = u;
       setUrl(u);
       if (plain) setText((await (await fetch(u)).text()).slice(0, 200_000));
@@ -94,7 +108,7 @@ export default function PreviewModal({
       if (current) URL.revokeObjectURL(current);
       revokeSlides(built);
     };
-  }, [item.id, cat, plain, office, getUrl]);
+  }, [item.id, item.name, cat, plain, office, getUrl]);
 
   // Captured and stopped, like Modal: Échap closes the preview only, not Kompaly behind it.
   useEffect(() => {

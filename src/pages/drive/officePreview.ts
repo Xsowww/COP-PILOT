@@ -1,6 +1,8 @@
 // Read-only previews of Word (.docx) and PowerPoint (.pptx) files, built in the browser.
 // mammoth and jszip are imported on demand so they stay out of the main bundle.
 
+import { safeImageBlob } from '../../lib/safeImage';
+
 /** Keeps only harmless markup: no scripts, frames, styles, event handlers or javascript: links. */
 export function sanitizeHtml(html: string) {
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
@@ -110,7 +112,8 @@ export async function pptxSlides(blob: Blob): Promise<Slide[]> {
       const file = target ? zip.file(target) : null;
       const ext = target?.split('.').pop()?.toLowerCase() ?? '';
       if (!file || !MIME[ext] || slide.images.length >= 4) continue;
-      slide.images.push(URL.createObjectURL(new Blob([await file.async('arraybuffer')], { type: MIME[ext] })));
+      const img = await safeImageBlob(new Blob([await file.async('arraybuffer')], { type: MIME[ext] })).catch(() => null);
+      if (img) slide.images.push(URL.createObjectURL(img));
     }
     slides.push(slide);
   }

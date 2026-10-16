@@ -341,7 +341,8 @@ export const useAuth = create<AuthState>((set, get) => ({
         await supabase.auth.signOut().catch(() => undefined);
       }
     } else {
-      localStorage.removeItem(SESSION_KEY); // the account stays in the device's list
+      localStorage.removeItem(SESSION_KEY); // the account stays in the device's list…
+      if (userId) lockAccount(userId); // …and opens again with its password only
     }
     setStorageUser(null);
     // Ordinateur partagé : tout est sur le serveur, on ne laisse rien de lisible ici.
