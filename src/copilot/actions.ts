@@ -482,7 +482,10 @@ export function moveItem(ref: string, folder?: string): { moved: SiteItem; to: s
   const target = folder ? findNoteFolderByName(folder) : undefined;
   if (folder && !target) return { error: 'dossier de notes introuvable' };
   if (s.space === 'note') useNotes.getState().updateNote(s.item.id, { folderId: target?.id ?? null });
-  else useNotes.getState().moveFolder(s.item.id, target?.id ?? null);
+  else {
+    useNotes.getState().moveFolder(s.item.id, target?.id ?? null);
+    if (useNotes.getState().folders.find(f => f.id === s.item.id)?.parentId !== (target?.id ?? null)) return { error: 'impossible de déplacer un dossier dans lui-même' };
+  }
   return { moved: findItem(s.item.id)!, to: target?.name ?? 'Notes (racine)' };
 }
 

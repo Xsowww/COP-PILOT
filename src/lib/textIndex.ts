@@ -73,6 +73,7 @@ export function fold(s: string) {
 
 /** Splits `text` around the matches of `query`, for highlighting. */
 export function highlightParts(text: string, query: string): { text: string; hit: boolean }[] {
+  text = text.normalize('NFC'); // « É » written as « E » + accent (files from a Mac) is found as « e »
   const q = fold(query.trim());
   if (!q) return [{ text, hit: false }];
   const f = fold(text);
@@ -125,7 +126,7 @@ async function extract(kind: Kind, blob: Blob) {
         : kind === 'pptx'
           ? await pptxText(blob)
           : await blob.slice(0, MAX_TEXT * 2).text();
-  return raw.replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT);
+  return raw.normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT);
 }
 
 // ── In-memory copy of the current user's index ─────────────────────────────
@@ -149,7 +150,7 @@ async function load(): Promise<Map<string, Indexed>> {
       const map = new Map<string, Indexed>();
       keys.forEach((k, i) => {
         const id = String(k).slice(user.length + 1);
-        map.set(id, { text: values[i], folded: fold(values[i]) });
+        map.set(id, { text: values[i], folded: fold(values[i].normalize('NFC')) });
       });
       cache = { user, map };
       return map;

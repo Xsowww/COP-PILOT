@@ -4,7 +4,7 @@ import { useCalendar, catOf, type CalendarEvent, type CustomCategory } from '../
 import { useSettings, DEFAULT_SETTINGS, applyAppearance, type Settings } from '../store/settings';
 import { applyUsage } from './usage';
 import { addDays } from 'date-fns';
-import { fromKey, fromMinutes, toKey, toMinutes } from './dates';
+import { fromKey, fromMinutes, toKey, toMinutes, validKey } from './dates';
 import { foldLine, utcStamp } from './ics';
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
@@ -50,6 +50,22 @@ function missing<T extends { id: string }>(incoming: unknown, ...current: T[][])
   return (Array.isArray(incoming) ? incoming : []).filter((x): x is T => typeof x?.id === 'string' && !have.has(x.id));
 }
 
+// A damaged or edited file: only items with what the app needs to show them (a title, a real day…).
+type Item = Record<string, unknown>;
+const text = (v: unknown) => typeof v === 'string';
+const day = (v: unknown) => text(v) && !!validKey(v as string);
+const okEvent = (x: Item) => text(x.title) && day(x.date);
+const okTodo = (x: Item) => text(x.title) && (x.due == null || day(x.due));
+const okNote = (x: Item) => text(x.title) && text(x.content);
+const okFolder = (x: Item) => text(x.name);
+const valid = <T,>(list: T[], ok: (x: Item) => boolean) => list.filter(x => ok(x as Item));
+/** A setting of the file, only when it has the type of the app's own (« defaultReminders »: "abc" is dropped). */
+function sameType(value: unknown, model: unknown) {
+  if (Array.isArray(model)) return Array.isArray(value) && (!model.length || value.every(v => typeof v === typeof model[0]));
+  if (model === null) return value === null || typeof value === 'string';
+  return typeof value === typeof model && (typeof model !== 'object' || (value !== null && !Array.isArray(value)));
+}
+
 const KEEP_CURRENT = new Set<keyof Settings>(['focusSessions', 'focusTotalMinutes', 'badgesSeen', 'groupsSeen', 'renamedToKompa', 'customCategories']);
 
 /**
@@ -72,11 +88,11 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   const trashed = new Set([...cal.trash, ...nb0.trashNotes, ...nb0.trashFolders, ...drive0.trash].map(x => x.id));
   const inFile = [data.calendar, data.notes.notes, data.notes.folders, data.driveFolders].flatMap(a => (Array.isArray(a) ? a : []));
   const inTrash = inFile.filter(x => typeof x?.id === 'string' && trashed.has(x.id)).length;
-  const events = missing(data.calendar, cal.events, cal.trash);
+  const events = valid(missing(data.calendar, cal.events, cal.trash), okEvent);
   useCalendar.setState(s => ({ events: [...s.events, ...events] }));
   const nb = useNotes.getState();
-  const folders = missing<NoteFolder>(data.notes.folders, nb.folders, nb.trashFolders);
-  const notes = missing<Note>(data.notes.notes, nb.notes, nb.trashNotes);
+  const folders = valid(missing<NoteFolder>(data.notes.folders, nb.folders, nb.trashFolders), okFolder);
+  const notes = valid(missing<Note>(data.notes.notes, nb.notes, nb.trashNotes), okNote);
   // Into a folder that is in the trash, they would be invisible: root instead.
   const live = new Set([...nb.folders, ...folders].map(f => f.id));
   useNotes.setState(s => ({
@@ -87,7 +103,7 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
     // Preferences come back; counters and « already seen » marks never go backwards, and
     // categories created since the export stay (the file's are added).
     const known = (Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]).filter(k => !KEEP_CURRENT.has(k));
-    const restored = Object.fromEntries(known.filter(k => k in data.settings).map(k => [k, data.settings[k]])) as Partial<Settings>;
+    const restored = Object.fromEntries(known.filter(k => k in data.settings && sameType(data.settings[k], DEFAULT_SETTINGS[k])).map(k => [k, data.settings[k]])) as Partial<Settings>;
     const current = useSettings.getState();
     if (Array.isArray(data.settings.customCategories)) restored.customCategories = [...current.customCategories, ...missing<CustomCategory>(data.settings.customCategories, current.customCategories)];
     useSettings.getState().set(restored);
@@ -95,10 +111,10 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
     applyUsage(useSettings.getState().usage);
   }
   const drive = useDrive.getState();
-  const driveFolders = missing<DriveItem>(data.driveFolders, drive.items, drive.trash);
+  const driveFolders = valid(missing<DriveItem>(data.driveFolders, drive.items, drive.trash), x => okFolder(x) && x.kind === 'folder');
   const liveDrive = new Set([...drive.items, ...driveFolders].map(i => i.id));
   if (driveFolders.length) useDrive.setState(s => ({ items: [...s.items, ...driveFolders.map(f => (f.parentId && !liveDrive.has(f.parentId) ? { ...f, parentId: null } : f))] }));
-  const todos = missing(data.todos, useTodos.getState().todos);
+  const todos = valid(missing(data.todos, useTodos.getState().todos), okTodo);
   if (todos.length) useTodos.setState(s => ({ todos: [...s.todos, ...todos] }));
   return { notes: notes.length, events: events.length, todos: todos.length, folders: folders.length + driveFolders.length, inTrash };
 }

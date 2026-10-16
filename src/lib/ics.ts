@@ -1,7 +1,8 @@
 /**
  * Minimal iCalendar (.ics) reader for student timetables (ENT, ADE, Hyperplanning, Google Agenda…).
  * Handles line folding, escaped text, all-day and timed events, UTC / TZID / floating times,
- * DURATION, RRULE (DAILY / WEEKLY with BYDAY, INTERVAL, COUNT, UNTIL), EXDATE and RECURRENCE-ID overrides.
+ * DURATION, RRULE (DAILY / WEEKLY with BYDAY, MONTHLY / YEARLY on a day of the month or the nth weekday, INTERVAL,
+ * COUNT, UNTIL), EXDATE and RECURRENCE-ID overrides.
  * No dependency on purpose: it must run in the browser and in a bare node script.
  */
 
@@ -34,6 +35,8 @@ interface Stamp {
   allDay: boolean;
   /** Given in UTC: occurrences keep the same UTC time (and may move by an hour across DST). */
   utc?: boolean;
+  /** Given in this time zone: occurrences keep its wall-clock time (9:00 in New York, whatever the changes of hour). */
+  zone?: string;
 }
 
 interface RawEvent {
@@ -126,7 +129,7 @@ export function parseStamp(value: string, params: Record<string, string> = {}): 
   const date = new Date(wall - (zoneOffset(params.TZID, wall - first) ?? first));
   // Same hours here (a French timetable opened in France): local time, so weekly repeats keep
   // their hour across the clock change.
-  return date.getTime() === local.getTime() ? { date: local, allDay: false, utc: false } : { date, allDay: false, utc: true };
+  return date.getTime() === local.getTime() ? { date: local, allDay: false, utc: false } : { date, allDay: false, utc: true, zone: params.TZID };
 }
 
 /** PT1H30M, P1D, -PT15M… → milliseconds. */
@@ -220,8 +223,13 @@ function readEvents(text: string): RawEvent[] {
 }
 
 /** Start dates of every occurrence (DTSTART included), honouring INTERVAL, BYDAY, COUNT, UNTIL and the horizon. */
-function expand(start: Date, rule: Record<string, string>, horizon: Date, utc = false): Date[] {
-  const step = (d: Date, n: number) => (utc ? new Date(d.getTime() + n * DAY_MS) : addDays(d, n));
+function expand(start: Date, rule: Record<string, string>, horizon: Date, utc = false, zone?: string): Date[] {
+  const inZone = (d: Date, n: number) => {
+    const wall = d.getTime() + (zoneOffset(zone!, d.getTime()) ?? 0) + n * DAY_MS;
+    const first = zoneOffset(zone!, wall) ?? 0;
+    return new Date(wall - (zoneOffset(zone!, wall - first) ?? first));
+  };
+  const step = (d: Date, n: number) => (zone ? inZone(d, n) : utc ? new Date(d.getTime() + n * DAY_MS) : addDays(d, n));
   const interval = Math.max(1, Number(rule.INTERVAL) || 1);
   const count = rule.COUNT ? Number(rule.COUNT) : Infinity;
   let until = horizon;
@@ -240,20 +248,48 @@ function expand(start: Date, rule: Record<string, string>, horizon: Date, utc = 
     return true;
   };
 
+  const byDay = rule.BYDAY ? rule.BYDAY.split(',').map(d => WEEKDAYS.indexOf(d.replace(/^[+-]?\d+/, ''))).filter(d => d >= 0) : null;
+  const more = () => dates.length < Math.min(count, MAX_OCCURRENCES);
+
   if (rule.FREQ === 'DAILY') {
-    for (let d = start; d <= until && dates.length < Math.min(count, MAX_OCCURRENCES); d = step(d, interval)) push(d);
+    // « Every working day »: FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR.
+    for (let d = start; d <= until && more(); d = step(d, interval)) if (!byDay || byDay.includes(d.getDay())) push(d);
   } else if (rule.FREQ === 'WEEKLY') {
-    const days = (rule.BYDAY ? rule.BYDAY.split(',') : [WEEKDAYS[start.getDay()]])
-      .map(d => WEEKDAYS.indexOf(d.replace(/^[+-]?\d+/, '')))
-      .filter(d => d >= 0)
-      .map(d => (d + 6) % 7) // Monday = 0
-      .sort((a, b) => a - b);
+    const days = (byDay ?? [start.getDay()]).map(d => (d + 6) % 7).sort((a, b) => a - b); // Monday = 0
     const monday = step(start, -((start.getDay() + 6) % 7));
-    for (let week = monday; week <= until && dates.length < Math.min(count, MAX_OCCURRENCES); week = step(week, 7 * interval)) {
+    for (let week = monday; week <= until && more(); week = step(week, 7 * interval)) {
       for (const offset of days) push(step(week, offset));
     }
+  } else if (rule.FREQ === 'MONTHLY' || rule.FREQ === 'YEARLY') {
+    // The same day of the month (a birthday, a rent), or the nth weekday of the month (« 2TU », « -1FR »).
+    const nth = rule.BYDAY?.match(/^([+-]?\d)?(SU|MO|TU|WE|TH|FR|SA)$/);
+    const pos = nth ? Number(nth[1] ?? rule.BYSETPOS ?? 0) : 0;
+    const monthDay = rule.BYMONTHDAY && /^\d{1,2}$/.test(rule.BYMONTHDAY) ? Number(rule.BYMONTHDAY) : start.getDate();
+    if ((rule.BYDAY && !pos) || /[,-]/.test(rule.BYMONTHDAY ?? '') || rule.BYMONTH?.includes(',')) {
+      push(start); // rarer forms: the first occurrence only
+      return dates;
+    }
+    const months = rule.FREQ === 'YEARLY' ? 12 * interval : interval;
+    const startDay = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+    for (let k = 0; more() && k < 1200; k++) {
+      const y = start.getFullYear();
+      const month = start.getMonth() + k * months;
+      if (new Date(y, month, 1) > until) break;
+      let day: number;
+      if (pos) {
+        const weekday = WEEKDAYS.indexOf(nth![2]);
+        const first = new Date(y, month, 1);
+        const last = new Date(y, month + 1, 0);
+        day = pos > 0 ? 1 + ((weekday - first.getDay() + 7) % 7) + (pos - 1) * 7 : last.getDate() - ((last.getDay() - weekday + 7) % 7) + (pos + 1) * 7;
+        if (day < 1 || day > last.getDate()) continue;
+      } else day = monthDay;
+      const local = new Date(y, month, day);
+      if (local.getDate() !== day) continue; // no 31st this month, no 29 February this year
+      const d = step(start, Math.round((Date.UTC(local.getFullYear(), local.getMonth(), local.getDate()) - startDay) / DAY_MS));
+      if (d > until) break;
+      push(d);
+    }
   } else {
-    // MONTHLY / YEARLY and friends are rare in timetables: keep the first occurrence only.
     push(start);
   }
   return dates;
@@ -263,7 +299,8 @@ function expand(start: Date, rule: Record<string, string>, horizon: Date, utc = 
 function detailsOf(ev: RawEvent): string | undefined {
   const desc = ev.description
     .split('\n')
-    .filter(l => !/^\s*\(?\s*(export|mis à jour|updated)/i.test(l))
+    // « (Exporté le:16/10/2026 08:12) », « Mis à jour le 12/10 » — not « Exporter le rapport en PDF ».
+    .filter(l => !/^\s*\(?\s*(export[ée]?|exported|mis à jour|updated)\s*(le|on|at)?\s*:?\s*\d/i.test(l))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -333,7 +370,7 @@ export function parseIcs(text: string, opts: ParseOptions = {}): IcsEvent[] {
       return;
     }
     const skip = overridden.get(e.uid);
-    for (const d of expand(start.date, e.rrule, horizon, start.utc)) {
+    for (const d of expand(start.date, e.rrule, horizon, start.utc, start.zone)) {
       const k = compactKey(d);
       if (e.exdates.has(k) || skip?.has(k)) continue;
       out.push(...toEvents(e, d, durationMs, allDay, day => `${e.uid}_${compactKey(day)}`, base));

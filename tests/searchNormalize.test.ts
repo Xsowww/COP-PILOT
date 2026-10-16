@@ -5,7 +5,7 @@ import { normalize } from '../src/lib/utils';
 const memory = new Map<string, string>();
 const storage = { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) };
 Object.assign(globalThis, { location: new URL('http://localhost/'), localStorage: storage, sessionStorage: storage });
-const { fold } = await import('../src/lib/textIndex');
+const { fold, highlightParts } = await import('../src/lib/textIndex');
 
 describe('search: the apostrophe of phone keyboards', () => {
   it('normalize: ’ and ‘ are a plain apostrophe', () => {
@@ -18,4 +18,8 @@ describe('search: the apostrophe of phone keyboards', () => {
     expect(fold('L’Été')).toBe("l'ete");
     expect(fold('Aujourd‘hui').length).toBe('Aujourd‘hui'.length);
   });
+});
+
+it('search: accents written apart (« E » + accent, files from a Mac) are found without them', () => {
+  expect(highlightParts('Mon École'.normalize('NFD'), 'ecole').some(p => p.hit)).toBe(true);
 });

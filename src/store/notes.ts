@@ -155,8 +155,15 @@ export const useNotes = create<NotesState>()(
         }
         const alive = (fid: string | null) => !fid || backF.has(fid) || folders.some(f => f.id === fid);
         const strip = <T extends { deletedAt?: string }>({ deletedAt: _d, ...rest }: T) => rest;
+        // Back next to a folder of the same name made since: « Maths (2) », like in the Drive.
+        const placed: NoteFolder[] = [];
+        for (const f of get().trashFolders.filter(f => backF.has(f.id))) {
+          const parentId = alive(f.parentId) ? f.parentId : null;
+          const name = parentId && backF.has(parentId) ? f.name : uniqueName(f.name, [...folders, ...placed].filter(x => x.parentId === parentId).map(x => x.name));
+          placed.push({ ...strip(f), parentId, name });
+        }
         set(s => ({
-          folders: [...s.folders, ...s.trashFolders.filter(f => backF.has(f.id)).map(f => ({ ...strip(f), parentId: alive(f.parentId) ? f.parentId : null }))],
+          folders: [...s.folders, ...placed],
           notes: [...s.notes, ...s.trashNotes.filter(n => backN.has(n.id)).map(n => ({ ...strip(n), folderId: alive(n.folderId) ? n.folderId : null }))],
           trashFolders: s.trashFolders.filter(f => !backF.has(f.id)),
           trashNotes: s.trashNotes.filter(n => !backN.has(n.id)),

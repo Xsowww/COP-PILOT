@@ -50,12 +50,22 @@ export function offsetLabel(minutes: number): string {
   const d = Math.floor(minutes / 1440);
   const h = Math.floor((minutes % 1440) / 60);
   const m = minutes % 60;
-  const parts = [d && `${d} j`, h && `${h} h`, m && (d || h ? String(m).padStart(2, '0') : `${m} min`)].filter(Boolean);
+  const parts = [d && `${d} j`, h && `${h} h`, m && (h ? String(m).padStart(2, '0') : `${m} min`)].filter(Boolean);
   return `${parts.join(' ')} avant`;
 }
 
-/** The moment a reminder fires, in local time. */
-export const reminderMoment = (date: string, time: string | undefined, minutes: number) => new Date(anchorOf(date, time).getTime() - minutes * 60_000);
+/**
+ * The moment a reminder fires, counted on the clock on the wall: « la veille à 18h » stays at 18h on the night
+ * the clocks change (a day before is always 1440 minutes, never 23 or 25 hours).
+ */
+export function reminderMoment(date: string, time: string | undefined, minutes: number): Date {
+  const a = anchorOf(date, time);
+  return new Date(a.getFullYear(), a.getMonth(), a.getDate(), a.getHours(), a.getMinutes() - minutes);
+}
+
+const wallMinutes = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()) / 60_000;
+/** The reminder that fires on `day` at `at` (wall-clock minutes before the item, like reminderMoment). */
+export const minutesBefore = (date: string, time: string | undefined, day: string, at: string) => wallMinutes(anchorOf(date, time)) - wallMinutes(anchorOf(day, at));
 
 /**
  * The label of a reminder: an option's, else, when the item's date is known, the moment itself
@@ -141,9 +151,8 @@ export function upcomingReminders(items: ReminderSource[], now = new Date(), hor
   const out: DueReminder[] = [];
   for (const src of items) {
     if (src.done || !src.date || !src.reminders?.length) continue;
-    const at = anchorOf(src.date, src.time);
     for (const m of src.reminders) {
-      const fireAt = new Date(at.getTime() - m * 60_000);
+      const fireAt = reminderMoment(src.date, src.time, m);
       if (fireAt.getTime() <= now.getTime() - 60_000 || fireAt.getTime() > until) continue;
       out.push({
         key: `${src.kind}:${src.id}:${m}:${src.date}T${src.time ?? DAY_ANCHOR}`,

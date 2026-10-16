@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Bell, BellOff, X } from 'lucide-react';
-import { anchorOf, MAX_MINUTES, reminderLabel } from '../lib/reminders';
+import { anchorOf, MAX_MINUTES, minutesBefore, reminderLabel, reminderMoment } from '../lib/reminders';
 import { deviceState, enableDevice } from '../lib/push';
 import { devicePushChanged } from '../lib/reminderScheduler';
 import { toast } from '../store/ui';
@@ -40,12 +40,12 @@ function customMinutes(c: Custom, date: string | undefined, time: string | undef
     minutes = Math.round(n * UNITS[c.unit]);
   } else {
     if (!date || !c.day || !/^\d{2}:\d{2}$/.test(c.at)) return { error: 'Indique un jour et une heure.' };
-    minutes = Math.round((anchorOf(date, time).getTime() - anchorOf(c.day, c.at).getTime()) / 60_000);
+    minutes = minutesBefore(date, time, c.day, c.at);
     if (minutes < 0) return { error: time ? 'C’est après le début : choisis un moment avant.' : 'C’est après 9 h le jour même : choisis un moment avant.' };
   }
   if (minutes > MAX_MINUTES) return { error: '4 semaines avant au plus.' };
   if (taken.includes(minutes)) return { error: 'Ce rappel est déjà dans la liste.' };
-  if (date && anchorOf(date, time).getTime() - minutes * 60_000 < Date.now()) return { minutes, error: 'Ce moment est déjà passé.' };
+  if (date && reminderMoment(date, time, minutes).getTime() < Date.now()) return { minutes, error: 'Ce moment est déjà passé.' };
   return { minutes };
 }
 
@@ -67,7 +67,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
   // The day before at 9:00 and at 18:00 (minutes before the item, worked out from its day and time), then « Personnalisé… ».
   const left = date
     ? [9, 18]
-        .map(h => ({ minutes: Math.round((anchorOf(date, time).getTime() - anchorOf(date, `${pad(h)}:00`).getTime()) / 60_000) + 1440, label: `La veille à ${h}h` }))
+        .map(h => ({ minutes: minutesBefore(date, time, date, `${pad(h)}:00`) + 1440, label: `La veille à ${h}h` }))
         .filter(o => !value.includes(o.minutes))
     : [];
   const sorted = [...value].sort((a, b) => a - b);

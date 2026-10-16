@@ -84,6 +84,15 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
     if (d && !yearGiven && differenceInCalendarDays(d, base) < -30) d.setFullYear(d.getFullYear() + 1);
     return d;
   };
+  /** That day this year, else the next year it exists and isn't more than a month ago (« 29/02 » → the next leap year). */
+  const upcoming = (y: number, month: number, day: number, yearGiven: boolean) => {
+    if (yearGiven) return realDate(y, month, day);
+    for (let k = 0; k <= 8; k++) {
+      const d = realDate(y + k, month, day);
+      if (d && differenceInCalendarDays(d, base) >= -30) return d;
+    }
+    return null;
+  };
 
   // Times: "14h", "14h30", "14:30", "de 14h à 16h", "14h-16h", "14h–16h" (dash of the autocorrect), "midi"
   const range = find(/\s(?:de\s)?(\d{1,2})\s?(?:h|:)\s?(\d{2})?\s?(?:-|–|—|a|à|jusqu'a)\s?(\d{1,2})\s?(?:h|:)\s?(\d{2})?(?=\s)/);
@@ -100,11 +109,20 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
   // « ce midi » is today.
   let thisNoon = false;
   if (!start) {
-    const t = cut(/\s(?:a\s|vers\s|(ce\s))?(midi|minuit)(?=\s)/);
+    const t = cut(/\s(?:a\s|vers\s|(ce\s))?(midi|minuit)(\set\sdemie?)?(?=\s)/);
     if (t) {
-      start = t[2] === 'midi' ? '12:00' : '00:00';
+      start = `${t[2] === 'midi' ? '12' : '00'}:${t[3] ? '30' : '00'}`;
       thisNoon = !!t[1];
     }
+  } else if (cut(/\sce\smidi(?=\s)/)) thisNoon = true; // « Déjeuner 12h-13h ce midi »
+
+  // « 8h du soir », « vendredi soir 8h », « 3h de l'après-midi »: the afternoon hour.
+  const pm = find(/\s(?:(du\s)?soir|(de\sl'apres-midi|de\sl'aprem))(?=\s)/);
+  if (pm && start && Number(start.slice(0, 2)) >= 1 && Number(start.slice(0, 2)) < 12) {
+    const later = (t: string) => `${Number(t.slice(0, 2)) + 12}${t.slice(2)}`;
+    start = later(start);
+    if (end && Number(end.slice(0, 2)) < 12) end = later(end);
+    if (pm[1] || pm[2]) remove(pm);
   }
 
   // « Rendre le dossier vendredi important », « Réunion urgente demain », « Payer les impôts ! ».
@@ -136,10 +154,13 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
 
   // dd/mm(/yyyy), with the day name that may come before: "mardi 3/11"
   if (!date) {
-    const m = find(new RegExp(`\\s${BEFORE}(?:(?:le\\s)?${DAY}\\s)?(?:le\\s|du\\s)?(\\d{1,2})[/.-](\\d{1,2})(?:[/.-](\\d{2,4}))?${PERIOD}(?=\\s)`));
+    // « 12/11 » anywhere; « 12.11 » or « 12-11 » only after « le », « du » or a day name (« exercices 5-6 », « pages 10-12 »).
+    const m =
+      find(new RegExp(`\\s${BEFORE}(?:(?:le\\s)?${DAY}\\s)?(?:le\\s|du\\s)?(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?${PERIOD}(?=\\s)`)) ??
+      find(new RegExp(`\\s${BEFORE}(?:(?:le\\s)?${DAY}\\s(?:le\\s|du\\s)?|le\\s|du\\s)(\\d{1,2})[.-](\\d{1,2})(?:[.-](\\d{2,4}))?${PERIOD}(?=\\s)`));
     if (m) {
       const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : base.getFullYear();
-      date = ahead(realDate(y, Number(m[2]) - 1, Number(m[1])), !!m[3]);
+      date = upcoming(y, Number(m[2]) - 1, Number(m[1]), !!m[3]);
       if (date) remove(m);
     }
   }
@@ -159,7 +180,7 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
   if (!date) {
     const m = find(new RegExp(`\\s${BEFORE}(?:(?:le\\s)?${DAY}\\s)?(?:le\\s|du\\s)?(\\d{1,2})(?:er)?\\s(${MONTH_WORDS.join('|')})\\.?(?:\\s(\\d{4}))?${PERIOD}(?=\\s)`));
     if (m) {
-      date = ahead(realDate(m[3] ? Number(m[3]) : base.getFullYear(), monthIndex(m[2]), Number(m[1])), !!m[3]);
+      date = upcoming(m[3] ? Number(m[3]) : base.getFullYear(), monthIndex(m[2]), Number(m[1]), !!m[3]);
       if (date) remove(m);
     }
   }
