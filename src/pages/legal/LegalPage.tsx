@@ -56,6 +56,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           'Technique : journaux d’erreurs du serveur (page concernée et message d’erreur, sans le contenu de tes documents) pour corriger les bugs.',
           'Messages « Avis ou bug » : ton message, la page ouverte et le type d’appareil (navigateur, système, taille d’écran).',
           'Signalements dans un groupe : la raison choisie, ta précision éventuelle et une copie du contenu signalé (titre et début du texte, ou nom du fichier).',
+          'Rappels : l’heure et le texte de tes prochains rappels (titre de l’événement ou de la tâche). Si tu actives les notifications, pour chaque appareil : l’adresse d’envoi fournie par ton navigateur avec ses clés de chiffrement et le type d’appareil (par exemple « iPhone · Safari »).',
         ],
       },
       {
@@ -80,13 +81,14 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           'Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',
           'L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé, noms des catégories que tu crées (sans tes événements). Il lit aussi les messages « Avis ou bug » et les signalements, avec la copie du contenu signalé. Jamais le reste du contenu de tes notes, fichiers ou événements.',
           'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande) Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; contrat de traitement et clauses contractuelles types) et le fournisseur d’IA indiqué plus haut.',
+          'Les notifications passent par le service de notifications de ton navigateur ou de ton téléphone (Google pour Chrome et Android, Apple pour Safari et iPhone, Mozilla pour Firefox, Microsoft pour Edge) : le message est chiffré de bout en bout, ce service ne peut pas le lire, il le transmet seulement à ton appareil.',
         ],
       },
       {
         title: 'Durée de conservation',
         body: [
           'Tant que ton compte existe. Ce que tu mets à la corbeille est supprimé définitivement au bout de 30 jours.',
-          '« Supprimer mon compte » (Profil › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Les journaux d’erreurs sont gardés au plus 12 mois, les messages « Avis ou bug » et les signalements au plus 2 ans (sans ton nom ni ton e-mail une fois ton compte supprimé).',
+          '« Supprimer mon compte » (Profil › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Un rappel est effacé de nos serveurs une semaine après son envoi ; un appareil cesse d’en recevoir dès que tu désactives les notifications, que tu te déconnectes sans « Rester connecté » ou que tu le retires. Les journaux d’erreurs sont gardés au plus 12 mois, les messages « Avis ou bug » et les signalements au plus 2 ans (sans ton nom ni ton e-mail une fois ton compte supprimé).',
         ],
       },
       {

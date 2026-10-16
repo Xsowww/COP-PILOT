@@ -46,8 +46,7 @@ function canSpeak(n: Nudge) {
   if (s.thinking || !settings.copilotVisible) return false;
   // Never break a focus session (the end-of-session message comes from the timer itself).
   if (useFocus.getState().phase === 'focus') return false;
-  const isReminder = n.key.startsWith('starting:');
-  const allowed = n.kind === 'brief' ? settings.morningBrief : n.kind === 'review' ? settings.weeklyReview : isReminder ? settings.eventReminders : settings.proactive;
+  const allowed = n.kind === 'brief' ? settings.morningBrief : n.kind === 'review' ? settings.weeklyReview : settings.proactive;
   if (!allowed) return false;
   const last = s.memory[n.key];
   if (last && Date.now() - last < n.every) return false;
@@ -180,21 +179,8 @@ export function periodicNudges(now = new Date()): Nudge[] {
   const out: Nudge[] = [];
   const events = [...useCalendar.getState().events].sort(sortEvents);
   const today = toKey(now);
-  const hm = fmt(now, 'HH:mm');
 
-  // Something starts within 20 minutes
-  const soon = events.find(e => e.date === today && !e.done && e.start && e.start > hm && minutesBetween(hm, e.start) <= 20);
-  if (soon) {
-    out.push({
-      key: `starting:${soon.id}`,
-      every: DAY,
-      urgent: true,
-      situation: { evenement: 'un événement commence dans moins de 20 minutes', titre: soon.title, heure: soon.start, type: soon.category },
-      fallback: `Petit rappel : « ${soon.title} » commence à ${soon.start!.replace(':', 'h')}.`,
-      links: [{ label: 'Voir', to: linkToDay(today) }],
-      mood: 'alert',
-    });
-  }
+  // (« ça commence dans 15 min » : the reminders of the event, lib/reminderScheduler.ts)
 
   // Exams within 6 days and no revision plan yet
   for (const exam of events.filter(e => big(e) && !e.done && daysUntil(e.date) >= 0 && daysUntil(e.date) <= 6 && !hasRevisionPlan(e))) {
@@ -278,12 +264,6 @@ function periodicCheck() {
   if (weeklyReview()) return;
   const next = nextNudge();
   if (next) void nudge(next);
-}
-
-function minutesBetween(a: string, b: string) {
-  const [ah, am] = a.split(':').map(Number);
-  const [bh, bm] = b.split(':').map(Number);
-  return bh * 60 + bm - (ah * 60 + am);
 }
 
 // ── Morning brief & Sunday review ───────────────────────────────────────────

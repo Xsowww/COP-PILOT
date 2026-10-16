@@ -15,6 +15,8 @@ try {
   /* no .env file: rely on the real environment */
 }
 loadPublicEnv();
+// After the environment is read: push.mjs takes its settings when loaded.
+const { handlePush, startPushLoop, pushStatus } = await import('./push.mjs');
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -185,7 +187,7 @@ async function serveHealth(req, res) {
   res.end(
     req.method === 'HEAD'
       ? undefined
-      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
+      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? 'erreur' : 'actifs') : 'désactivés', version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
   );
   return true;
 }
@@ -205,6 +207,7 @@ const server = createServer(async (req, res) => {
     if (serveSeo(req, res)) return;
     if (await serveHealth(req, res)) return;
     if (await serveErrorReport(req, res)) return;
+    if (await handlePush(req, res)) return;
     if (await handleCopilot(req, res)) return;
     await serveStatic(req, res);
   } catch (e) {
@@ -213,6 +216,7 @@ const server = createServer(async (req, res) => {
     res.end('Erreur serveur');
   }
 }).listen(PORT, () => {
+  startPushLoop();
   const ai = copilotProvider();
   console.log(`Kompaly sur http://localhost:${PORT} — Kompaly IA ${ai ? `activé (${ai.label}, ${ai.model})` : 'désactivé (voir AI_PROVIDER / AI_API_KEY dans .env.example)'}`);
 });

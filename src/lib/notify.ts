@@ -1,22 +1,28 @@
-import { getSettings } from '../store/settings';
+import { deviceState, serviceWorker } from './push';
 
-/** Desktop notification, only when the student enabled it and the tab is in the background. */
-export function notify(title: string, body: string, force = false) {
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-  if (!getSettings().browserNotifications) return;
-  if (!force && !document.hidden) return;
+/** True when this device may show system notifications (allowed by the browser and in Profil › Notifications). */
+export const canNotify = () => typeof window !== 'undefined' && deviceState() === 'on';
+
+/**
+ * System notification (computer's notification centre, phone's lock screen). Through the service worker:
+ * Android and installed apps only accept that way. `tag`: a second one with the same tag replaces the first.
+ */
+export async function showSystemNotification(title: string, body: string, tag?: string, url = '/') {
+  if (!canNotify()) return false;
   try {
-    new Notification(title, { body, icon: '/favicon.svg', tag: title });
+    const reg = await serviceWorker();
+    if (reg) await reg.showNotification(title, { body, tag, icon: '/icon-192.png', badge: '/icon-192.png', data: { url } });
+    else new Notification(title, { body, tag, icon: '/icon-192.png' });
+    return true;
   } catch {
-    /* some browsers only allow notifications from a service worker */
+    return false;
   }
 }
 
-export async function requestNotificationPermission(): Promise<boolean> {
-  if (typeof Notification === 'undefined') return false;
-  if (Notification.permission === 'granted') return true;
-  if (Notification.permission === 'denied') return false;
-  return (await Notification.requestPermission()) === 'granted';
+/** Notification for something that happened in the app, only when the tab is in the background (or `force`). */
+export function notify(title: string, body: string, force = false) {
+  if (!canNotify() || (!force && !document.hidden)) return;
+  void showSystemNotification(title, body, title);
 }
 
 /** Short soft chime with the Web Audio API (no audio file needed). */

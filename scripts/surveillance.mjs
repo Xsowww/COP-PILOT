@@ -31,7 +31,9 @@ await check('Serveur et base de données (/api/sante)', async () => {
   const body = await r.json().catch(() => ({}));
   must(r.status === 200 && body.ok === true, `réponse ${r.status} ${JSON.stringify(body)}`);
   must(body.ia === 'configurée', 'l’IA de Kompaly n’est pas configurée (AI_PROVIDER / AI_API_KEY sur Render)');
-  return `base ${body.base}${body.version ? `, version ${body.version}` : ''}`;
+  // « désactivés » is allowed (push not set up yet); « erreur »: the server can't read the reminders (key, migration…).
+  must(body.rappels !== 'erreur', 'l’envoi des rappels échoue (voir les journaux Render : SUPABASE_SERVICE_ROLE_KEY, migration 2026-10-17)');
+  return `base ${body.base}, rappels ${body.rappels ?? '?'}${body.version ? `, version ${body.version}` : ''}`;
 });
 
 // 2. The app itself: the page, then its main script.

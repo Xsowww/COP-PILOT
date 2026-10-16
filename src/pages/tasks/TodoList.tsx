@@ -2,12 +2,13 @@ import { useToday } from '../../lib/useToday';
 import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { CalendarPlus, Check, ChevronRight, Trash2, X } from 'lucide-react';
+import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Trash2, X } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { isTourTodo, startTour } from '../../store/tour';
 import { toast } from '../../store/ui';
+import TaskReminderDialog from './TaskReminderDialog';
 
 const OVERDUE = 'var(--cat-examen-text)';
 
@@ -90,6 +91,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(t.title);
   const [dating, setDating] = useState(false);
+  const [reminding, setReminding] = useState(false);
   const titleRef = useRef<HTMLSpanElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   // The date is kept aside while it's being typed: saving each change would move the task to
@@ -105,6 +107,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
   };
   const overdue = !t.done && !!t.due && t.due < todayKey();
   const canEdit = editable && !t.done;
+  const hasReminder = !!t.due && !!t.reminders?.length;
 
   // Back to the title after Enter or Escape, or the keyboard focus would fall to the top of the page.
   // Not on blur: the focus went elsewhere on purpose (another field…).
@@ -174,6 +177,22 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           Lancer
         </button>
       )}
+      {canEdit && !isTourTodo(t.title) && (
+        <button
+          type="button"
+          onClick={() => setReminding(true)}
+          className={cx(
+            'hit flex shrink-0 items-center gap-1 rounded-md text-[11.5px]',
+            hasReminder ? 'px-1 py-0.5 font-medium text-brand-600 hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
+          )}
+          title={hasReminder ? 'Changer le rappel' : 'Me le rappeler'}
+          aria-label={hasReminder ? `Changer le rappel de «\u00a0${t.title}\u00a0»` : `Me rappeler «\u00a0${t.title}\u00a0»`}
+        >
+          {hasReminder ? <BellRing size={13} /> : <Bell size={13} />}
+          {hasReminder && t.time && <span className="tabular">{t.time.replace(':', 'h').replace(/h00$/, 'h')}</span>}
+        </button>
+      )}
+      {reminding && <TaskReminderDialog todo={t} onClose={() => setReminding(false)} />}
       {/* The tour task has « Lancer » in that column instead (no deadline to give it). */}
       {!t.done && editable && !(isTourTodo(t.title) && !t.due) ? (
         dating ? (

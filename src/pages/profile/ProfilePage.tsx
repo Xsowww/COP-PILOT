@@ -18,7 +18,10 @@ import { useFocus } from '../../store/focus';
 import { loadUserData } from '../../store/session';
 import { askText, confirmAction, toast } from '../../store/ui';
 import { exportBackup, importBackup, exportIcs, wipeUserData, clearBeforeAccountDeletion, resetLocalData, imageToAvatar } from '../../lib/backup';
-import { requestNotificationPermission, notify, chime } from '../../lib/notify';
+import { chime, showSystemNotification } from '../../lib/notify';
+import { deviceState, disableDevice, enableDevice, pushActive, sendTestPush } from '../../lib/push';
+import { devicePushChanged } from '../../lib/reminderScheduler';
+import { TIMED_OPTIONS } from '../../lib/reminders';
 import { formatBytes, stripHtml, cx } from '../../lib/utils';
 import { fmt, todayKey } from '../../lib/dates';
 import Avatar from '../../components/Avatar';
@@ -388,9 +391,6 @@ function CopilotTab() {
         <Row label="Initiatives" hint={s.usage === 'etudes' ? 'Propose de planifier des révisions, rappelle les rendus.' : 'Propose de bloquer du temps pour préparer, rappelle les échéances.'}>
           <Toggle label="Initiatives" checked={s.proactive} onChange={v => s.set({ proactive: v })} />
         </Row>
-        <Row label="Rappels avant un événement" hint="20 minutes avant chaque événement qui a une heure.">
-          <Toggle label="Rappels" checked={s.eventReminders} onChange={v => s.set({ eventReminders: v })} />
-        </Row>
         <Row label="Bavardage" hint="Il se tait toujours pendant une session focus.">
           <Segmented<Chattiness> label="Bavardage"
             value={s.chattiness}
@@ -621,38 +621,94 @@ function ShortcutsTab() {
 
 function NotificationsTab() {
   const s = useSettings();
-  const supported = typeof Notification !== 'undefined';
-  const [perm, setPerm] = useState(supported ? Notification.permission : 'denied');
+  const [state, setState] = useState(deviceState);
+  const [push, setPush] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void pushActive().then(p => alive && setPush(p));
+    return () => {
+      alive = false;
+    };
+  }, [state]);
 
-  const toggle = async (v: boolean) => {
-    if (v) {
-      const ok = await requestNotificationPermission();
-      setPerm(supported ? Notification.permission : 'denied');
-      if (!ok) return toast('Les notifications sont bloquées par ton navigateur', 'error');
+  const toggle = async (on: boolean) => {
+    setBusy(true);
+    try {
+      if (on) {
+        const next = await enableDevice();
+        setState(next);
+        if (next === 'denied') toast('Notifications bloquées : autorise-les dans les réglages du site de ton navigateur.', 'error');
+      } else {
+        await disableDevice();
+        setState(deviceState());
+      }
+      await devicePushChanged();
+    } finally {
+      setBusy(false);
     }
-    s.set({ browserNotifications: v });
   };
 
+  const testClosed = async () => {
+    const r = await sendTestPush(10);
+    if (r === 'ok') toast('Ferme ou quitte Kompaly : la notification arrive dans 10 secondes.', 'success');
+    else toast(r === 'unavailable' ? 'L’envoi site fermé n’est pas encore activé sur le serveur.' : 'L’essai n’a pas pu partir, réessaie dans un instant.', 'error');
+  };
+
+  const hint =
+    state === 'on'
+      ? push
+        ? 'Activées : tu reçois les rappels même quand Kompaly est fermé.'
+        : push === false && cloudEnabled
+          ? 'Activées quand Kompaly est ouvert, même dans un autre onglet ou une autre fenêtre.'
+          : 'Activées sur cet appareil.'
+      : state === 'denied'
+        ? 'Bloquées par ton navigateur : autorise-les dans les réglages du site (le cadenas à gauche de l’adresse), puis recharge la page.'
+        : state === 'install'
+          ? 'Sur iPhone et iPad : ajoute d’abord Kompaly à l’écran d’accueil (bouton Partager › « Sur l’écran d’accueil »), ouvre-le depuis son icône, puis reviens ici.'
+          : state === 'unsupported'
+            ? 'Ce navigateur n’affiche pas de notifications : les rappels apparaissent dans Kompaly quand il est ouvert.'
+            : 'Désactivées sur cet appareil : les rappels n’apparaissent que dans Kompaly, quand il est ouvert.';
+
+  const defaultValue = s.defaultReminders[0] ?? -1;
   return (
-    <Section label="Notifications">
-      <Row
-        label="Notifications du navigateur"
-        hint={
-          !supported
-            ? "Ton navigateur ne les prend pas en charge."
-            : perm === 'denied'
-              ? 'Bloquées : autorise-les dans les réglages du site de ton navigateur.'
-              : 'Rappels de Kompaly et fin des sessions, même dans un autre onglet.'
-        }
-      >
-        <Toggle label="Notifications" checked={s.browserNotifications && perm === 'granted'} onChange={v => void toggle(v)} />
-      </Row>
-      <Row label="Tester">
-        <button className="btn-secondary h-8" disabled={!s.browserNotifications || perm !== 'granted'} onClick={() => notify('Kompaly', 'Les notifications fonctionnent.', true)}>
-          <Bell size={14} /> Essayer
-        </button>
-      </Row>
-    </Section>
+    <div className="space-y-5">
+      <Section title="Sur cet appareil" description="Un rappel s’affiche dans Kompaly si tu es dessus, sinon en notification sur l’ordinateur ou le téléphone.">
+        <Row label="Notifications" hint={hint}>
+          {(state === 'on' || state === 'off') && <Toggle label="Notifications sur cet appareil" checked={state === 'on'} onChange={v => !busy && void toggle(v)} />}
+        </Row>
+        {state === 'on' && (
+          <Row label="Tester" hint={push ? '« Site fermé » : ferme ou quitte Kompaly juste après, la notification arrive 10 secondes plus tard.' : undefined}>
+            <button className="btn-secondary h-8" onClick={() => void showSystemNotification('Kompaly', 'Les notifications fonctionnent sur cet appareil.', 'test', '/profil?onglet=notifications')}>
+              <Bell size={14} /> Essayer
+            </button>
+            {push && (
+              <button className="btn-secondary h-8" onClick={() => void testClosed()}>
+                Site fermé
+              </button>
+            )}
+          </Row>
+        )}
+      </Section>
+      <Section title="Rappels">
+        <Row label="Rappel par défaut" hint="Pour chaque événement qui a une heure. Tu peux en mettre d’autres, ou aucun, dans l’événement lui-même.">
+          <select
+            value={defaultValue}
+            onChange={e => s.set({ defaultReminders: Number(e.target.value) < 0 ? [] : [Number(e.target.value)] })}
+            aria-label="Rappel par défaut"
+            className="field h-8 w-auto pr-7"
+          >
+            <option value={-1}>Aucun</option>
+            {TIMED_OPTIONS.map(o => (
+              <option key={o.minutes} value={o.minutes}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label="Tâches" hint="Dans Tâches, la cloche d’une tâche lui donne une heure et un ou plusieurs rappels (la veille à 18 h, le jour même…)." />
+      </Section>
+    </div>
   );
 }
 

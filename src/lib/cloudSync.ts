@@ -2,6 +2,7 @@
 // The stores stay the source of truth for the UI (instant, works offline for a moment);
 // every change is diffed and pushed in small batches, and retried if the network fails.
 
+import { cleanReminders } from './reminders';
 import { supabase } from './supabase';
 import { useCalendar, type CalendarEvent } from '../store/calendar';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
@@ -26,6 +27,7 @@ const eventToRow = (e: CalendarEvent): Row => ({
   done: e.done,
   details: e.details ?? null,
   important: !!e.important,
+  reminders: e.reminders ?? null,
   external_id: e.externalId ?? null,
   created_at: e.createdAt,
   deleted_at: e.deletedAt ?? null,
@@ -40,6 +42,7 @@ const rowToEvent = (r: Row): CalendarEvent => ({
   done: r.done as boolean,
   details: (r.details as string) ?? undefined,
   important: r.important === true || undefined,
+  reminders: cleanReminders(r.reminders),
   externalId: (r.external_id as string) ?? undefined,
   createdAt: r.created_at as string,
   deletedAt: (r.deleted_at as string) ?? undefined,
@@ -106,12 +109,23 @@ const rowToItem = (r: Row): DriveItem => ({
   deletedAt: (r.deleted_at as string) ?? undefined,
 });
 
-const todoToRow = (t: Todo): Row => ({ id: t.id, title: t.title, done: t.done, due: t.due ?? null, created_at: t.createdAt, done_at: t.doneAt ?? null });
+const todoToRow = (t: Todo): Row => ({
+  id: t.id,
+  title: t.title,
+  done: t.done,
+  due: t.due ?? null,
+  due_time: t.time ?? null,
+  reminders: t.reminders ?? null,
+  created_at: t.createdAt,
+  done_at: t.doneAt ?? null,
+});
 const rowToTodo = (r: Row): Todo => ({
   id: r.id as string,
   title: r.title as string,
   done: r.done as boolean,
   due: (r.due as string) ?? undefined,
+  time: (r.due_time as string) ?? undefined,
+  reminders: cleanReminders(r.reminders),
   createdAt: r.created_at as string,
   doneAt: (r.done_at as string) ?? undefined,
 });
@@ -129,8 +143,13 @@ const noStamp = new Set<Table>();
 const unstamped = (rows: Row[]) => rows.map(({ updated_at: _u, ...r }) => r);
 const missingStamp = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && !!e.message?.includes('updated_at');
 const missingColumn = (e: { code?: string; message?: string } | null, col: string) => e?.code === 'PGRST204' && !!e.message?.includes(col);
-let noImportant = false;
-const unflagged = (rows: Row[]) => rows.map(({ important: _i, ...r }) => r);
+// Columns added by later migrations: a server without them yet gets the rows without them (kept on this device).
+const OPTIONAL: Partial<Record<Table, string[]>> = { events: ['important', 'reminders'], todos: ['due_time', 'reminders'] };
+const absent = new Map<Table, Set<string>>();
+const withoutAbsent = (table: Table, rows: Row[]) => {
+  const cols = absent.get(table);
+  return cols?.size ? rows.map(r => Object.fromEntries(Object.entries(r).filter(([k]) => !cols.has(k)))) : rows;
+};
 
 // ── Pending changes ─────────────────────────────────────────────────────────
 
@@ -248,17 +267,19 @@ let warnedCategories = false;
 
 async function upsertRows(table: Table, rows: Row[]) {
   if (noStamp.has(table)) rows = unstamped(rows);
-  if (table === 'events' && noImportant) rows = unflagged(rows);
+  rows = withoutAbsent(table, rows);
   let { error } = await supabase!.from(table).upsert(rows);
   if (STAMPED.has(table) && missingStamp(error)) {
     noStamp.add(table);
     rows = unstamped(rows);
     ({ error } = await supabase!.from(table).upsert(rows));
   }
-  // Server without the « important » column yet (migration 2026-10-16): the event is kept, without its flag online.
-  if (table === 'events' && missingColumn(error, 'important')) {
-    noImportant = true;
-    rows = unflagged(rows);
+  // Server without a recent column yet (« important », reminders…): the row is kept, without it online.
+  for (let i = 0; i < 3; i++) {
+    const col = OPTIONAL[table]?.find(c => missingColumn(error, c));
+    if (!col) break;
+    absent.set(table, new Set([...(absent.get(table) ?? []), col]));
+    rows = withoutAbsent(table, rows);
     ({ error } = await supabase!.from(table).upsert(rows));
   }
   if (!error) return 0;

@@ -12,12 +12,14 @@ import Logo from '../components/Logo';
 import Avatar from '../components/Avatar';
 import FocusTimer from '../components/FocusTimer';
 import { cx } from '../lib/utils';
-import { checkIsAdmin, cloudEnabled } from '../lib/supabase';
+import { adminPendingCount, checkIsAdmin, cloudEnabled } from '../lib/supabase';
+import { startReminders } from '../lib/reminderScheduler';
+import { useUi } from '../store/ui';
 import { useGroupActivity, totalUnread } from '../store/groupActivity';
 import { useTrashCount } from '../lib/trash';
 import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
-import { ContextMenu } from '../components/Overlays';
+import { ContextMenu, ReminderAlerts } from '../components/Overlays';
 import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
@@ -222,6 +224,8 @@ export default function AppShell() {
 
   useEffect(() => registerNavigate(navigate), [navigate]);
   useEffect(() => startProactive(), []);
+  // Rappels des événements et des tâches (dans l'appli, et par notifications push en ligne).
+  useEffect(() => startReminders(user.id), [user.id]);
 
   // Nouveautés dans les groupes : pastilles + notifications (version en ligne).
   useEffect(() => {
@@ -241,6 +245,22 @@ export default function AppShell() {
       alive = false;
     };
   }, [user.id]);
+  // Pastille « à traiter » : signalements et avis encore ouverts, revus toutes les 2 minutes et au retour sur l'onglet.
+  const adminPending = useUi(s => s.adminPending);
+  useEffect(() => {
+    if (!isAdmin) return;
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void adminPendingCount().then(n => n !== null && useUi.setState({ adminPending: n }));
+    };
+    refresh();
+    const t = setInterval(refresh, 120_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [isAdmin]);
+  const adminLabel = adminPending ? `Administration, ${adminPending} élément${adminPending > 1 ? 's' : ''} à traiter` : 'Administration';
 
   return (
     <div className="flex h-full">
@@ -290,6 +310,11 @@ export default function AppShell() {
             >
               <ChartNoAxesColumn size={18} strokeWidth={1.9} />
               Administration
+              {adminPending > 0 && (
+                <span className="ml-auto rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-[18px] text-white tabular" aria-label={`${adminPending} à traiter`}>
+                  {adminPending}
+                </span>
+              )}
             </NavLink>
           )}
         </nav>
@@ -345,6 +370,16 @@ export default function AppShell() {
           >
             <Search size={18} strokeWidth={1.9} />
           </button>
+          {isAdmin && (
+            <NavLink to="/admin" className="icon-btn relative lg:hidden" title="Administration" aria-label={adminLabel}>
+              <ChartNoAxesColumn size={18} strokeWidth={1.9} />
+              {adminPending > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-[16px] text-white ring-2 ring-paper tabular" aria-hidden>
+                  {adminPending > 9 ? '9+' : adminPending}
+                </span>
+              )}
+            </NavLink>
+          )}
           <NavLink to="/corbeille" className="icon-btn relative lg:hidden" title="Corbeille" aria-label={trashLabel}>
             <Trash2 size={18} strokeWidth={1.9} />
             {trashCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-paper" aria-hidden />}
@@ -370,6 +405,7 @@ export default function AppShell() {
         <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-14 outline-none lg:pb-0">
           <Outlet />
           <FeedbackDialog />
+          <ReminderAlerts />
           {/* « Avis ou bug » : always at hand, bottom right (above the tab bar on phones). */}
           <button
             type="button"

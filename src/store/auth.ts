@@ -334,8 +334,10 @@ export const useAuth = create<AuthState>((set, get) => ({
         await leaveSession(user);
         ended = false;
       } else {
-        // Shared computer (« Rester connecté » unticked) or code not entered yet: the session really ends.
+        // Shared computer (« Rester connecté » unticked) or code not entered yet: the session really ends,
+        // and this computer stops receiving the account's notifications.
         if (userId) lockAccount(userId);
+        await import('../lib/push').then(m => m.forgetThisDevice()).catch(() => undefined);
         await supabase.auth.signOut().catch(() => undefined);
       }
     } else {
@@ -467,7 +469,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   removeAccount(id) {
     const a = savedAccount(id);
     forgetAccount(id);
-    if (a?.session) void revokeSession(a.session).catch(() => undefined);
+    if (a?.session) void revokeSession(a.session, c => import('../lib/push').then(m => m.forgetThisDevice(c))).catch(() => undefined);
   },
 
   async resendConfirmation(email) {

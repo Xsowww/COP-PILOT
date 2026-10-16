@@ -14,6 +14,14 @@ export interface ToastAction {
   run: () => void;
 }
 
+/** A reminder shown inside the app (lib/reminderScheduler): stays until closed. */
+export interface ReminderAlert {
+  key: string;
+  title: string;
+  body: string;
+  url: string;
+}
+
 interface DialogRequest {
   kind: 'confirm' | 'prompt';
   title: string;
@@ -30,14 +38,21 @@ interface DialogRequest {
 
 interface UiState {
   toasts: Toast[];
+  alerts: ReminderAlert[];
+  /** Reports and feedback still to handle (admins only): the badge on « Administration ». */
+  adminPending: number;
   dialog: DialogRequest | null;
   toast: (text: string, tone?: Toast['tone'], action?: ToastAction) => void;
   dismissToast: (id: string) => void;
+  showAlert: (a: ReminderAlert) => void;
+  dismissAlert: (key: string) => void;
   closeDialog: (value: string | boolean | null) => void;
 }
 
 export const useUi = create<UiState>((set, get) => ({
   toasts: [],
+  alerts: [],
+  adminPending: 0,
   dialog: null,
   toast(text, tone = 'info', action) {
     const t: Toast = { id: uid(), text, tone, action };
@@ -45,6 +60,8 @@ export const useUi = create<UiState>((set, get) => ({
     setTimeout(() => get().dismissToast(t.id), action ? 6000 : 3500);
   },
   dismissToast: id => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })),
+  showAlert: a => set(s => (s.alerts.some(x => x.key === a.key) ? s : { alerts: [...s.alerts, a].slice(-4) })),
+  dismissAlert: key => set(s => ({ alerts: s.alerts.filter(a => a.key !== key) })),
   closeDialog(value) {
     get().dialog?.resolve(value);
     set({ dialog: null });

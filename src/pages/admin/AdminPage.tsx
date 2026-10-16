@@ -7,6 +7,7 @@ import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fmt, fromKey } from '../../lib/dates';
 import AdminInbox from './AdminInbox';
 import { fetchInbox, openCount, type Inbox as InboxData } from './inbox';
+import { useUi } from '../../store/ui';
 
 interface Account {
   id: string;
@@ -177,6 +178,11 @@ export default function AdminPage() {
     const q = query.trim().toLowerCase();
     return (stats?.accounts ?? []).filter(a => !q || a.email.toLowerCase().includes(q) || a.name.toLowerCase().includes(q));
   }, [stats, query]);
+
+  // The menu's badge follows what is handled here.
+  useEffect(() => {
+    if (inbox) useUi.setState({ adminPending: openCount(inbox) });
+  }, [inbox]);
 
   if (!cloudEnabled || allowed === false) return <Navigate to="/" replace />;
 

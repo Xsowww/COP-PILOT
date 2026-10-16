@@ -9,6 +9,10 @@ export interface Todo {
   title: string;
   done: boolean;
   due?: string; // YYYY-MM-DD, optional
+  /** HH:mm, optional: the time of the due day (reminders count from it, else from 9:00). */
+  time?: string;
+  /** Reminders, in minutes before the due moment: lib/reminders. */
+  reminders?: number[];
   createdAt: string;
   doneAt?: string;
 }
@@ -16,7 +20,7 @@ export interface Todo {
 interface TodosState {
   todos: Todo[];
   add: (title: string, due?: string) => Todo;
-  update: (id: string, patch: Partial<Pick<Todo, 'title' | 'due'>>) => void;
+  update: (id: string, patch: Partial<Pick<Todo, 'title' | 'due' | 'time' | 'reminders'>>) => void;
   toggle: (id: string) => void;
   /** Returns the removed task, for « Annuler ». */
   remove: (id: string) => Todo | undefined;

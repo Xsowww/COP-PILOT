@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { captchaToken } from './captcha';
 
 // When VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (see .env.example), accounts and
@@ -74,11 +74,13 @@ export async function checkPassword(email: string, password: string): Promise<bo
 export const cloudEnabled = supabase !== null;
 
 /** Ends a session kept for an account that is not the one in use (« Retirer de cet appareil »). */
-export async function revokeSession(session: { access_token: string; refresh_token: string }) {
+export async function revokeSession(session: { access_token: string; refresh_token: string }, before?: (client: SupabaseClient) => Promise<unknown>) {
   if (!url || !key) return;
   const tmp = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'cop-pilot-revoke' } });
   const { error } = await tmp.auth.setSession(session);
-  if (!error) await tmp.auth.signOut({ scope: 'local' });
+  if (error) return;
+  await before?.(tmp).catch(() => undefined);
+  await tmp.auth.signOut({ scope: 'local' });
 }
 
 /** Access token of the signed-in user, to authenticate calls to our own server. */
@@ -94,4 +96,11 @@ export async function checkIsAdmin(): Promise<boolean> {
   if (!supabase) return false;
   const { data, error } = await supabase.rpc('is_admin');
   return !error && data === true;
+}
+
+/** Reports and feedback still open (admins only, 0 otherwise or without the 2026-10-17 migration). */
+export async function adminPendingCount(): Promise<number | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('admin_open_count');
+  return !error && typeof data === 'number' ? data : null;
 }

@@ -53,6 +53,8 @@ export interface CalendarEvent {
   details?: string;
   /** Marked important by the person (flag): the home page counts it among the big days to come. */
   important?: boolean;
+  /** Reminders, in minutes before the start (or before 9:00 for an event without a time): lib/reminders. */
+  reminders?: number[];
   /** UID of the event in an imported .ics file, so a second import doesn't duplicate it. */
   externalId?: string;
   createdAt: string;
@@ -163,7 +165,10 @@ export const useCalendar = create<CalendarState>()(
       events: [],
       trash: [],
       add(e) {
-        const ev: CalendarEvent = { ...e, id: uid(), done: false, createdAt: nowIso() };
+        // A new event with a time gets the usual reminder (Profil › Notifications), unless it says otherwise
+        // or comes from elsewhere (imported agenda, a group).
+        const reminders = e.reminders ?? (e.start && !e.externalId && getSettings().defaultReminders?.length ? [...getSettings().defaultReminders] : undefined);
+        const ev: CalendarEvent = { ...e, ...(reminders && { reminders }), id: uid(), done: false, createdAt: nowIso() };
         set(s => ({ events: [...s.events, ev] }));
         return ev;
       },

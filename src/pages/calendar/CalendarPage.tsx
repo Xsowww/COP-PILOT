@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useSearchParams } from 'react-router-dom';
 import { trashEvent } from '../../lib/trash';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp } from 'lucide-react';
+import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp } from 'lucide-react';
 import { useCalendar, catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
@@ -17,6 +17,7 @@ import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { isIcsFile } from '../../lib/ics';
 import { useEventDrag, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
+import { eventReminders, reminderLabel } from '../../lib/reminders';
 
 type Mode = 'week' | 'month' | 'day';
 const MODES: { id: Mode; label: string }[] = [
@@ -60,6 +61,7 @@ interface EventItemProps {
 function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   const { toggleDone } = useCalendar.getState();
   const c = catOf(ev.category);
+  const reminders = eventReminders(ev, useSettings(s => s.defaultReminders));
   return (
     <div className="group enter flex items-stretch gap-4">
       <div className="tabular w-12 shrink-0 pt-3 text-right text-[12px]">
@@ -93,6 +95,13 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
             {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}
+            {!ev.done && reminders.length > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap" title="Rappels">
+                <Bell size={11} aria-label="Rappel" />
+                {reminderLabel(Math.min(...reminders), !!ev.start)}
+                {reminders.length > 1 && ` +${reminders.length - 1}`}
+              </span>
+            )}
           </p>
           {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
         </button>

@@ -7,13 +7,14 @@ import { loadPublicEnv } from './server/publicEnv.mjs';
 // Public Supabase settings committed in .env.supabase.public (values in .env win).
 loadPublicEnv();
 
-/** Serves Copilot's API during `npm run dev` (same handler as server/index.mjs). */
+/** Serves Copilot's API (and the push key, for notifications) during `npm run dev` (same handlers as server/index.mjs). */
 function copilotApi(env: Record<string, string>): Plugin {
   return {
     name: 'copilot-api',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (!(await handleCopilot(req, res, env))) next();
+        const { handlePush } = await import('./server/push.mjs');
+        if (!(await handleCopilot(req, res, env)) && !(await handlePush(req, res))) next();
       });
     },
   };

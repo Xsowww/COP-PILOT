@@ -10,6 +10,8 @@ import { toast } from '../../store/ui';
 import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
 import { NewCategory } from './CategoriesDialog';
+import ReminderPicker from '../../components/ReminderPicker';
+import { adaptReminders, eventReminders } from '../../lib/reminders';
 
 interface Props {
   event?: CalendarEvent;
@@ -31,6 +33,10 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [category, setCategory] = useState<EventCategory | null>(event?.category ?? null);
   const [details, setDetails] = useState(event?.details ?? '');
   const [important, setImportant] = useState(!!event?.important);
+  // undefined = not chosen: the usual reminder (Profil › Notifications) for an event with a time.
+  const [chosen, setChosen] = useState<number[] | undefined>(event?.reminders);
+  const defaults = useSettings(s => s.defaultReminders);
+  const reminders = eventReminders({ reminders: chosen, start, externalId: event?.externalId }, defaults);
   const custom = useSettings(s => s.customCategories);
   const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
   const [creating, setCreating] = useState(false);
@@ -42,7 +48,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     e.preventDefault();
     if (!title.trim() || !day) return;
     // An end without a start can't be sent: the start field is required then (see below).
-    const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined };
+    const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen };
     if (event) update(event.id, data);
     else add(data);
     toast(`${event ? 'Enregistré' : 'Ajouté'} : ${data.title}`, 'success');
@@ -106,7 +112,11 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               value={start}
               // Worked out at each render: clearing the end (not only typing a start) makes the field valid again.
               ref={el => el?.setCustomValidity(end && !start ? 'Indique le début, ou efface la fin.' : '')}
-              onChange={e => setStart(e.target.value)}
+              onChange={e => {
+                // With or without a time, the reminders don't mean the same: keep those that still fit.
+                if (!!e.target.value !== !!start && chosen) setChosen(adaptReminders(chosen, !!e.target.value, e.target.value ? defaults : [0]));
+                setStart(e.target.value);
+              }}
               required={!!end}
               className="field w-full"
             />
@@ -130,6 +140,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           <Flag size={14} className={important ? 'fill-current' : ''} />
           {important ? 'Important' : 'Marquer comme important'}
         </button>
+
+        <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} />
 
         <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={`Notes (${words.notesExample})`} aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
 

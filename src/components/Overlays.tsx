@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, Info, XCircle } from 'lucide-react';
+import { BellRing, CheckCircle2, Info, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useUi, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
 import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
@@ -278,6 +279,45 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
           </button>
         ),
       )}
+    </div>
+  );
+}
+
+/** Reminders that came due while the app is in view (lib/reminderScheduler): they stay until closed. */
+export function ReminderAlerts() {
+  const alerts = useUi(s => s.alerts);
+  const dismiss = useUi(s => s.dismissAlert);
+  const navigate = useNavigate();
+  if (!alerts.length) return null;
+  return (
+    <div role="alert" className="pointer-events-none fixed inset-x-3 top-3 z-[75] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:top-4 sm:items-end">
+      {alerts.map(a => (
+        <div key={a.key} className="pop pointer-events-auto flex w-full max-w-[380px] gap-3 rounded-xl border border-stone-200 bg-surface p-3.5 shadow-pop">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600" aria-hidden>
+            <BellRing size={16} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-stone-500">Rappel</p>
+            <p className="mt-0.5 text-[14px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{a.title}</p>
+            {a.body && <p className="mt-0.5 text-[13px] text-stone-600">{a.body}</p>}
+            <div className="mt-2.5 flex gap-2">
+              <button
+                type="button"
+                className="btn-primary h-8 px-3 text-[13px]"
+                onClick={() => {
+                  dismiss(a.key);
+                  navigate(a.url);
+                }}
+              >
+                Voir
+              </button>
+              <button type="button" className="btn-secondary h-8 px-3 text-[13px]" onClick={() => dismiss(a.key)}>
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { fetchGroups, sessionUserId, type Group } from '../lib/groups';
-import { notify } from '../lib/notify';
+import { canNotify, notify } from '../lib/notify';
 import { getSettings, useSettings } from './settings';
 import { toast } from './ui';
 import { goTo } from '../copilot/actions';
@@ -164,7 +164,7 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
     if (run !== generation) return; // stopped (sign-out, account switch) meanwhile
     let ticks = 0;
     poll = setInterval(() => {
-      if (document.hidden && !getSettings().browserNotifications) return;
+      if (document.hidden && !canNotify()) return;
       if (live && ++ticks % POLLS_WHEN_LIVE) return;
       recount();
     }, POLL_MS);

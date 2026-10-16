@@ -39,7 +39,6 @@ export interface Settings {
   // Kompaly
   copilotVisible: boolean;
   proactive: boolean;
-  eventReminders: boolean;
   chattiness: Chattiness;
   revisionSessions: number;
   revisionTime: string; // HH:mm
@@ -53,7 +52,9 @@ export interface Settings {
   focusSessions: number; // completed, all time
   focusTotalMinutes: number;
   // notifications
-  browserNotifications: boolean;
+  // (« notifications on this device » is per device: lib/push)
+  /** Reminders given to a new event that has a time (minutes before); [] = none. */
+  defaultReminders: number[];
   focusSound: boolean;
   // motivation
   badgesSeen: string[]; // badges already announced
@@ -77,7 +78,6 @@ export const DEFAULT_SETTINGS: Settings = {
   language: 'fr',
   copilotVisible: true,
   proactive: true,
-  eventReminders: true,
   chattiness: 'calme',
   revisionSessions: 3,
   revisionTime: '18:00',
@@ -89,7 +89,7 @@ export const DEFAULT_SETTINGS: Settings = {
   breakMinutes: 5,
   focusSessions: 0,
   focusTotalMinutes: 0,
-  browserNotifications: false,
+  defaultReminders: [15],
   focusSound: true,
   badgesSeen: [],
   badgeAnnouncements: false,
