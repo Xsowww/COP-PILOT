@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anchorOf, cleanReminders, reminderBody, reminderLabel, upcomingReminders } from '../src/lib/reminders';
+import { adaptReminders, anchorOf, cleanReminders, offsetLabel, reminderBody, reminderLabel, upcomingReminders } from '../src/lib/reminders';
 
 const now = new Date(2026, 9, 16, 10, 0); // jeudi 16 octobre 2026, 10:00
 
@@ -61,5 +61,21 @@ describe('rappels', () => {
     expect(reminderLabel(900, false)).toBe('La veille, 18 h');
     expect(reminderLabel(180, true)).toBe('3 h avant');
     expect(reminderBody({ kind: 'event', id: 'e', title: 'X', date: '2026-10-23' }, new Date(2026, 9, 16, 9, 0))).toBe('Dans une semaine');
+  });
+
+  it('rappel personnalisé : le moment choisi, ou la durée', () => {
+    // Événement le vendredi 17 à 14h ; rappel la veille à 20h30 = 17 h 30 avant.
+    expect(reminderLabel(17 * 60 + 30, true, '2026-10-17', '14:00')).toBe('La veille à 20h30');
+    expect(reminderLabel(6 * 60 + 15, true, '2026-10-17', '14:00')).toBe('Le jour même à 7h45');
+    expect(reminderLabel(3 * 1440 + 120, true, '2026-10-17', '14:00')).toBe('Mer. 14 oct. à 12h');
+    expect(reminderLabel(15, true, '2026-10-17', '14:00')).toBe('15 min avant'); // les choix habituels gardent leur nom
+    expect(offsetLabel(45)).toBe('45 min avant');
+    expect(offsetLabel(210)).toBe('3 h 30 avant');
+    expect(offsetLabel(2 * 1440 + 240)).toBe('2 j 4 h avant');
+  });
+
+  it('un rappel personnalisé reste quand on retire l’heure', () => {
+    expect(adaptReminders([15, 1050], false, [0])).toEqual([1050]);
+    expect(adaptReminders([15], false, [0])).toEqual([0]);
   });
 });

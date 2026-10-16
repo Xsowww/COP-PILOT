@@ -98,7 +98,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
             {!ev.done && reminders.length > 0 && (
               <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap" title="Rappels">
                 <Bell size={11} aria-label="Rappel" />
-                {reminderLabel(Math.min(...reminders), !!ev.start)}
+                {reminderLabel(Math.min(...reminders), !!ev.start, ev.date, ev.start)}
                 {reminders.length > 1 && ` +${reminders.length - 1}`}
               </span>
             )}

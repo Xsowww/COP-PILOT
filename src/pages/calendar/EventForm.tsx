@@ -141,7 +141,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           {important ? 'Important' : 'Marquer comme important'}
         </button>
 
-        <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} />
+        <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} date={day || undefined} time={start || undefined} />
 
         <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={`Notes (${words.notesExample})`} aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
 

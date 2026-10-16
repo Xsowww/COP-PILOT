@@ -98,7 +98,8 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className="pop w-full rounded-2xl border border-stone-200 bg-surface p-5 shadow-pop outline-none"
+        // Taller than the screen (event form on a phone): it scrolls inside instead of being cut off.
+        className="pop max-h-full w-full overflow-y-auto overscroll-contain rounded-2xl border border-stone-200 bg-surface p-5 shadow-pop outline-none"
         style={{ maxWidth: width }}
         onMouseDown={e => e.stopPropagation()}
       >

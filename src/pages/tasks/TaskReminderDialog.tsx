@@ -43,7 +43,7 @@ export default function TaskReminderDialog({ todo, onClose }: { todo: Todo; onCl
             />
           </label>
         </div>
-        <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} disabled={due ? undefined : 'Choisis d’abord une échéance.'} />
+        <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : 'Choisis d’abord une échéance.'} />
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" className="btn-secondary" onClick={onClose}>
             Annuler

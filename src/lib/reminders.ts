@@ -31,7 +31,12 @@ export const DAY_OPTIONS: ReminderOption[] = [
 ];
 
 export const DAY_ANCHOR = '09:00';
-const MAX_MINUTES = 10080 * 4;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+/** « 9h », « 14h30 ». */
+const hhmm = (d: Date) => `${d.getHours()}h${pad(d.getMinutes())}`.replace(/h00$/, 'h');
+/** 4 weeks: the furthest a reminder can be before its item. */
+export const MAX_MINUTES = 10080 * 4;
 
 export const reminderOptions = (timed: boolean) => (timed ? TIMED_OPTIONS : DAY_OPTIONS);
 
@@ -39,14 +44,35 @@ export const reminderOptions = (timed: boolean) => (timed ? TIMED_OPTIONS : DAY_
 export const eventReminders = (e: { reminders?: number[]; start?: string; externalId?: string }, defaults: number[]) =>
   e.reminders ?? (e.start && !e.externalId ? defaults : []);
 
-/** The label of a reminder (an option, or « 3 h avant » for any other value). */
-export function reminderLabel(minutes: number, timed: boolean): string {
+/** « 45 min avant », « 3 h 30 avant », « 2 j 4 h avant ». */
+export function offsetLabel(minutes: number): string {
+  if (minutes === 0) return 'À l’heure';
+  const d = Math.floor(minutes / 1440);
+  const h = Math.floor((minutes % 1440) / 60);
+  const m = minutes % 60;
+  const parts = [d && `${d} j`, h && `${h} h`, m && (d || h ? String(m).padStart(2, '0') : `${m} min`)].filter(Boolean);
+  return `${parts.join(' ')} avant`;
+}
+
+/** The moment a reminder fires, in local time. */
+export const reminderMoment = (date: string, time: string | undefined, minutes: number) => new Date(anchorOf(date, time).getTime() - minutes * 60_000);
+
+/**
+ * The label of a reminder: an option's, else, when the item's date is known, the moment itself
+ * (« La veille à 20h30 », « Le jour même à 7h », « Lun. 13 oct. à 18h »), else the time before it.
+ */
+export function reminderLabel(minutes: number, timed: boolean, date?: string, time?: string): string {
   const o = reminderOptions(timed).find(x => x.minutes === minutes);
   if (o) return o.label;
-  if (minutes % 1440 === 0) return `${minutes / 1440} j avant`;
-  if (minutes % 60 === 0) return `${minutes / 60} h avant`;
-  return `${minutes} min avant`;
+  if (!date) return offsetLabel(minutes);
+  const at = reminderMoment(date, time, minutes);
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((day(anchorOf(date, time)) - day(at)) / 86_400_000);
+  const when = days === 0 ? 'Le jour même' : days === 1 ? 'La veille' : `${WEEKDAYS[at.getDay()]} ${at.getDate()} ${MONTHS[at.getMonth()]}`;
+  return `${when} à ${hhmm(at)}`;
 }
+const WEEKDAYS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
+const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
 /** Keeps valid, distinct values, sorted (biggest first). [] = « no reminder » chosen; undefined = never chosen. */
 export function cleanReminders(list: unknown): number[] | undefined {
@@ -80,8 +106,6 @@ export interface DueReminder {
   url: string;
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
-const hhmm = (d: Date) => `${pad(d.getHours())}h${pad(d.getMinutes())}`.replace(/h00$/, 'h');
 
 /** « Dans 15 min, à 14h », « Demain à 9h30 », « Aujourd’hui », « Dans 2 jours »… as seen when it fires. */
 export function reminderBody(src: ReminderSource, fireAt: Date): string {
@@ -124,9 +148,10 @@ export function upcomingReminders(items: ReminderSource[], now = new Date(), hor
   return out.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
 }
 
-/** When an item gains or loses its time: the reminders that still make sense, else `fallback`. */
+/** When an item gains or loses its time: the reminders that still make sense (custom ones stay), else `fallback`. */
 export function adaptReminders(list: number[], timed: boolean, fallback: number[]): number[] {
   const valid = new Set(reminderOptions(timed).map(o => o.minutes));
-  const kept = list.filter(m => valid.has(m));
+  const before = new Set(reminderOptions(!timed).map(o => o.minutes));
+  const kept = list.filter(m => valid.has(m) || !before.has(m));
   return kept.length || !list.length ? kept : fallback;
 }
