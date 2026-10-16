@@ -4,10 +4,13 @@
 //
 // Off until VITE_TURNSTILE_SITE_KEY is set (.env.supabase.public). Turn the captcha on in Supabase
 // (Authentication › Attack Protection) only AFTER the site with the key is online, or sign-ins fail.
+// Test period: captcha off in Supabase first, then VITE_CAPTCHA_OFF=1 on Render; back on in the other order.
 
 const SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)?.trim() ?? '';
+// Switched off for a test period with VITE_CAPTCHA_OFF=1 on the host (Render), together with the captcha in Supabase.
+const OFF = /^(1|true|oui)$/i.test(String(import.meta.env.VITE_CAPTCHA_OFF ?? '').trim());
 // Same test as lib/supabase (not imported from it: it imports this file).
-export const captchaEnabled = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY && !!SITE_KEY;
+export const captchaEnabled = !OFF && !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY && !!SITE_KEY;
 
 interface Turnstile {
   render: (el: HTMLElement, opts: Record<string, unknown>) => string;
