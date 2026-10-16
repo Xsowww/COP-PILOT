@@ -697,7 +697,7 @@ function NotificationsTab() {
         )}
         {state === 'on' && (
           <Row label="Tester" hint={push ? '« Site fermé » : ferme ou quitte Kompaly juste après, la notification arrive 10 secondes plus tard.' : undefined}>
-            <button className="btn-secondary h-8" onClick={() => void showSystemNotification('Notifications activées', 'Tes rappels Kompaly arriveront ici.\nEssai · Kompaly', 'test', '/profil?onglet=notifications')}>
+            <button className="btn-secondary h-8" onClick={() => void showSystemNotification('Notifications activées', 'Tes rappels Kompaly arriveront ici.\nEssai', 'test', '/profil?onglet=notifications')}>
               <Bell size={14} /> Essayer
             </button>
             {push && (

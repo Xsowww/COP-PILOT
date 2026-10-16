@@ -113,7 +113,7 @@ const WEEKDAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendr
 
 /**
  * What a notification says under its title, as seen when it fires — line 1: when (« Dans 15 min · 14h – 15h30 »,
- * « Demain · 9h30 », « À faire aujourd’hui »); line 2: where it comes from (« Agenda · Kompaly »).
+ * « Demain · 9h30 », « À faire aujourd’hui »); line 2: where it comes from (« Agenda » ; the phone already names Kompaly).
  */
 export function reminderBody(src: ReminderSource, fireAt: Date): string {
   const at = anchorOf(src.date!, src.time);
@@ -132,7 +132,7 @@ export function reminderBody(src: ReminderSource, fireAt: Date): string {
     when = task ? `À faire ${dayName}` : dayName;
   }
   const line1 = when.charAt(0).toUpperCase() + when.slice(1);
-  return `${line1}\n${task ? 'Tâches' : 'Agenda'} · Kompaly`;
+  return `${line1}\n${task ? 'Tâches' : 'Agenda'}`;
 }
 
 /** The reminders still to come, from now up to `horizonDays`, soonest first. */
