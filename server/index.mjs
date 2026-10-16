@@ -64,7 +64,7 @@ const SECURITY = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'DENY',
   'Permissions-Policy': 'camera=(), geolocation=(), microphone=(self)', // microphone: dictation to Kompaly
-  'Strict-Transport-Security': 'max-age=31536000',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 };
 
 // ── Static files ────────────────────────────────────────────────────────────
@@ -73,6 +73,10 @@ const COMPRESSIBLE = new Set(['.html', '.js', '.mjs', '.css', '.svg', '.json', '
 const files = new Map();
 
 async function serveStatic(req, res) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.writeHead(405, { Allow: 'GET, HEAD' });
+    return res.end('Méthode non autorisée');
+  }
   let path;
   try {
     path = decodeURIComponent((req.url ?? '/').split('?')[0]);
@@ -109,7 +113,8 @@ async function serveStatic(req, res) {
 // ── Search engines ──────────────────────────────────────────────────────────
 // The public pages; everything else needs an account. SITE_URL = the site's address (https://…).
 const PUBLIC_PAGES = ['/', '/inscription', '/connexion', '/mentions-legales', '/confidentialite', '/conditions'];
-const siteUrl = req => (process.env.SITE_URL || `${req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http'}://${req.headers.host}`).replace(/\/+$/, '');
+// Never the request's Host header: anyone could make robots.txt and sitemap.xml list their own site.
+const siteUrl = () => (process.env.SITE_URL || 'https://kompaly.com').replace(/\/+$/, '');
 
 function serveSeo(req, res) {
   const path = (req.url ?? '').split('?')[0];
@@ -145,8 +150,10 @@ async function serveErrorReport(req, res) {
   if (count <= 50) {
     try {
       const e = JSON.parse(body);
-      const s = (v, n) => String(v ?? '').slice(0, n);
-      console.error(`[navigateur] ${s(e.page, 200)} (${s(e.where, 30)}) ${s(e.message, 500)}\n${s(e.stack, 2000)}`);
+      // Line breaks and control characters out (a report could write fake lines in the log); the stack stays indented.
+      const s = (v, n) => String(v ?? '').slice(0, n).replace(/[\u0000-\u001f\u007f]+/g, ' ');
+      const stack = String(e.stack ?? '').slice(0, 2000).split(/\r?\n/).map(l => '    | ' + l.replace(/[\u0000-\u001f\u007f]+/g, ' ')).join('\n');
+      console.error(`[navigateur] ${s(e.page, 200)} (${s(e.where, 30)}) ${s(e.message, 500)}\n${stack}`);
     } catch {
       /* not a report */
     }
@@ -197,12 +204,12 @@ const OLD_HOSTS = new Set(['kompa-app.com', 'www.kompa-app.com']);
 const NEW_ORIGIN = 'https://kompaly.com';
 
 const server = createServer(async (req, res) => {
+  for (const [k, v] of Object.entries(SECURITY)) res.setHeader(k, v);
   if (OLD_HOSTS.has((req.headers.host ?? '').toLowerCase())) {
     res.writeHead(301, { Location: NEW_ORIGIN + (req.url ?? '/') });
     res.end();
     return;
   }
-  for (const [k, v] of Object.entries(SECURITY)) res.setHeader(k, v);
   try {
     if (serveSeo(req, res)) return;
     if (await serveHealth(req, res)) return;

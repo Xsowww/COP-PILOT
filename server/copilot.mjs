@@ -91,9 +91,11 @@ function rateLimited(key, max) {
 /**
  * Behind a host's proxy every request comes from the proxy: TRUST_PROXY=1 reads the real address.
  * On by itself on Render (it sets RENDER=true), where forgetting it put every visitor under one limit.
+ * The LAST address of X-Forwarded-For is the one the host's proxy saw; the ones before it are whatever the
+ * visitor sent (a made-up address per request got round every limit).
  */
 export const ipOf = (req, env) =>
-  ((env.TRUST_PROXY === '1' || (env.RENDER === 'true' && env.TRUST_PROXY !== '0')) && String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim()) ||
+  ((env.TRUST_PROXY === '1' || (env.RENDER === 'true' && env.TRUST_PROXY !== '0')) && String(req.headers['x-forwarded-for'] ?? '').split(',').pop().trim()) ||
   req.socket?.remoteAddress ||
   'unknown';
 
