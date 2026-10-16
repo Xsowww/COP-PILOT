@@ -187,7 +187,7 @@ async function serveHealth(req, res) {
   res.end(
     req.method === 'HEAD'
       ? undefined
-      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? 'erreur' : 'actifs') : 'désactivés', version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
+      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? `erreur ${pushStatus.lastCode}` : 'actifs') : 'désactivés', version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
   );
   return true;
 }

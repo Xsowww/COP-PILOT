@@ -70,12 +70,13 @@ const serviceHeaders = () => ({
 });
 async function rest(path, init = {}) {
   const r = await fetch(`${SUPABASE}${path}`, { ...init, headers: serviceHeaders(), signal: AbortSignal.timeout(15_000) });
-  if (!r.ok) throw new Error(`${init.method ?? 'GET'} ${path.split('?')[0]} → ${r.status} ${(await r.text()).slice(0, 200)}`);
+  if (!r.ok) throw Object.assign(new Error(`${init.method ?? 'GET'} ${path.split('?')[0]} → ${r.status} ${(await r.text()).slice(0, 200)}`), { status: r.status });
   return r.status === 204 ? null : r.json().catch(() => null);
 }
 
 // ── The loop ────────────────────────────────────────────────────────────────
-export const pushStatus = { active: false, lastRun: null, lastError: null, sent: 0 };
+/** lastCode: the HTTP status of the last failure (or 'réseau'), shown by /api/sante — never the message itself. */
+export const pushStatus = { active: false, lastRun: null, lastError: null, lastCode: null, sent: 0 };
 
 async function deliverDue() {
   const due = await rest('/rest/v1/rpc/claim_due_reminders', { method: 'POST', body: '{}' });
@@ -115,11 +116,13 @@ export function startPushLoop() {
     try {
       await deliverDue();
       pushStatus.lastError = null;
+      pushStatus.lastCode = null;
     } catch (e) {
       // Migration 2026-10-17 not applied yet, network…: said once per kind of error, retried at the next turn.
       const msg = e instanceof Error ? e.message : String(e);
       if (msg !== pushStatus.lastError) console.error('[push]', msg);
       pushStatus.lastError = msg;
+      pushStatus.lastCode = e?.status ?? 'réseau';
     } finally {
       pushStatus.lastRun = new Date().toISOString();
       running = false;
