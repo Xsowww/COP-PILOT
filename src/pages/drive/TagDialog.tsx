@@ -92,7 +92,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
       </div>
 
       <div className="mt-4 flex min-h-8 flex-wrap gap-1.5">
-        {current.length ? current.map(t => <TagPill key={t} tag={t} size="md" onRemove={() => remove(t)} />) : <p className="text-[13px] text-stone-500">Aucune étiquette pour l'instant.</p>}
+        {current.length ? current.map(t => <TagPill key={t} tag={t} size="md" onRemove={() => remove(t)} />) : <p className="text-[13px] text-stone-500">Aucune étiquette pour l’instant.</p>}
       </div>
 
       <form

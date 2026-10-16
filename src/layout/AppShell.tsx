@@ -103,7 +103,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         aria-expanded={open && !!q.trim()}
         aria-controls="recherche-resultats"
         aria-activedescendant={open && hits[active] ? `recherche-${active}` : undefined}
-        className="h-8 w-full rounded-lg border border-transparent bg-stone-100/70 pl-8 pr-14 text-[13px] text-ink outline-none transition placeholder:text-stone-500 hover:bg-stone-100 focus:border-stone-300 focus:bg-surface focus:shadow-card focus-visible:ring-3 focus-visible:ring-brand-500/20"
+        className="h-8 w-full rounded-lg border border-transparent bg-stone-100/70 pl-8 pr-14 text-[13px] text-ink outline-none transition placeholder:text-stone-500 hover:bg-stone-100 focus:border-focus focus:bg-surface focus:shadow-card focus:ring-1 focus:ring-focus"
       />
       <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 border-transparent bg-transparent sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
       {open && q.trim() && (

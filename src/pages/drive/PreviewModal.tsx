@@ -142,7 +142,7 @@ export default function PreviewModal({
       <div className="flex min-h-0 flex-1 items-center justify-center p-4 md:p-8">
         <div className="flex max-h-full max-w-full items-center justify-center" onMouseDown={e => e.stopPropagation()}>
           {missing ? (
-            <p className="max-w-sm text-center text-white/70">Impossible d'afficher ce fichier pour le moment. Vérifie ta connexion internet, puis réessaie.</p>
+            <p className="max-w-sm text-center text-white/70">Impossible d’afficher ce fichier pour le moment. Vérifie ta connexion internet, puis réessaie.</p>
           ) : !url ? (
             <Loader2 className="animate-spin text-white/70" />
           ) : cat === 'image' ? (
@@ -198,8 +198,8 @@ export default function PreviewModal({
           ) : (
             <div className="rounded-xl bg-white p-10 text-center">
               <FileIcon category={cat} size={64} ext={item.name.split('.').pop()} />
-              <p className="mt-4 text-[14px] font-medium">{failed ? "Ce fichier n'a pas pu être lu" : "Pas d'aperçu pour ce type de fichier"}</p>
-              {(cat === 'doc' || cat === 'slides') && !failed && <p className="mt-1 text-[13px] text-stone-500">L'aperçu fonctionne avec les formats .docx et .pptx.</p>}
+              <p className="mt-4 text-[14px] font-medium">{failed ? 'Ce fichier n’a pas pu être lu' : 'Pas d’aperçu pour ce type de fichier'}</p>
+              {(cat === 'doc' || cat === 'slides') && !failed && <p className="mt-1 text-[13px] text-stone-500">L’aperçu fonctionne avec les formats .docx et .pptx.</p>}
               <button onClick={() => downloadItem(item, getUrl)} className="btn-primary mt-4">
                 <Download size={15} /> Télécharger
               </button>

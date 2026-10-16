@@ -16,7 +16,8 @@ import { isMenuKey, menuPoint } from '../../lib/a11y';
 import { flushNoteEditor } from './noteUtils';
 import { isTrashedNote } from '../../lib/trash';
 import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
-import { takeTitleBuffer } from './titleBuffer';
+import { takeContentBuffer, takeTitleBuffer } from './titleBuffer';
+import type { Editor } from '@tiptap/react';
 
 const DRAG_NOTE = 'application/x-cop-note';
 const DRAG_FOLDER = 'application/x-cop-note-folder';
@@ -111,12 +112,32 @@ export default function NotesPage() {
     const el = document.getElementById('note-title') as HTMLTextAreaElement | null;
     // Keys typed since « + Note » on another page, while this page was coming up.
     const typed = takeTitleBuffer();
+    if (el && typed?.title) {
+      el.value = typed.title;
+      useNotes.getState().updateNote(activeId, { title: typed.title.trim() || 'Sans titre' });
+    }
+    if (typed?.toContent) {
+      // Enter was pressed after the title: the rest goes to the content, once the editor is there
+      // (the hidden field keeps the keys until then).
+      const started = Date.now();
+      const handOver = () => {
+        const editor = (document.querySelector('.prose-note') as (HTMLElement & { editor?: Editor }) | null)?.editor;
+        if (!editor) return Date.now() - started < 5000 ? void setTimeout(handOver, 50) : void takeContentBuffer();
+        const chain = editor.chain().focus('end');
+        takeContentBuffer()
+          .split('\n')
+          .forEach((line, i) => {
+            if (i) chain.splitBlock();
+            if (line) chain.insertContent({ type: 'text', text: line });
+          });
+        chain.run();
+      };
+      handOver();
+      return;
+    }
     el?.focus();
-    if (el && typed) {
-      el.value = typed;
-      el.setSelectionRange(typed.length, typed.length);
-      useNotes.getState().updateNote(activeId, { title: typed.trim() || 'Sans titre' });
-    } else el?.select();
+    if (el && typed?.title) el.setSelectionRange(typed.title.length, typed.title.length);
+    else el?.select();
   }, [activeId]);
 
   const templateMenu = (folderId: string | null = targetFolder): MenuItem[] =>
@@ -161,6 +182,14 @@ export default function NotesPage() {
       openNote(null);
     }
     if (focusFolder === f.id) setFocusFolder(null);
+    // Like a note: the focus goes to the next row of the list (or the previous one) outside the folder.
+    const gone = (el: HTMLElement) =>
+      el.dataset.folderOpen ? isInside(el.dataset.folderOpen, f.id) : !!notes.find(n => n.id === el.dataset.noteOpen && n.folderId && isInside(n.folderId, f.id));
+    const rows = [...document.querySelectorAll<HTMLElement>('[data-folder-open], [data-note-open]')];
+    const i = rows.findIndex(r => r.dataset.folderOpen === f.id);
+    const next = rows.slice(i + 1).find(r => !gone(r)) ?? rows.slice(0, Math.max(i, 0)).reverse().find(r => !gone(r));
+    const nextSel = next ? (next.dataset.folderOpen ? `[data-folder-open="${next.dataset.folderOpen}"]` : `[data-note-open="${next.dataset.noteOpen}"]`) : '#new-note';
+    setTimeout(() => document.querySelector<HTMLElement>(nextSel)?.focus({ preventScroll: true }), 0);
     store.removeFolder(f.id);
     toast('Mis à la corbeille', 'info', { label: 'Annuler', run: () => restoreAndFocus(f.id, 'folder') });
   };
@@ -277,7 +306,7 @@ export default function NotesPage() {
       onDragStart={e => e.dataTransfer.setData(DRAG_NOTE, n.id)}
       onContextMenu={e => { e.preventDefault(); setMenu({ ...menuPoint(e), items: noteMenu(n) }); }}
       className={cx(
-        'group flex h-8 items-center gap-1 rounded-md pr-1 text-[13px] transition-colors',
+        'group flex h-8 items-center gap-1 rounded-md pr-1 text-[13px] transition-colors pointer-coarse:h-9',
         n.id === noteId ? 'bg-stone-100 font-medium text-ink' : 'text-stone-600 hover:bg-stone-50 hover:text-ink',
       )}
     >
@@ -301,8 +330,8 @@ export default function NotesPage() {
       <button
         className="icon-btn touch-show h-6 w-6 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
         tabIndex={-1}
-        title="Plus d'actions"
-        aria-label={`Plus d'actions pour «\u00a0${n.title}\u00a0»`}
+        title="Plus d’actions"
+        aria-label={`Plus d’actions pour «\u00a0${n.title}\u00a0»`}
         onClick={e => setMenu({ ...menuUnder(e), items: noteMenu(n) })}
       >
         <MoreHorizontal size={14} />
@@ -322,7 +351,7 @@ export default function NotesPage() {
           {...dropProps(f.id, f.id)}
           onContextMenu={e => { e.preventDefault(); setMenu({ ...menuPoint(e), items: folderMenu(f) }); }}
           className={cx(
-            'group flex h-8 items-center gap-0.5 rounded-md pr-1 text-[13px] font-medium transition-colors',
+            'group flex h-8 items-center gap-0.5 rounded-md pr-1 text-[13px] font-medium transition-colors pointer-coarse:h-9',
             dropOn === f.id ? 'bg-brand-50 ring-1 ring-brand-500' : focusFolder === f.id ? 'bg-stone-100 text-ink' : 'text-stone-700 hover:bg-stone-50',
           )}
         >
@@ -366,8 +395,8 @@ export default function NotesPage() {
           <button
             className="icon-btn hidden h-6 w-6 group-hover:inline-flex [@media(hover:none)]:inline-flex"
             tabIndex={-1}
-            title="Plus d'actions"
-            aria-label={`Plus d'actions pour «\u00a0${f.name}\u00a0»`}
+            title="Plus d’actions"
+            aria-label={`Plus d’actions pour «\u00a0${f.name}\u00a0»`}
             onClick={e => setMenu({ ...menuUnder(e), items: folderMenu(f) })}
           >
             <MoreHorizontal size={14} />
@@ -443,7 +472,7 @@ export default function NotesPage() {
               {rootFolders.map(f => renderFolder(f, 0))}
               {rootNotes.length > 0 && rootFolders.length > 0 && <div className="mx-2 my-2 h-px bg-stone-200/70" />}
               {rootNotes.map(n => renderNote(n, 0))}
-              {notes.length === 0 && folders.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">Aucune note pour l'instant.</p>}
+              {notes.length === 0 && folders.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">Aucune note pour l’instant.</p>}
             </div>
           )}
         </div>
@@ -546,7 +575,7 @@ function NoteTitle({ note }: { note: Note }) {
         useNotes.getState().updateNote(note.id, { title: e.target.value.trim() || 'Sans titre' });
       }}
       onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), document.querySelector<HTMLElement>('.prose-note')?.focus())}
-      className="block w-full resize-none overflow-hidden bg-transparent hyphens-auto text-[22px] font-semibold md:text-[26px] leading-[1.25] tracking-[-0.02em] outline-none placeholder:text-stone-400"
+      className="block w-full resize-none overflow-hidden bg-transparent hyphens-auto pointer-coarse:py-1 text-[22px] font-semibold md:text-[26px] leading-[1.25] tracking-[-0.02em] outline-none placeholder:text-stone-400"
     />
   );
 }

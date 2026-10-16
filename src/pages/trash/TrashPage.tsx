@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, FileText, Folder, MoreHorizontal, RotateCcw, Trash2, X } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { parseISO } from 'date-fns';
 import { categoryOf, FOLDER_COLORS, type DriveItem } from '../../store/drive';
 import { catOf } from '../../store/calendar';
 import { confirmAction, toast, useUi } from '../../store/ui';
@@ -11,6 +10,7 @@ import FileIcon from '../../components/FileIcon';
 import PreviewModal from '../drive/PreviewModal';
 import NoteEditor from '../notes/NoteEditor';
 import { cx } from '../../lib/utils';
+import { fmt } from '../../lib/dates';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
 import {
   useTrash, daysLeft, folderContent, restoreTrash, purgeTrash, emptyAllTrash, TRASH_TYPES, type TrashEntry, type TrashType,
@@ -22,9 +22,10 @@ const PARAM: Record<TrashType, string> = { notes: 'notes', drive: 'drive', calen
 const fromParam = (v: string | null): TrashType | null => (Object.keys(PARAM) as TrashType[]).find(k => PARAM[k] === v) ?? null;
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-const deletedOn = (iso: string) => (iso ? format(new Date(iso), 'd MMM', { locale: fr }) : '');
-const deletedOnLong = (iso: string) => (iso ? format(new Date(iso), "d MMM 'à' HH:mm", { locale: fr }) : '');
-const leftShort = (d: number) => (d <= 0 ? "aujourd'hui" : `dans ${d} j`);
+// fmt: « 1er nov. », as everywhere else (the file preview says « supprimé le 1er nov. à 10:05 »).
+const deletedOn = (iso: string) => (iso ? fmt(new Date(iso), 'd MMM') : '');
+const deletedOnLong = (iso: string) => (iso ? fmt(new Date(iso), "d MMM 'à' HH:mm") : '');
+const leftShort = (d: number) => (d <= 0 ? 'aujourd’hui' : `dans ${d} j`);
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
 const folderColor = (item: DriveItem) => (item.color ? FOLDER_COLORS[item.color]?.color : undefined);
@@ -84,7 +85,7 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
         ) : entry.kind === 'event' ? (
           <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-2 text-[13px]">
             <dt className="text-stone-500">Date</dt>
-            <dd className="first-letter:uppercase">{format(parseISO(entry.event.date), 'EEEE d MMMM yyyy', { locale: fr })}</dd>
+            <dd className="first-letter:uppercase">{fmt(parseISO(entry.event.date), 'EEEE d MMMM yyyy')}</dd>
             <dt className="text-stone-500">Heure</dt>
             <dd className="tabular">{entry.event.start ? `${entry.event.start}${entry.event.end ? ` – ${entry.event.end}` : ''}` : 'Toute la journée'}</dd>
             <dt className="text-stone-500">Catégorie</dt>
@@ -204,7 +205,7 @@ export default function TrashPage() {
       if (!r.names.length) return;
       const text = r.names.length > 1 ? `${r.names.length} éléments restaurés` : `« ${r.names[0]} » restauré`;
       const href = r.names.length === 1 ? r.href : null;
-      toast(r.orphan ? `${text} à la racine (dossier d'origine supprimé)` : text, 'success', href ? { label: 'Ouvrir', run: () => navigate(href) } : undefined);
+      toast(r.orphan ? `${text} à la racine (dossier d’origine supprimé)` : text, 'success', href ? { label: 'Ouvrir', run: () => navigate(href) } : undefined);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visible, previewId, openPreview, navigate],
@@ -302,7 +303,7 @@ export default function TrashPage() {
       onClick={() => setFilter(key)}
       aria-pressed={filter === key}
       className={cx(
-        'flex h-7 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors',
+        'flex h-7 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors pointer-coarse:h-9',
         filter === key ? 'border-stone-300 bg-surface text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
       )}
     >
@@ -377,21 +378,24 @@ export default function TrashPage() {
                     setMenu({ ...menuPoint(e), ids: targetsOf(entry.id) });
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={sel}
-                    onChange={() => {
-                      toggle(entry.id);
-                      setAnchor(entry.id);
-                    }}
-                    aria-label={`Sélectionner « ${entry.name} »`}
-                    className="relative z-10 h-4 w-4 shrink-0 cursor-pointer accent-[var(--color-ink)]"
-                  />
+                  {/* The label widens the box's tap area on touch screens (check-hit); the box itself doesn't change. */}
+                  <label className="check-hit relative z-10 flex shrink-0 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={sel}
+                      onChange={() => {
+                        toggle(entry.id);
+                        setAnchor(entry.id);
+                      }}
+                      aria-label={`Sélectionner « ${entry.name} »`}
+                      className="h-4 w-4 cursor-pointer accent-[var(--color-ink)]"
+                    />
+                  </label>
                   <button
                     data-row-main
                     onClick={e => onRowClick(e, entry)}
                     aria-describedby={descId}
-                    className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left outline-none after:absolute after:inset-0 after:rounded-sm focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-brand-500"
+                    className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left outline-none after:absolute after:inset-0 after:rounded-sm focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-focus"
                   >
                     <EntryIcon entry={entry} />
                     <span className="min-w-0 flex-1">
@@ -409,7 +413,7 @@ export default function TrashPage() {
                     </span>
                     <span
                       className={cx('tabular w-[64px] shrink-0 text-right text-[12px]', left <= 3 ? 'font-medium text-red-600' : 'text-stone-500')}
-                      title={`Supprimé définitivement ${left <= 0 ? "aujourd'hui" : `dans ${plural(left, 'jour')}`}`}
+                      title={`Supprimé définitivement ${left <= 0 ? 'aujourd’hui' : `dans ${plural(left, 'jour')}`}`}
                       aria-hidden
                     >
                       {leftShort(left)}

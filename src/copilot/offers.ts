@@ -27,8 +27,8 @@ export function runOffer(offer: CopilotOffer): OfferResult {
 function tooLate(note: Note | null): OfferResult {
   return {
     text: studying()
-      ? "Plus le temps de caler une séance avant l'examen. Je t'ai quand même préparé une fiche pour une dernière relecture."
-      : "Plus le temps de bloquer un créneau avant. Je t'ai quand même préparé une note « À préparer » pour ne rien oublier.",
+      ? 'Plus le temps de caler une séance avant l’examen. Je t’ai quand même préparé une fiche pour une dernière relecture.'
+      : 'Plus le temps de bloquer un créneau avant. Je t’ai quand même préparé une note « À préparer » pour ne rien oublier.',
     links: note ? [{ label: openNoteLabel(), to: linkToNote(note.id) }] : [],
   };
 }
@@ -46,8 +46,8 @@ function run(offer: CopilotOffer): OfferResult {
       const days = res.created.map(e => fmt(fromKey(e.date), 'EEEE d')).join(', ');
       return {
         text: studying()
-          ? `C'est calé : ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision (${days}) et une fiche « ${res.note?.title} » pour t'organiser. Tu me remercieras le jour J.`
-          : `C'est calé : ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer (${days}) et une note « ${res.note?.title} » pour ne rien oublier.`,
+          ? `C’est calé : ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision (${days}) et une fiche « ${res.note?.title} » pour t’organiser. Tu me remercieras le jour J.`
+          : `C’est calé : ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer (${days}) et une note « ${res.note?.title} » pour ne rien oublier.`,
         links: [
           { label: 'Voir le planning', to: linkToDay(res.created[0].date) },
           ...(res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : []),
@@ -58,7 +58,7 @@ function run(offer: CopilotOffer): OfferResult {
       const note = createRevisionNote(p.eventId);
       if (!note) return { text: studying() ? 'Je ne retrouve plus cet examen.' : 'Je ne retrouve plus cet événement.' };
       return {
-        text: `${studying() ? 'Fiche' : 'Note'} « ${note.title} » prête, avec une structure pour aller à l'essentiel.`,
+        text: `${studying() ? 'Fiche' : 'Note'} « ${note.title} » prête, avec une structure pour aller à l’essentiel.`,
         links: [{ label: openNoteLabel(), to: linkToNote(note.id) }],
       };
     }
@@ -70,7 +70,7 @@ function run(offer: CopilotOffer): OfferResult {
     }
     case 'open':
       goTo(p.to ?? '/');
-      return { text: "C'est ouvert." };
+      return { text: 'C’est ouvert.' };
     case 'confirm_delete': {
       // Deletions asked to the AI only happen here, on the student's click (or « oui »).
       const ids = (p.ids ?? '').split(',').filter(Boolean);

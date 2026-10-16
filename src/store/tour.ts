@@ -1,10 +1,16 @@
 import { create } from 'zustand';
 import { useTodos } from './todos';
 
-/** Title of the starter task that launches the tour (TodoList shows a « Lancer » button on it). */
-export const TOUR_TODO = 'Faire le tour de Kompaly (1 min)';
-/** Accounts created before the app became Kompaly still have the task under its old title. */
-export const isTourTodo = (title: string) => title === TOUR_TODO || title === 'Faire le tour de Kompa (1 min)';
+/** Title of the starter task that launches the tour (TodoList shows a « Lancer » button on it).
+ *  No-break space in « 1 min »: « (1 » and « min) » never end up on two lines. */
+export const TOUR_TODO = 'Faire le tour de Kompaly (1\u00a0min)';
+/** Start shared by every title the task ever had (found in aria-labels by the tour). */
+export const TOUR_TODO_START = 'Faire le tour de Kompa';
+/** Older accounts still have the task with a plain space, or under the name the app had before Kompaly. */
+export const isTourTodo = (title: string) => {
+  const t = title.replace(/\u00a0/g, ' ');
+  return t === 'Faire le tour de Kompaly (1 min)' || t === 'Faire le tour de Kompa (1 min)';
+};
 
 /** Current step of the guided tour (components/Tour), null when it isn't running. */
 export const useTour = create<{ step: number | null }>(() => ({ step: null }));

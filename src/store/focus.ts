@@ -77,7 +77,7 @@ export const useFocus = create<FocusState>()(
           const text = late
             ? `Ta session${s.label ? ` sur «\u00a0${s.label}\u00a0»` : ''} s’est terminée pendant ton absence\u00a0: ${minutes}\u00a0min comptées. Il te reste ${breakLeft}\u00a0min de pause.`
             : pick([
-                `${minutes}\u00a0minutes de concentration, bien joué. Pause de ${settings.breakMinutes}\u00a0min\u00a0: lève-toi, bois un verre d'eau.`,
+                `${minutes}\u00a0minutes de concentration, bien joué. Pause de ${settings.breakMinutes}\u00a0min\u00a0: lève-toi, bois un verre d’eau.`,
                 `Session terminée${s.label ? ` sur «\u00a0${s.label}\u00a0»` : ''}. Tu as mérité ta pause de ${settings.breakMinutes}\u00a0minute${plural(settings.breakMinutes)}.`,
               ]);
           useCopilot.getState().say({ text, mood: 'happy' });

@@ -19,7 +19,7 @@ export const daysUntil = (key: string) => differenceInCalendarDays(fromKey(key),
 
 export function countdownLabel(key: string): string {
   const n = daysUntil(key);
-  if (n === 0) return "Aujourd'hui";
+  if (n === 0) return 'Aujourd’hui';
   if (n === 1) return 'Demain';
   if (n === -1) return 'Hier';
   if (n < 0) return `Il y a ${-n} j`;
@@ -134,6 +134,17 @@ export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd 
       const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : base.getFullYear();
       date = ahead(realDate(y, Number(m[2]) - 1, Number(m[1])), !!m[3]);
       if (date) remove(m);
+    }
+  }
+
+  // A range « du 2 au 6 novembre »: one event can't span it, so it goes on the first day and the
+  // sentence stays as typed (the « 6 novembre » rule below would cut « 6 novembre » out of it).
+  if (!date) {
+    const m = find(new RegExp(`\\s(?:du\\s)?(\\d{1,2})(?:er)?\\s+(?:au|a|-|jusqu'au)\\s+(\\d{1,2})(?:er)?\\s(${MONTH_WORDS.join('|')})\\.?(?:\\s(\\d{4}))?(?=\\s)`));
+    if (m) {
+      const month = monthIndex(m[3]) - (Number(m[1]) > Number(m[2]) ? 1 : 0); // « du 28 au 3 novembre » starts in October
+      const y = m[4] ? Number(m[4]) : base.getFullYear();
+      date = ahead(month < 0 ? realDate(y - 1, 11, Number(m[1])) : realDate(y, month, Number(m[1])), !!m[4]);
     }
   }
 

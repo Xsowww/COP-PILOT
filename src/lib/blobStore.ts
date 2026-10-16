@@ -51,7 +51,7 @@ export function storageError(e: { message?: string; statusCode?: string | number
   const m = `${e?.statusCode ?? ''} ${e?.message ?? ''}`;
   if (/413|maximum allowed size|too large/i.test(m)) return new StorageError('Fichier trop lourd : 50 Mo maximum.');
   if (/403|row-level security|unauthorized/i.test(m)) return new StorageError(`Plus de place : ton espace en ligne${QUOTA ? ` (${quotaLabel()})` : ''} est plein. Vide la corbeille ou supprime des fichiers.`);
-  return new StorageError("L'envoi a échoué. Vérifie ta connexion et réessaie.");
+  return new StorageError('L’envoi a échoué. Vérifie ta connexion et réessaie.');
 }
 
 const local = {

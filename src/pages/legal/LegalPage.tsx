@@ -151,8 +151,13 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
   },
 };
 
-/** French typography: no « : », « ? », « ! », « ; » or « » » alone at the start of a line. */
-const frenchSpaces = (text: string) => text.replace(/ ([:;?!»])/g, '\u00a0$1').replace(/« /g, '«\u00a0');
+/** French typography: no « : », « ? », « ! », « ; » or « » » alone at the start of a line,
+ *  and a number stays with its unit (« 100 % », « 15 ans », « 30 jours », « 50 Mo ») or the rest of a phone number. */
+const frenchSpaces = (text: string) =>
+  text
+    .replace(/ ([:;?!»])/g, '\u00a0$1')
+    .replace(/« /g, '«\u00a0')
+    .replace(/(\d) (?=%|(?:ans|jours|mois|min|Mo|Go)(?![\p{L}\p{N}])|\d)/gu, '$1\u00a0');
 
 export default function LegalPage({ doc }: { doc: LegalDoc }) {
   const { title, sections } = DOCS[doc];

@@ -38,7 +38,8 @@ function WorkTime() {
 
   return (
     <section id="travail" aria-labelledby="travail-titre" className="scroll-mt-4">
-      <div className="mb-3 md:hidden">
+      {/* Below lg the sidebar (and its timer) is hidden: phones and tablets start a session here. */}
+      <div className="mb-3 lg:hidden">
         <FocusTimer />
       </div>
       <div className="card p-5">

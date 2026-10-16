@@ -177,7 +177,24 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
       {!t.done && editable ? (
         dating ? (
           // Only while changing it: a date field on every row meant 4 Tab stops per task.
-          <span className="flex shrink-0 items-center" onBlur={e => !e.currentTarget.contains(e.relatedTarget) && afterPress(() => closeDate(true, false))}>
+          <span
+            className="flex shrink-0 items-center"
+            onBlur={e => {
+              if (e.currentTarget.contains(e.relatedTarget)) return;
+              // Tab out of the field: a new date moves the task to another group (a new row), so the
+              // control the focus was going to is gone. It goes to the same control on the new row.
+              const next = e.relatedTarget instanceof HTMLElement && e.currentTarget.closest('li')?.contains(e.relatedTarget) ? e.relatedTarget : null;
+              const toRemove = !!next?.closest('[data-remove]');
+              afterPress(() => {
+                closeDate(true, false);
+                setTimeout(() => {
+                  if (next ? next.isConnected : document.activeElement !== document.body) return;
+                  const row = document.querySelector(`[data-todo="${t.id}"]`)?.closest('li');
+                  row?.querySelector<HTMLElement>(toRemove ? '[data-remove]' : `[data-due="${t.id}"]`)?.focus();
+                }, 0);
+              });
+            }}
+          >
             <input
               ref={dateRef}
               type="date"
@@ -322,7 +339,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
   const groups = grouped
     ? [
         { label: 'En retard', items: open.filter(t => t.due && t.due < today) },
-        { label: "Aujourd'hui", items: open.filter(t => t.due === today) },
+        { label: 'Aujourd’hui', items: open.filter(t => t.due === today) },
         { label: 'À venir', items: open.filter(t => t.due && t.due > today) },
         { label: 'Sans échéance', items: open.filter(t => !t.due) },
       ].filter(g => g.items.length)
@@ -359,11 +376,11 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
       {done.length > 0 && (
         <div className="mt-auto border-t border-stone-100 pt-2">
           <div className="flex items-center">
-            <button onClick={() => setShowDone(v => !v)} className="flex items-center gap-1 rounded px-0.5 text-[12px] text-stone-500 hover:text-ink" aria-expanded={showDone}>
+            <button onClick={() => setShowDone(v => !v)} className="flex items-center gap-1 rounded px-0.5 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9" aria-expanded={showDone}>
               <ChevronRight size={13} className={cx('transition-transform', showDone && 'rotate-90')} />
               Terminées <span className="tabular text-stone-500">{done.length}</span>
             </button>
-            <button onClick={() => removeWithUndo(clearDone())} className="ml-auto rounded px-1 text-[12px] text-stone-500 hover:text-ink">
+            <button onClick={() => removeWithUndo(clearDone())} className="ml-auto rounded px-1 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9">
               Effacer les terminées
             </button>
           </div>

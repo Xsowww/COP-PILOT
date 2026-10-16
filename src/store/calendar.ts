@@ -141,7 +141,8 @@ export function guessCategory(title: string, timed = false): EventCategory {
   }
   // A revision session typed by hand (« Révision partiel de droit », « Réviser le contrôle de maths ») is not the exam itself.
   if (/(exam|partiel|contr[oô]le|\bds\b|\bqcm\b|interro|oral|soutenance|concours)/.test(t)) return /(^|[^\p{L}])r[ée]vis/u.test(t) ? 'devoir' : 'examen';
-  if (timed && /\b(td|tp|cm)\b/.test(t)) return 'cours';
+  // « Rendre TP le 12/11 à 9h30 » is handing it in, not the class: checked before the timed TD/TP rule.
+  if (timed && /\b(td|tp|cm)\b/.test(t) && !/(rendre|rendu)/.test(t)) return 'cours';
   if (/(devoir|\btp\b|\btd\b|rendre|rendu|dm\b|projet|dossier|exo|exercice|r[ée]vis)/.test(t)) return 'devoir';
   if (/(sport|foot|basket|gym|muscu|course|piscine|natation|yoga|tennis|danse)/.test(t)) return 'sport';
   if (/(cours|amphi|cm\b|lecture|classe|prof|math|physique|chimie|histoire|anglais|fran[cç]ais|info|bio|[ée]co|philo)/.test(t)) return 'cours';

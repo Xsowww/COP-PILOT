@@ -64,7 +64,7 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setDone(false), 1400);
         });
       }}
-      className="absolute -bottom-2.5 right-1 flex h-6 w-6 items-center justify-center rounded-md border border-stone-200 bg-surface text-stone-500 opacity-0 shadow-card touch-show transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+      className="hit-sm absolute -bottom-2.5 right-1 flex h-6 w-6 items-center justify-center rounded-md border border-stone-200 bg-surface text-stone-500 opacity-0 shadow-card touch-show transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
     >
       {done ? <Check size={12} /> : <Copy size={12} />}
     </button>
@@ -84,7 +84,7 @@ export default function Copilot() {
   const { push, setPose, clearBubble, setThinking, setOffsetY, clearHistory, greet } = useCopilot.getState();
   const studying = useSettings(s => s.usage ?? 'etudes') === 'etudes';
   const hello = () =>
-    greet(`Salut ${user?.name ?? ''} ! Moi c'est Kompaly. Je peux retrouver tes fichiers, ${studying ? 'organiser tes révisions' : 'organiser ton agenda'}, créer des notes… ou juste discuter. Dis-moi.`);
+    greet(`Salut ${user?.name ?? ''} ! Moi c’est Kompaly. Je peux retrouver tes fichiers, ${studying ? 'organiser tes révisions' : 'organiser ton agenda'}, créer des notes… ou juste discuter. Dis-moi.`);
 
   const [look, setLook] = useState({ x: -1, y: 0 });
   const [blink, setBlink] = useState(false);
@@ -389,7 +389,7 @@ export default function Copilot() {
               placeholder={dictation.listening ? 'Je t’écoute…' : 'Écris à Kompaly…'}
               aria-label="Message pour Kompaly"
               className={cx(
-                'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-400 focus:bg-stone-100',
+                'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-400 focus:bg-stone-100 focus-visible:ring-2 focus-visible:ring-focus',
                 dictation.listening && 'bg-brand-50 placeholder:text-brand-600',
               )}
               tabIndex={isOpen ? 0 : -1}
@@ -429,7 +429,7 @@ export default function Copilot() {
         {/* Spontaneous remark */}
         {bubble && !isOpen && (
           <div className="pop pointer-events-auto absolute right-[92px] top-1/2 z-10 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop">
-            <button onClick={clearBubble} className="absolute right-1.5 top-1.5 rounded p-1 text-stone-400 hover:text-stone-600" title="Fermer" aria-label="Fermer le message">
+            <button onClick={clearBubble} className="hit-sm absolute right-1.5 top-1.5 rounded p-1 text-stone-400 hover:text-stone-600" title="Fermer" aria-label="Fermer le message">
               <X size={12} />
             </button>
             <div className="pr-3">
@@ -484,7 +484,7 @@ function ModeLine({ ai, label, until, now }: { ai: boolean; label: string; until
   const clock = left >= 3600 ? `${Math.floor(left / 3600)} h ${String(Math.floor((left % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   const text = !ai ? 'Mode simple' : paused ? `Mode simple · IA dans ${clock}` : `Mode intelligent${label ? ` · ${label}` : ''}`;
   // The pause follows a quota (« limite ») or a technical problem: say which.
-  const why = paused && aiPauseReason() === 'error' ? `L'IA ne répond pas pour le moment : elle revient dans ${clock}.` : `L'IA gratuite a atteint sa limite : elle revient dans ${clock}.`;
+  const why = paused && aiPauseReason() === 'error' ? `L’IA ne répond pas pour le moment : elle revient dans ${clock}.` : `L’IA gratuite a atteint sa limite : elle revient dans ${clock}.`;
   return (
     <p className="mt-0.5 flex items-center gap-1.5 text-[11px] leading-tight text-stone-500" title={paused ? why : text}>
       <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', !ai ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} aria-hidden="true" />

@@ -9,20 +9,32 @@ export function focusables(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(el => (el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden') || el === document.activeElement);
 }
 
-// Last element focused outside a modal or a menu: where the focus goes back when they close
+// Recently focused elements (not menu items): where the focus goes back when a modal or a menu closes
 // (a dialog's own field may already have taken the focus by the time the dialog's effect runs).
-let lastFocus: HTMLElement | null = null;
+const recentFocus: HTMLElement[] = [];
 if (typeof document !== 'undefined') {
   document.addEventListener(
     'focusin',
     e => {
       const t = e.target as HTMLElement;
-      if (!t.closest?.('[aria-modal="true"], [role="menu"]')) lastFocus = t;
+      if (t.closest?.('[role="menu"]')) return;
+      recentFocus.push(t);
+      if (recentFocus.length > 30) recentFocus.shift();
     },
     true,
   );
 }
-export const focusBeforeOverlay = () => (lastFocus?.isConnected ? lastFocus : null);
+/**
+ * The element focused before `overlay` opened: the last one outside it (it may be in another dialog
+ * still open below, like « Mes catégories » under a confirmation). Without `overlay`: the last one outside every dialog.
+ */
+export const focusBeforeOverlay = (overlay?: HTMLElement) => {
+  for (let i = recentFocus.length - 1; i >= 0; i--) {
+    const el = recentFocus[i];
+    if (el.isConnected && !(overlay ? overlay.contains(el) : el.closest('[aria-modal="true"]'))) return el;
+  }
+  return null;
+};
 
 /** Keep Tab / Shift+Tab inside `root` (modal dialogs). */
 export function trapTab(e: KeyboardEvent, root: HTMLElement) {

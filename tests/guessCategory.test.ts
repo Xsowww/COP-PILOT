@@ -27,6 +27,8 @@ describe('guessed category', () => {
     expect(guessCategory('Contrôle de maths', true)).toBe('examen');
     expect(guessCategory('TD de physique', true)).toBe('cours');
     expect(guessCategory('Rendre DM')).toBe('devoir');
+    expect(guessCategory('Rendre TP', true)).toBe('devoir'); // « Rendre TP le 12/11 à 9h30 »: handed in, not a class
+    expect(guessCategory('Rendu du TD 3', true)).toBe('devoir');
     expect(guessCategory('Projet tutoré')).toBe('devoir');
     expect(guessCategory('Dentiste')).toBe('perso');
     expect(guessCategory('Foot')).toBe('sport');

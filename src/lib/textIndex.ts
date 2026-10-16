@@ -55,7 +55,8 @@ const foldCache = new Map<string, string>();
 function foldChar(c: string) {
   let f = foldCache.get(c);
   if (f === undefined) {
-    f = (c.normalize('NFD')[0] ?? c).toLowerCase()[0] ?? c;
+    // The typographic apostrophe of phone keyboards (’) matches a plain one.
+    f = c === '’' || c === '‘' ? "'" : ((c.normalize('NFD')[0] ?? c).toLowerCase()[0] ?? c);
     foldCache.set(c, f);
   }
   return f;

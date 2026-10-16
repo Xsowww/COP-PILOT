@@ -61,7 +61,7 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
   useEffect(() => {
     if (!open) return;
     const el = ref.current!;
-    const previous = focusBeforeOverlay();
+    const previous = focusBeforeOverlay(el);
     const heading = el.querySelector('h1, h2, h3');
     if (heading && !label) {
       heading.id ||= headingId;
@@ -264,6 +264,8 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
             className={cx(
               'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] transition-colors outline-none disabled:opacity-40',
               it.danger ? 'text-red-600 hover:bg-red-50 focus-visible:bg-red-50' : 'text-stone-700 hover:bg-stone-100 focus-visible:bg-stone-100',
+              // The background alone is too faint to show the keyboard position.
+              'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
             )}
           >
             <span className="flex w-4 justify-center text-stone-400 [&>svg]:h-[15px] [&>svg]:w-[15px]" aria-hidden>{it.icon}</span>

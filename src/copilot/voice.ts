@@ -65,7 +65,7 @@ export function useDictation(onInterim: (text: string) => void, onFinal: (text: 
     };
     r.onerror = e => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') setError("Micro refusé : autorise-le dans les réglages du navigateur.");
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') setError("Je n'ai pas réussi à t'entendre.");
+      else if (e.error !== 'no-speech' && e.error !== 'aborted') setError('Je n’ai pas réussi à t’entendre.');
     };
     r.onend = () => {
       setListening(false);

@@ -236,7 +236,7 @@ export default function DrivePage() {
         const n = await uploadPending(pending, target);
         toast(n ? `${n} fichier${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''}` : 'Dossier importé', 'success');
       } catch (e) {
-        toast(e instanceof StorageError ? e.message : "L'import a échoué. Réessaie.", 'error');
+        toast(e instanceof StorageError ? e.message : 'L’import a échoué. Réessaie.', 'error');
       } finally {
         setBusy(false);
       }
@@ -436,8 +436,14 @@ export default function DrivePage() {
       if (e.altKey) {
         // Alt + drop = copy instead of move
         if (pasteForbidden(useDrive.getState().items, ids, target)) return toast(CANT_COPY_INTO_ITSELF, 'error');
+        // Through the clipboard, then the one there was put back: a « Couper » waiting must not be lost.
+        const kept = useDrive.getState().clipboard;
         useDrive.getState().copy(ids);
-        await useDrive.getState().paste(target);
+        try {
+          await useDrive.getState().paste(target);
+        } finally {
+          useDrive.setState({ clipboard: kept });
+        }
         toast(ids.length === 1 ? 'Élément copié' : 'Éléments copiés', 'success');
       } else moveTo(ids, target);
     } else if (e.dataTransfer.types.includes('Files')) {
@@ -665,7 +671,7 @@ export default function DrivePage() {
               className="field h-8 w-full pl-8 pr-7 sm:w-52 xl:w-72"
             />
             {query && (
-              <button className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-stone-500 hover:text-ink" onClick={() => setQuery('')} title="Effacer" aria-label="Effacer">
+              <button className="hit absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-stone-500 hover:text-ink" onClick={() => setQuery('')} title="Effacer" aria-label="Effacer">
                 <X size={13} />
               </button>
             )}
@@ -725,7 +731,7 @@ export default function DrivePage() {
       <div className="flex h-10 items-center gap-1 text-[13px]">
         {bar ? (
           <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-on-inverse shadow-pop">
-            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)" aria-label="Désélectionner (Échap)">
+            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8 pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)" aria-label="Désélectionner (Échap)">
               <X size={15} />
             </button>
             <span className="mr-2 whitespace-nowrap px-1 font-medium">
@@ -743,7 +749,7 @@ export default function DrivePage() {
               { icon: Tag, label: 'Étiquettes', fn: () => setTagIds(selectedIds) },
               { icon: Trash2, label: 'Corbeille', fn: () => remove(selectedIds) },
             ].map(a => (
-              <button key={a.label} onClick={a.fn} className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse" title={a.label} aria-label={a.label}>
+              <button key={a.label} onClick={a.fn} className="flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 pointer-coarse:h-9 pointer-coarse:min-w-9 hover:bg-on-inverse/10 hover:text-on-inverse" title={a.label} aria-label={a.label}>
                 <a.icon size={14} /> <span className="hidden lg:inline">{a.label}</span>
               </button>
             ))}
@@ -752,7 +758,7 @@ export default function DrivePage() {
           <p className="truncate px-1.5 font-medium text-stone-500">
             {visible.length} résultat{visible.length > 1 ? 's' : ''}
             {q && <> pour « <span className="text-ink">{q}</span> »</>}
-            {activeTag && <> avec l'étiquette « <span className="text-ink">{activeTag}</span> »</>}
+            {activeTag && <> avec l’étiquette « <span className="text-ink">{activeTag}</span> »</>}
             {q && contentHits.size > 0 && <span className="font-normal text-stone-500"> · noms et contenu des documents</span>}
           </p>
         ) : tabAll ? (
@@ -833,9 +839,20 @@ export default function DrivePage() {
               {filtering
                 ? 'Essaie un autre mot : les noms et le texte des documents sont cherchés.'
                 : tab === 'all'
-                  ? 'Dépose des fichiers ici, ou utilise Importer.'
+                  ? (
+                      // Fingers can't drop files on the page, nor right-click (a long press opens the menu).
+                      <>
+                        <span className="pointer-coarse:hidden">Dépose des fichiers ici, ou utilise Importer.</span>
+                        <span className="hidden pointer-coarse:inline">Ajoute des fichiers avec le bouton Importer.</span>
+                      </>
+                    )
                   : tab === 'starred'
-                    ? 'Ajoute un favori avec un clic droit sur un élément.'
+                    ? (
+                        <>
+                          <span className="pointer-coarse:hidden">Ajoute un favori avec un clic droit sur un élément.</span>
+                          <span className="hidden pointer-coarse:inline">Ajoute un favori en appuyant longuement sur un élément.</span>
+                        </>
+                      )
                     : 'Tes derniers fichiers apparaîtront ici.'}
             </p>
           </div>

@@ -13,7 +13,7 @@ import { toast } from '../store/ui';
  */
 /** The key as a small text file, to keep with the student's documents or password manager. */
 function downloadKey(secret: string, email: string) {
-  const text = `Clé de secours Kompaly (double authentification)\nCompte : ${email}\nClé : ${secret}\n\nEn cas de perte du téléphone : dans une app d'authentification, « Ajouter un compte » puis « Saisir une clé », et colle cette clé.\nGarde ce fichier en lieu sûr : avec ton mot de passe, il ouvre ton compte.\n`;
+  const text = `Clé de secours Kompaly (double authentification)\nCompte : ${email}\nClé : ${secret}\n\nEn cas de perte du téléphone : dans une app d’authentification, « Ajouter un compte » puis « Saisir une clé », et colle cette clé.\nGarde ce fichier en lieu sûr : avec ton mot de passe, il ouvre ton compte.\n`;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
   a.download = 'kompaly-cle-de-secours.txt';

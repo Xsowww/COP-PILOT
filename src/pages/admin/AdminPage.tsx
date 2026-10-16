@@ -196,7 +196,7 @@ export default function AdminPage() {
           <>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Kpi icon={Users} label="Comptes" value={u!.total} sub={`+${u!.new_7d} cette semaine`} color="var(--color-brand-500)" />
-              <Kpi icon={Activity} label="Actifs (7 jours)" value={u!.active_7d} sub={`${u!.active_24h} aujourd'hui · ${u!.active_30d} sur 30 jours`} color="#2f9e6b" />
+              <Kpi icon={Activity} label="Actifs (7 jours)" value={u!.active_7d} sub={`${u!.active_24h} aujourd’hui · ${u!.active_30d} sur 30 jours`} color="#2f9e6b" />
               <Kpi icon={ShieldCheck} label="Double authentification" value={`${u!.total ? Math.round((stats.mfa_users / u!.total) * 100) : 0} %`} sub={`${stats.mfa_users} compte${stats.mfa_users > 1 ? 's' : ''} protégé${stats.mfa_users > 1 ? 's' : ''}`} color="#7a5ad6" />
               <Kpi icon={HardDrive} label="Stockage" value={formatBytes(c!.storage_bytes)} sub={`${c!.files} fichiers · ${c!.folders} dossiers`} color="#3b6fd8" />
             </div>
@@ -294,7 +294,7 @@ export default function AdminPage() {
               </div>
             </section>
             <p className="mt-3 text-[11px] text-stone-500">
-              Seuls des chiffres sont affichés : le contenu des notes, des événements et des fichiers des étudiants n'est jamais visible ici.
+              Seuls des chiffres sont affichés : le contenu des notes, des événements et des fichiers des étudiants n’est jamais visible ici.
             </p>
           </>
         )}

@@ -130,8 +130,8 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
   const lines: string[] = [];
   lines.push(
     a.today.length
-      ? `Aujourd'hui tu as ${a.today.length} chose${a.today.length > 1 ? 's' : ''} : ${a.today.map(e => e.title).join(', ')}.`
-      : "Rien de prévu aujourd'hui, profites-en.",
+      ? `Aujourd’hui tu as ${a.today.length} chose${a.today.length > 1 ? 's' : ''} : ${a.today.map(e => e.title).join(', ')}.`
+      : 'Rien de prévu aujourd’hui, profites-en.',
   );
   lines.push(`Cette semaine : ${a.weekCount} événement${a.weekCount > 1 ? 's' : ''}, ${a.weekDone} déjà fait${a.weekDone > 1 ? 's' : ''}.`);
   if (a.busiestDay && a.busiestDay.count > 1) {
@@ -313,8 +313,8 @@ export function alreadyPlanned(exam: CalendarEvent) {
   const note = revisionNote(exam);
   return {
     text: studying()
-      ? `C'est déjà planifié pour ${examLabel(exam)} : tes séances de révision sont dans le calendrier.`
-      : `C'est déjà planifié pour ${examLabel(exam)} : tes créneaux de préparation sont dans le calendrier.`,
+      ? `C’est déjà planifié pour ${examLabel(exam)} : tes séances de révision sont dans le calendrier.`
+      : `C’est déjà planifié pour ${examLabel(exam)} : tes créneaux de préparation sont dans le calendrier.`,
     links: [
       ...(first ? [{ label: 'Voir le planning', to: linkToDay(first.date) }] : []),
       ...(note ? [{ label: openNoteLabel(), to: linkToNote(note.id) }] : []),
@@ -330,7 +330,7 @@ export function createRevisionNote(examId: string) {
   if (existing) return existing;
   const title = noteTitle(studying() ? 'Fiche · ' : 'À préparer · ', exam, useCalendar.getState().events);
   const note = studying()
-    ? createNote(title, `# Ce qui tombe\n- Chapitres à revoir :\n- Type d'épreuve :\n# À retenir\n- \n# Mes points faibles\n[ ] \n# Questions à poser au prof\n- `, 'Révisions')
+    ? createNote(title, `# Ce qui tombe\n- Chapitres à revoir :\n- Type d’épreuve :\n# À retenir\n- \n# Mes points faibles\n[ ] \n# Questions à poser au prof\n- `, 'Révisions')
     : createNote(title, `# Objectif\n- \n# À préparer\n[ ] \n# Points à aborder\n- \n# Après\n- `, 'Préparation');
   // Linked to its exam: two exams with the same title each get their own.
   useNotes.getState().updateNote(note.id, { links: [{ kind: 'event', id: exam.id }] });
@@ -355,7 +355,8 @@ const toMin = (hm: string) => {
 /**
  * Hours of a 1h30 revision session on `date`: the usual time, or, on the exam day, a slot that
  * ends 30 min before the exam (null when there is no time left). Today after the usual time:
- * no hours, the session stays in the day's list.
+ * no hours, the session stays in the day's list, unless less than 1h30 is left before midnight
+ * (null: a « session » at 23:50 is no session).
  */
 function revisionSlot(date: string, at: string, examStart: string | undefined, now: Date): { start?: string; end?: string } | null {
   const isToday = date === toKey(now);
@@ -365,7 +366,7 @@ function revisionSlot(date: string, at: string, examStart: string | undefined, n
     const start = Math.max(end - 90, isToday ? Math.ceil(nowMin / 15) * 15 : 0);
     return end - start >= 30 ? { start: toHm(start), end: toHm(end) } : null;
   }
-  if (isToday && nowMin > toMin(at)) return {};
+  if (isToday && nowMin > toMin(at)) return 24 * 60 - nowMin >= 90 ? {} : null;
   return { start: at, end: toHm(Math.min(23 * 60 + 59, toMin(at) + 90)) };
 }
 
@@ -398,7 +399,7 @@ export function planRevisions(examId: string, sessions = getSettings().revisionS
         ...slot,
         category: sessionCategory(),
         details: studying()
-          ? `Préparation de l'examen du ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`
+          ? `Préparation de l’examen du ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`
           : `Pour préparer « ${exam.title} », le ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`,
         externalId: planTag(exam.id),
       }),

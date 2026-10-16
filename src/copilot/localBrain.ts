@@ -87,7 +87,7 @@ function quizStep(input: string, q: string): BotReply {
       feedback = pick(['Bien vu !', 'Exact.', 'Parfait, c’est ça.', 'Yes, bonne réponse.']) + (cur.mode === 'keywords' ? ` Pour compléter : ${cur.answer}` : '');
     } else if (verdict === 'partial') {
       z.score += 0.5;
-      feedback = `En partie. Ce qu'il fallait dire : ${cur.answer}`;
+      feedback = `En partie. Ce qu’il fallait dire : ${cur.answer}`;
     } else feedback = `Pas tout à fait. La réponse : ${cur.answer}`;
   }
   z.index++;
@@ -121,9 +121,9 @@ function moreCommands(input: string, q: string): BotReply | null {
     })();
     if (!note) return { text: `Je ne trouve pas de note « ${term} ». Donne-moi le titre exact ?` };
     const z = buildQuiz(note);
-    if (!z) return { text: `« ${note.title} » n'a pas assez de structure pour que je t'interroge (titres, listes « terme : définition » ou mots en gras). Ajoute-en un peu et on y va.`, links: [{ label: 'Ouvrir la note', to: linkToNote(note.id) }] };
+    if (!z) return { text: `« ${note.title} » n’a pas assez de structure pour que je t’interroge (titres, listes « terme : définition » ou mots en gras). Ajoute-en un peu et on y va.`, links: [{ label: 'Ouvrir la note', to: linkToNote(note.id) }] };
     quiz = z;
-    return { text: `C'est parti : ${z.questions.length} question${z.questions.length > 1 ? 's' : ''} sur « ${note.title} ». Réponds comme tu veux, « passe » pour voir la réponse, « stop » pour arrêter.\n\n${quizQuestion(z)}` };
+    return { text: `C’est parti : ${z.questions.length} question${z.questions.length > 1 ? 's' : ''} sur « ${note.title} ». Réponds comme tu veux, « passe » pour voir la réponse, « stop » pour arrêter.\n\n${quizQuestion(z)}` };
   }
 
   // ── To-dos ──
@@ -167,19 +167,19 @@ function moreCommands(input: string, q: string): BotReply | null {
     const term = g(1);
     const wantsEvent = /(evenement|rdv|rendez-vous)/.test(q);
     const hit = search(term.replace(/^(l'|le |la )?(evenement|événement|rdv|rendez-vous)\s+/i, '')).find(h => (wantsEvent ? h.type === 'événement' : true));
-    if (!hit) return { text: `Je ne trouve rien qui s'appelle « ${term} ».` };
+    if (!hit) return { text: `Je ne trouve rien qui s’appelle « ${term} ».` };
     if (hit.type === 'événement') {
       const ev = useCalendar.getState().events.find(e => e.id === hit.id)!;
       return ask(`Je mets « ${describeEvent(ev)} » à la corbeille ? Tu pourras le récupérer pendant 30 jours.`, () => {
         deleteEvent(ev.id);
-        return { text: `« ${ev.title} » est dans la corbeille. Dis « restaure ${ev.title} » si tu changes d'avis.` };
+        return { text: `« ${ev.title} » est dans la corbeille. Dis « restaure ${ev.title} » si tu changes d’avis.` };
       });
     }
     // A note is « la », a file or a folder « le ».
     const feminine = hit.type === 'note';
     return ask(`Je mets « ${hit.title} » (${hit.type}, ${hit.where}) à la corbeille ? Tu pourras ${feminine ? 'la' : 'le'} récupérer pendant 30 jours.`, () => {
       const res = trashItems([hit.id]);
-      return { text: res.done.length ? `« ${hit.title} » est dans la corbeille. Dis « restaure ${hit.title} » si tu changes d'avis.` : feminine ? 'Elle a déjà disparu.' : 'Il a déjà disparu.' };
+      return { text: res.done.length ? `« ${hit.title} » est dans la corbeille. Dis « restaure ${hit.title} » si tu changes d’avis.` : feminine ? 'Elle a déjà disparu.' : 'Il a déjà disparu.' };
     });
   }
 
@@ -225,12 +225,12 @@ function moreCommands(input: string, q: string): BotReply | null {
   // ── Focus ──
   if (/(arrete|stoppe|stop|termine|coupe)\s+(la |ma )?(session|pomodoro|focus|minuteur)/.test(q)) {
     const res = stopFocus();
-    return { text: res ? 'Session arrêtée. Pense à faire une vraie pause.' : "Il n'y a pas de session en cours." };
+    return { text: res ? 'Session arrêtée. Pense à faire une vraie pause.' : 'Il n’y a pas de session en cours.' };
   }
   g = grab(/(?:lance|demarre|commence|on fait)\s+(?:une\s+|la\s+)?(?:session(?:\s+(?:de\s+)?(?:focus|travail|revision))?|pomodoro|focus)(?:\s+(?:sur|en|de|pour)\s+(.+))?$/d);
   if (g) {
     const res = startFocus(g(1).replace(/^(?:la |le |les |l'|l’|mes |ma |mon )/i, ''));
-    return { text: `C'est parti pour ${res.minutes} minutes${res.subject ? ` sur « ${res.subject} »` : ''}. Téléphone retourné, je veille.` };
+    return { text: `C’est parti pour ${res.minutes} minutes${res.subject ? ` sur « ${res.subject} »` : ''}. Téléphone retourné, je veille.` };
   }
 
   // ── Settings ──
@@ -266,22 +266,22 @@ function moreCommands(input: string, q: string): BotReply | null {
 
 const JOKES: Record<Usage, string[]> = {
   etudes: [
-    "Pourquoi les étudiants aiment les ascenseurs ? Parce que c'est le seul endroit où ils prennent de l'avance.",
-    "J'ai voulu réviser avec toi, mais j'ai paniqué en voyant le programme. Je suis qu'un petit casque, moi.",
-    "Un partiel, c'est comme une série : tu ne regardes pas le dernier épisode sans avoir vu les précédents. Enfin… en théorie.",
-    "Mon prof de maths m'a dit que j'étais moyen. C'était méchant, mais statistiquement juste.",
+    'Pourquoi les étudiants aiment les ascenseurs ? Parce que c’est le seul endroit où ils prennent de l’avance.',
+    'J’ai voulu réviser avec toi, mais j’ai paniqué en voyant le programme. Je suis qu’un petit casque, moi.',
+    'Un partiel, c’est comme une série : tu ne regardes pas le dernier épisode sans avoir vu les précédents. Enfin… en théorie.',
+    'Mon prof de maths m’a dit que j’étais moyen. C’était méchant, mais statistiquement juste.',
   ],
   travail: [
-    "Une réunion qui aurait pu être un e-mail, c'est comme un casque sans écran : ça fait du bruit, mais on ne voit rien.",
-    "J'ai demandé une augmentation à mon écran. Il m'a répondu : « Luminosité, oui. Salaire, non. »",
-    "Mon agenda et moi, c'est compliqué : il dit « 30 minutes », je comprends « une heure et demie ».",
+    'Une réunion qui aurait pu être un e-mail, c’est comme un casque sans écran : ça fait du bruit, mais on ne voit rien.',
+    'J’ai demandé une augmentation à mon écran. Il m’a répondu : « Luminosité, oui. Salaire, non. »',
+    'Mon agenda et moi, c’est compliqué : il dit « 30 minutes », je comprends « une heure et demie ».',
     "Le vendredi à 17h, je suis le seul ici à encore croire aux « petites modifs rapides ».",
   ],
   perso: [
-    "J'ai voulu ranger ma vie comme un dossier. Résultat : un dossier « Divers » de 4 Go.",
-    "Mon frigo et moi, on a un point commun : on attend tous les deux que quelqu'un fasse les courses.",
+    'J’ai voulu ranger ma vie comme un dossier. Résultat : un dossier « Divers » de 4 Go.',
+    'Mon frigo et moi, on a un point commun : on attend tous les deux que quelqu’un fasse les courses.',
     "La liste « à faire demain » est mon genre littéraire préféré : du suspense, chaque jour.",
-    "J'ai essayé le réveil à 6h. Lui s'est levé, moi non.",
+    'J’ai essayé le réveil à 6h. Lui s’est levé, moi non.',
   ],
 };
 
@@ -290,23 +290,23 @@ const EXAMPLES: Record<Usage, string[]> = {
   etudes: [
     '« Trouve le dossier Maths »', '« Analyse mon calendrier »', '« Crée une note Révisions histoire : chapitre 3 »', '« Ajoute Exam de physique vendredi 10h »',
     '« Ajoute la tâche acheter une calculatrice demain »', '« Interroge-moi sur Histoire »', '« Lance une session focus sur les maths »',
-    '« Renomme TD1 en TD1 corrigé », « Mets Brouillon à la corbeille »', "« Mode sombre », « Qu'est-ce que j'ai demain ? »",
+    '« Renomme TD1 en TD1 corrigé », « Mets Brouillon à la corbeille »', '« Mode sombre », « Qu’est-ce que j’ai demain ? »',
   ],
   travail: [
     '« Trouve le dossier Clients »', '« Analyse mon calendrier »', '« Crée une note Compte rendu : points clés »', '« Ajoute Réunion client vendredi 10h »',
     '« Ajoute la tâche envoyer le devis demain »', '« Interroge-moi sur Procédure »', '« Lance une session focus sur le rapport »',
-    '« Renomme Devis v1 en Devis final », « Mets Brouillon à la corbeille »', "« Mode sombre », « Qu'est-ce que j'ai demain ? »",
+    '« Renomme Devis v1 en Devis final », « Mets Brouillon à la corbeille »', '« Mode sombre », « Qu’est-ce que j’ai demain ? »',
   ],
   perso: [
     '« Trouve le dossier Papiers »', '« Analyse mon calendrier »', '« Crée une note Courses : pain, lait »', '« Ajoute Dentiste vendredi 10h »',
     '« Ajoute la tâche appeler la banque demain »', '« Interroge-moi sur Espagnol »', '« Lance une session focus sur le rangement »',
-    '« Renomme Vacances en Vacances 2026 », « Mets Brouillon à la corbeille »', "« Mode sombre », « Qu'est-ce que j'ai demain ? »",
+    '« Renomme Vacances en Vacances 2026 », « Mets Brouillon à la corbeille »', '« Mode sombre », « Qu’est-ce que j’ai demain ? »',
   ],
 };
 
 const describeDue = (key: string) => {
   const d = daysUntil(key);
-  return d === 0 ? "aujourd'hui" : d === 1 ? 'demain' : d === -1 ? 'hier' : fmt(fromKey(key), 'EEEE d MMM');
+  return d === 0 ? 'aujourd’hui' : d === 1 ? 'demain' : d === -1 ? 'hier' : fmt(fromKey(key), 'EEEE d MMM');
 };
 
 export function localReply(raw: string): BotReply {
@@ -318,7 +318,7 @@ export function localReply(raw: string): BotReply {
     const p = pendingConfirm;
     pendingConfirm = null;
     if (YES.test(q)) return p.run();
-    if (NO.test(q)) return { text: "Ok, je n'y touche pas." };
+    if (NO.test(q)) return { text: 'Ok, je n’y touche pas.' };
   }
 
   // ── Quiz in progress: every message is an answer ─────────────────────────
@@ -333,7 +333,7 @@ export function localReply(raw: string): BotReply {
     return runOffer(offer);
   }
   if (offer && /^(non|nan|pas maintenant|plus tard|laisse|nope|non merci)\b/.test(q)) {
-    return { text: pick(["Ok, je n'insiste pas. Je reste dans le coin.", 'Pas de souci, on verra plus tard.']) };
+    return { text: pick(['Ok, je n’insiste pas. Je reste dans le coin.', 'Pas de souci, on verra plus tard.']) };
   }
 
   // ── Plan revisions ────────────────────────────────────────────────────────
@@ -343,24 +343,24 @@ export function localReply(raw: string): BotReply {
     const subject = unquote(input.slice(subjectStart(q)).replace(/[\s?!.]+$/, ''));
     const exam = findExam(subject);
     if (!exam && subject && findExam('')) {
-      return { text: `Je ne trouve pas « ${subject} » parmi ${w.upcoming.replace(/^Tes/, 'tes')}. Donne-moi son nom tel qu'il est dans le calendrier ?`, links: [{ label: 'Calendrier', to: '/calendrier' }] };
+      return { text: `Je ne trouve pas « ${subject} » parmi ${w.upcoming.replace(/^Tes/, 'tes')}. Donne-moi son nom tel qu’il est dans le calendrier ?`, links: [{ label: 'Calendrier', to: '/calendrier' }] };
     }
-    if (!exam) return { text: `Je ne vois ${w.none} ${w.bigOne} à venir dans ton calendrier. Ajoute-${w.it} et je m'occupe du reste.` };
+    if (!exam) return { text: `Je ne vois ${w.none} ${w.bigOne} à venir dans ton calendrier. Ajoute-${w.it} et je m’occupe du reste.` };
     if (hasRevisionPlan(exam)) return alreadyPlanned(exam);
     const res = planRevisions(exam.id)!;
     if (!res.created.length) {
       return {
         text: getSettings().usage === 'etudes'
-          ? `Plus le temps de caler une séance avant ${examLabel(exam)}. Je t'ai quand même préparé une fiche pour une dernière relecture.`
-          : `Plus le temps de bloquer un créneau avant ${examLabel(exam)}. Je t'ai quand même préparé une note pour ne rien oublier.`,
+          ? `Plus le temps de caler une séance avant ${examLabel(exam)}. Je t’ai quand même préparé une fiche pour une dernière relecture.`
+          : `Plus le temps de bloquer un créneau avant ${examLabel(exam)}. Je t’ai quand même préparé une note pour ne rien oublier.`,
         links: res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : [],
       };
     }
     return {
       text:
         getSettings().usage === 'etudes'
-          ? `Pour ${examLabel(exam)}, je t'ai calé ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision et une fiche pour t'organiser.`
-          : `Pour ${examLabel(exam)}, je t'ai bloqué ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer et une note pour ne rien oublier.`,
+          ? `Pour ${examLabel(exam)}, je t’ai calé ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision et une fiche pour t’organiser.`
+          : `Pour ${examLabel(exam)}, je t’ai bloqué ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer et une note pour ne rien oublier.`,
       links: [
         { label: 'Voir le planning', to: linkToDay(res.created[0].date) },
         ...(res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : []),
@@ -383,7 +383,7 @@ export function localReply(raw: string): BotReply {
     if (what) {
       const title = what.charAt(0).toUpperCase() + what.slice(1);
       const ev = addEvent({ title, date: parsed.date ?? todayKey(), start: parsed.start ?? undefined, category: 'perso' });
-      return { text: `C'est noté : ${describeEvent(ev)}. Je te le rappellerai.`, links: [{ label: 'Voir le jour', to: linkToDay(ev.date) }] };
+      return { text: `C’est noté : ${describeEvent(ev)}. Je te le rappellerai.`, links: [{ label: 'Voir le jour', to: linkToDay(ev.date) }] };
     }
   }
 
@@ -395,7 +395,7 @@ export function localReply(raw: string): BotReply {
     const title = `Fiche de révision${subject ? ` — ${subject.charAt(0).toUpperCase() + subject.slice(1)}` : ''}`;
     const note = createNote(title, '# Notions clés\n- \n# Définitions\n- \n# Formules / dates à retenir\n- \n# Exemples\n- \n# Je me teste\n- ', folder);
     return {
-      text: `C'est fait : « ${note.title} »${folder ? ` dans le dossier « ${folder} »` : ''}, avec un plan prêt à remplir. (Avec l'IA, je peux aussi la remplir pour toi.)`,
+      text: `C’est fait : « ${note.title} »${folder ? ` dans le dossier « ${folder} »` : ''}, avec un plan prêt à remplir. (Avec l’IA, je peux aussi la remplir pour toi.)`,
       links: [{ label: 'Ouvrir la fiche', to: linkToNote(note.id) }],
     };
   }
@@ -419,7 +419,7 @@ export function localReply(raw: string): BotReply {
     const title = unquote(rest) || 'Note de Kompaly';
     const note = createNote(title, content, folder);
     return {
-      text: `C'est fait. J'ai créé la note « ${note.title} »${folder ? ` dans le dossier « ${folder} »` : ''}.${content ? '' : ' Tu peux écrire dedans maintenant !'}`,
+      text: `C’est fait. J’ai créé la note « ${note.title} »${folder ? ` dans le dossier « ${folder} »` : ''}.${content ? '' : ' Tu peux écrire dedans maintenant !'}`,
       links: [{ label: 'Ouvrir la note', to: linkToNote(note.id) }],
     };
   }
@@ -453,7 +453,7 @@ export function localReply(raw: string): BotReply {
       const date = parsed.date ?? todayKey();
       const ev = addEvent({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined });
       return {
-        text: `Ajouté au calendrier : ${describeEvent(ev)}${parsed.date ? '' : "\n(Pas de date trouvée, je l'ai mis aujourd'hui — tu peux le déplacer.)"}`,
+        text: `Ajouté au calendrier : ${describeEvent(ev)}${parsed.date ? '' : '\n(Pas de date trouvée, je l’ai mis aujourd’hui — tu peux le déplacer.)'}`,
         links: [{ label: 'Voir le jour', to: linkToDay(ev.date) }],
       };
     }
@@ -486,20 +486,20 @@ export function localReply(raw: string): BotReply {
     const list = eventsBetween(day, day);
     const d = daysUntil(day);
     const date = fmt(fromKey(day), 'EEEE d MMMM');
-    const near = d === 0 ? "aujourd'hui" : d === 1 ? 'demain' : d === 2 ? 'après-demain' : '';
+    const near = d === 0 ? 'aujourd’hui' : d === 1 ? 'demain' : d === 2 ? 'après-demain' : '';
     // « jeudi », « le 15 » asked: the answer names that day too (« Demain, jeudi 15 octobre »).
     const named = /\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b|\d/.test(q);
     const name = near ? (named ? `${near}, ${date}` : near) : date;
-    const empty = !named && d === 0 ? "Rien de prévu aujourd'hui." : !named && d === 1 ? 'Demain est libre pour le moment.' : `Rien de prévu ${near ? (named ? `${near}, ${date},` : near) : `le ${date}`} pour le moment.`;
+    const empty = !named && d === 0 ? 'Rien de prévu aujourd’hui.' : !named && d === 1 ? 'Demain est libre pour le moment.' : `Rien de prévu ${near ? (named ? `${near}, ${date},` : near) : `le ${date}`} pour le moment.`;
     return {
       text: list.length ? `${name.charAt(0).toUpperCase()}${name.slice(1)} :\n${list.map(describeEvent).join('\n')}` : empty,
-      links: [{ label: d === 0 ? "Voir aujourd'hui" : d === 1 ? 'Voir demain' : 'Voir le jour', to: linkToDay(day) }],
+      links: [{ label: d === 0 ? 'Voir aujourd’hui' : d === 1 ? 'Voir demain' : 'Voir le jour', to: linkToDay(day) }],
     };
   }
   if (/(examen|exam|partiel|controle|echeance|deadline|grand jour)s?/.test(q) && /(quand|prochain|liste|quels|quelles|mes|a venir)/.test(q)) {
     const exams = eventsBetween(todayKey(), '9999-12-31').filter(e => e.category === 'examen');
     return {
-      text: exams.length ? `${words().upcoming} :\n${exams.slice(0, 6).map(describeEvent).join('\n')}` : `${words().noBig} Ajoute ce qui compte et je t'aide à t'organiser !`,
+      text: exams.length ? `${words().upcoming} :\n${exams.slice(0, 6).map(describeEvent).join('\n')}` : `${words().noBig} Ajoute ce qui compte et je t’aide à t’organiser !`,
       links: [{ label: 'Calendrier', to: '/calendrier' }],
     };
   }
@@ -524,9 +524,9 @@ export function localReply(raw: string): BotReply {
   if (m) {
     const term = unquote(m[1].replace(/\?$/, ''));
     const hits = search(term);
-    if (!hits.length) return { text: `Je n'ai rien trouvé pour « ${term} ». Essaie avec un autre mot ?` };
+    if (!hits.length) return { text: `Je n’ai rien trouvé pour « ${term} ». Essaie avec un autre mot ?` };
     return {
-      text: `J'ai trouvé ${hits.length} résultat${hits.length > 1 ? 's' : ''} pour « ${term} » :\n${hits.map(h => `• ${h.title} (${h.type}) — ${h.where}`).join('\n')}`,
+      text: `J’ai trouvé ${hits.length} résultat${hits.length > 1 ? 's' : ''} pour « ${term} » :\n${hits.map(h => `• ${h.title} (${h.type}) — ${h.where}`).join('\n')}`,
       // Two hits with the same name (the sessions of a plan, a note in two folders): their day or place tells them apart.
       links: hits.slice(0, 4).map(h => ({ label: h.type === 'événement' || hits.filter(x => x.title === h.title).length > 1 ? `${h.title} · ${h.where}` : h.title, to: h.to })),
     };
@@ -535,12 +535,12 @@ export function localReply(raw: string): BotReply {
   // ── Navigation ────────────────────────────────────────────────────────────
   if (/(ouvre|va|aller|emmene|montre).*(drive|fichiers)/.test(q)) return { text: 'On y va.', links: [{ label: 'Drive', to: '/drive' }] };
   if (/(ouvre|va|aller|emmene|montre).*(calendrier|agenda|planning)/.test(q)) return { text: 'Direction le calendrier.', links: [{ label: 'Calendrier', to: '/calendrier' }] };
-  if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: 'Tes notes t\'attendent.', links: [{ label: 'Notes', to: '/notes' }] };
+  if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: 'Tes notes t’attendent.', links: [{ label: 'Notes', to: '/notes' }] };
   if (/(ouvre|va|aller|emmene|montre).*(taches|todo|to-do|a faire|progression|temps de travail)/.test(q)) return { text: 'Voilà ta liste.', links: [{ label: 'Tâches', to: '/taches' }] };
   if (/(ouvre|va|aller|emmene|montre).*badges?/.test(q)) return { text: 'Tes badges sont dans ton profil.', links: [{ label: 'Mes badges', to: '/profil#badges' }] };
   if (/(ouvre|va|aller|emmene|montre).*(groupes?|equipes?)/.test(q)) {
     const w = groupWords(getSettings().usage);
-    return { text: `Tes ${w.groups}, c'est par ici.`, links: [{ label: w.Groups, to: '/groupes' }] };
+    return { text: `Tes ${w.groups}, c’est par ici.`, links: [{ label: w.Groups, to: '/groupes' }] };
   }
   if (/(ouvre|va|aller|emmene|montre).*(dashboard|accueil|tableau)/.test(q)) return { text: 'Retour au QG.', links: [{ label: 'Accueil', to: '/' }] };
 
@@ -554,11 +554,11 @@ export function localReply(raw: string): BotReply {
 
   // ── Small talk ────────────────────────────────────────────────────────────
   if (/^(salut|bonjour|hello|hey|yo|coucou|bonsoir|wesh|cc)\b/.test(q)) {
-    return { text: pick(['Salut ! 👋 Je surveillais ton écran, tout roule ?', 'Hey ! Besoin d\'un coup de main ?', 'Coucou 😄 Qu\'est-ce que je peux faire pour toi ?']) };
+    return { text: pick(['Salut ! 👋 Je surveillais ton écran, tout roule ?', 'Hey ! Besoin d’un coup de main ?', 'Coucou 😄 Qu’est-ce que je peux faire pour toi ?']) };
   }
-  if (/(merci|super|genial|top|parfait|nickel)/.test(q)) return { text: pick(['Avec plaisir 😎', 'Toujours là pour toi !', 'De rien, je retourne me cacher derrière l\'écran 👀']) };
+  if (/(merci|super|genial|top|parfait|nickel)/.test(q)) return { text: pick(['Avec plaisir 😎', 'Toujours là pour toi !', 'De rien, je retourne me cacher derrière l’écran 👀']) };
   if (/(qui es[- ]tu|t'es qui|c'est quoi ton nom|presente)/.test(q)) {
-    return { text: "Moi c'est Kompaly 🤖 Je vis sur le bord de ton écran. Je peux chercher tes fichiers, analyser ton calendrier, créer des notes, des dossiers et des événements. Demande-moi !" };
+    return { text: 'Moi c’est Kompaly 🤖 Je vis sur le bord de ton écran. Je peux chercher tes fichiers, analyser ton calendrier, créer des notes, des dossiers et des événements. Demande-moi !' };
   }
   if (/(fatigue|stress|motivation|demotive|j'en peux plus|flemme)/.test(q)) {
     const slot = getSettings().usage === 'etudes' ? 'un créneau de révision' : 'un créneau pour avancer';
@@ -566,5 +566,5 @@ export function localReply(raw: string): BotReply {
   }
 
   const ex = EXAMPLES[getSettings().usage] ?? EXAMPLES.etudes;
-  return { text: `Je n'ai pas tout compris. Voilà ce que je sais faire sans IA :\n${ex.map(e => `- ${e}`).join('\n')}` };
+  return { text: `Je n’ai pas tout compris. Voilà ce que je sais faire sans IA :\n${ex.map(e => `- ${e}`).join('\n')}` };
 }

@@ -52,7 +52,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   return (
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
-        <h3 className="text-[15px] font-semibold">{event ? "Modifier l'événement" : 'Nouvel événement'}</h3>
+        <h3 className="text-[15px] font-semibold">{event ? 'Modifier l’événement' : 'Nouvel événement'}</h3>
         <input autoFocus value={title} onChange={e => setTitle(e.target.value)} aria-label="Titre de l’événement" placeholder={`Titre (ex. ${words.titleExample})`} className="field mt-4 h-10 w-full text-[14px]" />
 
         <p className="mb-2 mt-4 text-[12px] font-medium text-stone-600">Catégorie</p>
@@ -65,7 +65,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 key={k}
                 type="button"
                 onClick={() => setCategory(k)}
-                className={cx('flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors', active ? 'border-stone-300 bg-stone-50 text-ink' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
+                className={cx('flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9', active ? 'border-stone-300 bg-stone-50 text-ink' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
               >
                 <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
                 {c.label}
@@ -76,7 +76,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             type="button"
             onClick={() => setCreating(v => !v)}
             aria-expanded={creating}
-            className="flex h-8 items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 text-[13px] text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
+            className="flex h-8 items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 text-[13px] pointer-coarse:h-9 text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
           >
             <Plus size={14} /> Nouvelle
           </button>
@@ -103,11 +103,9 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             <input
               type="time"
               value={start}
-              onChange={e => {
-                e.currentTarget.setCustomValidity('');
-                setStart(e.target.value);
-              }}
-              onInvalid={e => e.currentTarget.setCustomValidity(end && !start ? 'Indique le début, ou efface la fin.' : '')}
+              // Worked out at each render: clearing the end (not only typing a start) makes the field valid again.
+              ref={el => el?.setCustomValidity(end && !start ? 'Indique le début, ou efface la fin.' : '')}
+              onChange={e => setStart(e.target.value)}
               required={!!end}
               className="field w-full"
             />

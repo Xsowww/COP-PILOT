@@ -35,7 +35,7 @@ function useResolvedLinks(links: NoteLink[] | undefined) {
   }, [links, items, events]);
 }
 
-const chip = 'group inline-flex h-7 max-w-[260px] items-center gap-1.5 rounded-md border border-stone-200 bg-surface pl-1.5 pr-1 text-[12px] text-stone-700 transition-colors hover:border-stone-300 hover:bg-stone-50';
+const chip = 'group inline-flex h-7 max-w-[260px] pointer-coarse:h-[38px] items-center gap-1.5 rounded-md border border-stone-200 bg-surface pl-1.5 pr-1 text-[12px] text-stone-700 transition-colors hover:border-stone-300 hover:bg-stone-50';
 
 export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }) {
   const navigate = useNavigate();
@@ -51,7 +51,7 @@ export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }
         return (
           <span key={r.link.kind + r.link.id} className={chip}>
             <button
-              className="flex min-w-0 items-center gap-1.5"
+              className="flex min-w-0 items-center gap-1.5 self-stretch"
               title={isFile ? `Ouvrir ${title} dans le Drive` : `${title} · ${longDate(r.event.date)}`}
               onClick={() => navigate(isFile ? fileHref(r.file) : eventHref(r.event))}
             >
@@ -64,7 +64,7 @@ export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }
               {!isFile && <span className="tabular shrink-0 text-stone-500">{shortDate(r.event.date)}</span>}
             </button>
             {!readOnly && (
-              <button className="rounded p-0.5 text-stone-400 hover:bg-stone-200/70 hover:text-ink" title="Retirer le lien" aria-label={`Retirer le lien vers «\u00a0${title}\u00a0»`} onClick={() => unlink(r.link)}>
+              <button className="hit-sm rounded p-0.5 text-stone-400 hover:bg-stone-200/70 hover:text-ink pointer-coarse:p-1.5" title="Retirer le lien" aria-label={`Retirer le lien vers «\u00a0${title}\u00a0»`} onClick={() => unlink(r.link)}>
                 <X size={12} />
               </button>
             )}

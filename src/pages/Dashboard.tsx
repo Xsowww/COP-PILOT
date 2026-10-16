@@ -137,9 +137,9 @@ export default function Dashboard() {
         {/* Two columns on large screens; on a phone the DOM order is the priority order. */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
           {/* Today */}
-          <Widget title="Aujourd'hui" to={linkToDay(today)} linkLabel="Ouvrir la journée dans le calendrier" className="lg:col-start-1 lg:row-start-1">
+          <Widget title="Aujourd’hui" to={linkToDay(today)} linkLabel="Ouvrir la journée dans le calendrier" className="lg:col-start-1 lg:row-start-1">
             {todayEvents.length === 0 ? (
-              <p className="py-1.5 text-[13px] text-stone-500">Rien de prévu aujourd'hui.</p>
+              <p className="py-1.5 text-[13px] text-stone-500">Rien de prévu aujourd’hui.</p>
             ) : (
               <ul className="-mx-1.5">
                 {todayEvents.map(e => (
@@ -233,12 +233,12 @@ export default function Dashboard() {
           {/* Notes */}
           <Widget title="Notes récentes" to="/notes" linkLabel="Ouvrir les notes" className="lg:col-start-2 lg:row-start-3">
             {recentNotes.length === 0 ? (
-              <p className="py-1.5 text-[13px] text-stone-500">Aucune note pour l'instant.</p>
+              <p className="py-1.5 text-[13px] text-stone-500">Aucune note pour l’instant.</p>
             ) : (
               <ul className="-mx-1.5">
                 {recentNotes.map(n => (
                   <li key={n.id}>
-                    <Link to={linkToNote(n.id)} className="flex items-baseline gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50" title={`${folders.find(f => f.id === n.folderId)?.name ?? 'Notes'} · ${stripHtml(n.content).slice(0, 120) || 'Vide'}`}>
+                    <Link to={linkToNote(n.id)} className="flex items-baseline gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50 pointer-coarse:py-2" title={`${folders.find(f => f.id === n.folderId)?.name ?? 'Notes'} · ${stripHtml(n.content).slice(0, 120) || 'Vide'}`}>
                       <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{n.title}</span>
                       <span className="shrink-0 text-[11px] text-stone-500">{relativeTime(n.updatedAt)}</span>
                     </Link>

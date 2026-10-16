@@ -148,7 +148,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
             <p>
               <span className="font-medium text-ink">Google Agenda</span>&nbsp;: Paramètres › Importer et exporter › Exporter, puis décompresse le .zip reçu.
             </p>
-            <p className="text-[12px] text-stone-500">Les liens d'abonnement (URL) ne peuvent pas être lus directement&nbsp;: télécharge le fichier.</p>
+            <p className="text-[12px] text-stone-500">Les liens d’abonnement (URL) ne peuvent pas être lus directement&nbsp;: télécharge le fichier.</p>
           </div>
 
           <div className="mt-5 flex justify-end">
@@ -164,7 +164,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
           {!parsed?.length ? (
             <div className="mt-4 rounded-lg border border-dashed border-stone-200 py-8 text-center">
               <p className="text-[14px] font-medium">Aucun événement trouvé</p>
-              <p className="mt-1 text-[13px] text-stone-500">Ce fichier ne contient pas d'événement lisible.</p>
+              <p className="mt-1 text-[13px] text-stone-500">Ce fichier ne contient pas d’événement lisible.</p>
             </div>
           ) : (
             plan && (

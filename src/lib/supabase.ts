@@ -16,7 +16,7 @@ export const linkError: string | null = (() => {
   if (code === 'otp_expired') {
     return "Ce lien a expiré ou a déjà été utilisé. Si tu avais déjà cliqué dessus, ton compte est peut-être déjà activé : essaie de te connecter. Sinon, renvoie un e-mail de confirmation.";
   }
-  return "Ce lien n'est pas valide. Essaie de te connecter ou demande un nouvel e-mail.";
+  return 'Ce lien n’est pas valide. Essaie de te connecter ou demande un nouvel e-mail.';
 })();
 
 // « Rester connecté » : the session is kept in localStorage (still there when the browser reopens, on this

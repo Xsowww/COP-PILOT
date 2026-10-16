@@ -30,9 +30,9 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
     <div ref={ref} className="enter mb-2 rounded-lg border border-stone-200 bg-surface p-2.5 shadow-card">
       <div className="flex items-center">
         <label htmlFor="focus-subject" className="text-[11px] font-medium text-stone-500">
-          Sur quoi tu travailles ?
+          Sur quoi tu travailles&nbsp;?
         </label>
-        <button onClick={onCancel} className="ml-auto -mr-1 flex h-5 w-5 items-center justify-center rounded text-stone-500 hover:bg-stone-100 hover:text-ink" title="Annuler" aria-label="Annuler">
+        <button onClick={onCancel} className="hit ml-auto -mr-1 flex h-5 w-5 items-center justify-center rounded text-stone-500 hover:bg-stone-100 hover:text-ink" title="Annuler" aria-label="Annuler">
           <X size={12} />
         </button>
       </div>
@@ -56,7 +56,7 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
             <button
               key={s}
               onClick={() => onStart(s)}
-              className="max-w-full truncate rounded-md border border-stone-200 px-1.5 py-0.5 text-[11px] text-stone-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+              className="max-w-full truncate rounded-md border border-stone-200 px-1.5 py-0.5 text-[11px] pointer-coarse:min-h-9 pointer-coarse:px-2.5 text-stone-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
               title={`Démarrer sur « ${s} »`}
             >
               {s}
@@ -133,10 +133,10 @@ export default function FocusTimer() {
         <div className={cx('h-full rounded-full', focus.phase === 'focus' ? 'bg-brand-500' : 'bg-emerald-500')} style={{ width: `${done}%` }} />
       </div>
       <div className="mt-2 flex gap-1">
-        <button onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
+        <button onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface pointer-coarse:h-9 text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
           {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? 'Reprendre' : focus.phase === 'break' ? 'Suspendre' : 'Pause'}
         </button>
-        <button onClick={focus.stop} className="flex h-7 w-8 items-center justify-center rounded-md bg-surface text-stone-500 shadow-card hover:text-red-600" title="Arrêter" aria-label="Arrêter">
+        <button onClick={focus.stop} className="flex h-7 w-8 items-center justify-center rounded-md bg-surface pointer-coarse:h-9 pointer-coarse:w-10 text-stone-500 shadow-card hover:text-red-600" title="Arrêter" aria-label="Arrêter">
           <Square size={11} />
         </button>
       </div>

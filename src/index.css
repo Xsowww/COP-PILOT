@@ -24,6 +24,9 @@
   /* Filled accent (buttons, checkboxes) and the text drawn on it. */
   --color-brand-solid: var(--accent-600, #2f4fc0);
   --color-brand-solid-hover: var(--accent-700, #26409c);
+  /* Keyboard focus rings and outlines: the 600 shade is darker than the accent on a light page and
+     lighter in the dark theme (see :root[data-theme='dark']), above 3:1 on every background for all accents. */
+  --color-focus: var(--color-brand-600);
   --color-on-brand: #ffffff;
   /* Small dark chips on a light page (toasts, tooltips, selection bar); raised grey in dark mode. */
   --color-inverse: #16181d;
@@ -165,7 +168,7 @@ body {
 @layer base {
   /* Visible keyboard focus everywhere; components with their own ring override it. */
   :where(a, button, input, select, textarea, summary, [tabindex], [role='button'], [contenteditable='true']):focus-visible {
-    outline: 2px solid color-mix(in oklab, var(--color-brand-500) 75%, transparent);
+    outline: 2px solid var(--color-focus);
     outline-offset: 2px;
   }
 }
@@ -194,7 +197,8 @@ body {
   @apply rounded-xl border border-stone-200/80 bg-surface shadow-card;
 }
 @utility btn {
-  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-45;
+  /* min-h: the smaller h-8 / h-7 variants stay at least 36 px tall for a finger. */
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:pointer-events-none disabled:opacity-45 pointer-coarse:min-h-9;
 }
 @utility btn-primary {
   @apply btn bg-brand-solid text-on-brand shadow-[inset_0_1px_0_rgb(255_255_255_/0.15)] hover:bg-brand-solid-hover;
@@ -209,10 +213,10 @@ body {
   @apply btn bg-danger text-white hover:bg-danger-hover;
 }
 @utility icon-btn {
-  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-stone-500 transition-colors outline-none hover:bg-stone-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand-500;
+  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-stone-500 transition-colors outline-none hover:bg-stone-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-focus;
 }
 @utility field {
-  @apply h-9 rounded-lg border border-stone-200 bg-surface px-3 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:ring-3 focus:ring-stone-900/5 focus-visible:ring-brand-500/20;
+  @apply h-9 rounded-lg border border-stone-200 bg-surface px-3 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-400 focus:border-focus focus:ring-1 focus:ring-focus pointer-coarse:min-h-9;
 }
 @utility eyebrow {
   @apply text-[12px] font-medium text-stone-500;
@@ -239,16 +243,20 @@ body {
 @media (hover: none) {
   .touch-show { opacity: 1; }
 }
-/* Fingers: small buttons get an invisible margin that can be tapped (about 44 px in all).
+/* Fingers: small buttons get an invisible margin that can be tapped (about 44 px in all;
+   .hit-sm adds 8 px around controls set close together, like colour dots).
    In the base layer, so a position class the button already has (absolute…) still wins. */
 @layer base {
   @media (pointer: coarse) {
-    .icon-btn, .hit { position: relative; }
+    .icon-btn, .hit, .hit-sm { position: relative; }
   }
 }
 @media (pointer: coarse) {
-  .icon-btn::after, .hit::after { content: ''; position: absolute; inset: -6px; }
+  .icon-btn::after, .hit::after, .hit-sm::after { content: ''; position: absolute; inset: -6px; }
   .hit::after { inset: -13px; }
+  .hit-sm::after { inset: -8px; }
+  /* A checkbox has no ::after: the label around it gets the margin instead, without moving anything. */
+  .check-hit { margin: -11px; padding: 11px; }
 }
 .pop { animation: pop 0.22s cubic-bezier(.2,.9,.3,1.2) both; }
 
@@ -321,6 +329,10 @@ body {
 .prose-note ul[data-type='taskList'] li { display: flex; gap: 0.55em; align-items: flex-start; }
 .prose-note ul[data-type='taskList'] li > label { margin-top: 0.28em; }
 .prose-note ul[data-type='taskList'] input { accent-color: var(--color-ink); width: 15px; height: 15px; }
+/* Fingers: the label around the box takes taps 11 px around it (same box, same place). */
+@media (pointer: coarse) {
+  .prose-note ul[data-type='taskList'] li > label { position: relative; z-index: 1; padding: 11px; margin: calc(0.28em - 11px) -11px -11px; }
+}
 .prose-note ul[data-type='taskList'] li[data-checked='true'] > div { text-decoration: line-through; color: var(--color-stone-500); }
 .prose-note blockquote { border-left: 2px solid var(--color-stone-300); padding-left: 1em; color: var(--color-stone-600); }
 .prose-note code { background: var(--color-stone-100); border-radius: 4px; padding: 0.1em 0.35em; font-family: var(--font-mono); font-size: 0.86em; }

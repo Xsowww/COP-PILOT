@@ -63,7 +63,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
         </p>
       ) : (
         <>
-          <p className="mt-4 text-[13px] text-stone-600">Toute personne qui a le lien pourra télécharger ce fichier, sans compte, jusqu'à son expiration.</p>
+          <p className="mt-4 text-[13px] text-stone-600">Toute personne qui a le lien pourra télécharger ce fichier, sans compte, jusqu’à son expiration.</p>
           <p className="eyebrow mt-4">Le lien expire dans</p>
           <div className="mt-1.5 flex h-9 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[13px]">
             {DURATIONS.map(d => (

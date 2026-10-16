@@ -140,11 +140,11 @@ function authMessage(e: AuthError | Error): string {
   const code = (e as AuthError).code ?? '';
   const msg = e.message.toLowerCase();
   if (code === 'invalid_credentials' || msg.includes('invalid login')) return 'E-mail ou mot de passe incorrect.';
-  if (code === 'email_not_confirmed' || msg.includes('not confirmed')) return "Confirme d'abord ton adresse : clique sur le lien reçu par e-mail.";
+  if (code === 'email_not_confirmed' || msg.includes('not confirmed')) return 'Confirme d’abord ton adresse : clique sur le lien reçu par e-mail.';
   if (code === 'user_already_exists' || code === 'email_exists' || msg.includes('already registered')) return 'Un compte existe déjà avec cet e-mail.';
   if (code === 'weak_password' || msg.includes('password should')) return 'Mot de passe trop faible : au moins 8 caractères, avec lettres et chiffres.';
   if (code.startsWith('over_') || msg.includes('rate limit')) return 'Trop de tentatives, réessaie dans quelques minutes.';
-  if (code === 'same_password') return "Le nouveau mot de passe doit être différent de l'ancien.";
+  if (code === 'same_password') return 'Le nouveau mot de passe doit être différent de l’ancien.';
   if (code === 'insufficient_aal' || msg.includes('aal2')) return 'Entre aussi le code à 6 chiffres de ton application d’authentification.';
   if (code === 'session_not_found' || msg.includes('session missing')) return 'Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.';
   if (msg.includes('fetch') || msg.includes('network')) return 'Connexion impossible, vérifie ton accès à internet.';
@@ -349,7 +349,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (error) {
         throw new Error(
           error.code === 'PGRST202' || error.message.includes('delete_my_account')
-            ? "La suppression de compte n'est pas encore activée sur le serveur. Lance supabase/schema.sql dans Supabase."
+            ? 'La suppression de compte n’est pas encore activée sur le serveur. Lance supabase/schema.sql dans Supabase.'
             : 'La suppression a échoué, réessaie plus tard.',
         );
       }
@@ -370,12 +370,12 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   async requestPasswordReset(email) {
-    if (!supabase) throw new Error("La réinitialisation par e-mail n'est disponible qu'avec la version en ligne.");
+    if (!supabase) throw new Error('La réinitialisation par e-mail n’est disponible qu’avec la version en ligne.');
     await cloud(supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: `${location.origin}/reinitialisation` }));
   },
 
   async setNewPassword(password, code) {
-    if (!supabase) throw new Error("La réinitialisation par e-mail n'est disponible qu'avec la version en ligne.");
+    if (!supabase) throw new Error('La réinitialisation par e-mail n’est disponible qu’avec la version en ligne.');
     // The e-mail link only proves the address: with a phone paired, Supabase also wants its code.
     if (code) {
       const { data } = await supabase.auth.mfa.listFactors();
@@ -439,7 +439,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const ids = factorId
       ? [factorId, ...all.filter(f => f.status !== 'verified' && f.factor_type === 'totp' && f.id !== factorId).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(f => f.id)].slice(0, 5)
       : [data?.totp[0]?.id].filter((id): id is string => !!id);
-    if (!ids.length) throw new Error("Aucun appareil n'est associé à ce compte.");
+    if (!ids.length) throw new Error('Aucun appareil n’est associé à ce compte.');
     ownSignIn = true;
     let error: { message: string } | null = null;
     let verified = '';

@@ -105,7 +105,7 @@ export function DailyFocus({ data }: { data: { day: string; minutes: number }[] 
         })}
         {[0, Math.floor(last / 2), last].map(i => (
           <text key={i} x={i * slot + slot / 2} y={H + 14} textAnchor={i === 0 ? 'start' : i === last ? 'end' : 'middle'} fontSize="10" fill="var(--color-stone-500)">
-            {data[i].day === today ? "Aujourd'hui" : fmt(fromKey(data[i].day), 'd MMM')}
+            {data[i].day === today ? 'Aujourd’hui' : fmt(fromKey(data[i].day), 'd MMM')}
           </text>
         ))}
       </svg>

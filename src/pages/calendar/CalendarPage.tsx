@@ -259,10 +259,14 @@ export default function CalendarPage() {
   };
 
   // Same filter as the calendar (the category chips sit in this block).
-  const allUpcomingExams = visible.filter(e => e.category === 'examen' && e.date >= today && !e.done).sort(sortEvents);
+  const isUpcomingExam = (e: CalendarEvent) => e.category === 'examen' && e.date >= today && !e.done;
+  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14;
+  // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
+  const upcomingHidden = hidden.size > 0 && events.some(e => hidden.has(e.category) && (isUpcomingExam(e) || isHomeworkSoon(e)));
+  const allUpcomingExams = visible.filter(isUpcomingExam).sort(sortEvents);
   const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
   const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
-  const homework = visible.filter(e => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14).sort(sortEvents).slice(0, 6);
+  const homework = visible.filter(isHomeworkSoon).sort(sortEvents).slice(0, 6);
 
   const monthDays = useMemo(() => {
     const ref = fromKey(selected);
@@ -300,7 +304,7 @@ export default function CalendarPage() {
             </button>
           </div>
           <button className="btn-secondary h-8" onClick={() => selectDay(today)}>
-            Aujourd'hui
+            Aujourd’hui
           </button>
           <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px]" role="group" aria-label="Affichage">
             {MODES.map(m => (
@@ -320,7 +324,7 @@ export default function CalendarPage() {
 
         {/* Quick add */}
         {/* Keyboard focus: a brand ring (the shadow alone was invisible on the dark theme). */}
-        <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand-500">
+        <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-focus">
           <div className="flex h-12 items-center gap-2.5">
             <Plus size={17} className="shrink-0 text-stone-400" />
             <input
@@ -377,7 +381,7 @@ export default function CalendarPage() {
                       key={key}
                       data-drop-day={key}
                       aria-pressed={isSel}
-                      aria-label={`${fmt(d, 'EEEE d MMMM')}${isToday ? ", aujourd'hui" : ''}${evs.length ? `, ${evs.length} événement${evs.length > 1 ? 's' : ''}` : ''}`}
+                      aria-label={`${fmt(d, 'EEEE d MMMM')}${isToday ? ', aujourd’hui' : ''}${evs.length ? `, ${evs.length} événement${evs.length > 1 ? 's' : ''}` : ''}`}
                       onClick={() => selectDay(key)}
                       onDoubleClick={() => setForm({ date: key })}
                       className={cx(
@@ -421,7 +425,7 @@ export default function CalendarPage() {
                         key={key}
                         data-drop-day={key}
                         aria-pressed={isSel}
-                        aria-label={`${fmt(d, 'EEEE d MMMM')}${key === today ? ", aujourd'hui" : ''}${evs.length ? `, ${evs.length} événement${evs.length > 1 ? 's' : ''}` : ''}`}
+                        aria-label={`${fmt(d, 'EEEE d MMMM')}${key === today ? ', aujourd’hui' : ''}${evs.length ? `, ${evs.length} événement${evs.length > 1 ? 's' : ''}` : ''}`}
                         onClick={() => selectDay(key)}
                         onDoubleClick={() => setForm({ date: key })}
                         className={cx(
@@ -467,7 +471,7 @@ export default function CalendarPage() {
             {/* Selected day */}
             <div className="mt-5 border-t border-stone-100 pt-5">
               <div className="mb-4 flex items-baseline gap-2">
-                <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? "Aujourd'hui" : fmt(selDate, 'EEEE d MMMM')}</h2>
+                <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? 'Aujourd’hui' : fmt(selDate, 'EEEE d MMMM')}</h2>
                 <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>
                   <Plus size={14} /> Ajouter
                 </button>
@@ -483,7 +487,7 @@ export default function CalendarPage() {
                   onCreate={(start, end) => setForm({ date: selected, start, end })}
                 />
               ) : dayEvents.length === 0 ? (
-                <p className="py-8 text-center text-[13px] text-stone-500">{events.some(e => e.date === selected) ? 'Rien à afficher : des catégories sont masquées.' : selected === today ? "Rien de prévu aujourd'hui." : 'Rien de prévu ce jour-là.'}</p>
+                <p className="py-8 text-center text-[13px] text-stone-500">{events.some(e => e.date === selected) ? 'Rien à afficher : des catégories sont masquées.' : selected === today ? 'Rien de prévu aujourd’hui.' : 'Rien de prévu ce jour-là.'}</p>
               ) : (
                 <div className="space-y-2">
                   {dayEvents.map(ev => (
@@ -500,7 +504,7 @@ export default function CalendarPage() {
             </h2>
             {upcomingExams.length === 0 && homework.length === 0 ? (
               <p className="py-1 text-[13px] text-stone-500">
-                {hidden.size && events.some(e => hidden.has(e.category) && e.date >= today && !e.done) ? 'Rien à afficher : des catégories sont masquées.' : words.noUpcoming}
+                {upcomingHidden ? 'Rien à afficher : des catégories sont masquées.' : words.noUpcoming}
               </p>
             ) : (
               <ul className="-mx-1.5">

@@ -28,9 +28,9 @@ const TIMES = [
 ];
 
 const TIME_QUESTION: Record<Usage, string> = {
-  etudes: 'Quand révises-tu le mieux ?',
-  travail: 'Quand es-tu le plus concentré ?',
-  perso: 'Quand as-tu du temps pour toi ?',
+  etudes: 'Quand révises-tu le mieux\u00a0?',
+  travail: 'Quand es-tu le plus concentré\u00a0?',
+  perso: 'Quand as-tu du temps pour toi\u00a0?',
 };
 
 const STEPS = 6;
@@ -107,7 +107,7 @@ export default function WelcomePage() {
           </div>
 
           {step === 0 && (
-            <Question title={`Bienvenue${name ? ` ${name}` : ''} ! Tu vas utiliser Kompaly pour…`} hint="Kompaly adapte ses mots et ton espace à ta réponse.">
+            <Question title={`Bienvenue${name ? ` ${name}` : ''}\u00a0! Tu vas utiliser Kompaly pour…`} hint="Kompaly adapte ses mots et ton espace à ta réponse.">
               {USAGES.map(u => {
                 const Icon = USAGE_ICONS[u.key];
                 return (
@@ -136,7 +136,7 @@ export default function WelcomePage() {
           )}
 
           {step === 2 && (
-            <Question title={a.usage === 'etudes' ? 'Où étudies-tu ?' : a.usage === 'travail' ? 'Où travailles-tu ?' : 'Un peu plus sur toi'} hint="Facultatif : Kompaly s’en sert pour mieux t’aider.">
+            <Question title={a.usage === 'etudes' ? 'Où étudies-tu\u00a0?' : a.usage === 'travail' ? 'Où travailles-tu\u00a0?' : 'Un peu plus sur toi'} hint="Facultatif&nbsp;: Kompaly s’en sert pour mieux t’aider.">
               <label className="block text-[13px] font-medium">
                 {words.school}
                 <input className="field mt-1 h-10 w-full" value={a.school} placeholder={words.schoolHint} onChange={e => set({ school: e.target.value }, false)} />
@@ -152,7 +152,7 @@ export default function WelcomePage() {
           )}
 
           {step === 3 && (
-            <Question title="De quoi as-tu le plus besoin ?" hint="Plusieurs réponses possibles.">
+            <Question title={'De quoi as-tu le plus besoin\u00a0?'} hint="Plusieurs réponses possibles.">
               {NEEDS(a.usage).map(n => {
                 const on = a.needs.includes(n.key);
                 return (
@@ -169,7 +169,7 @@ export default function WelcomePage() {
           )}
 
           {step === 4 && (
-            <Question title="Comment Kompaly doit-il te parler ?" hint="Tu pourras changer ça dans ton profil.">
+            <Question title={'Comment Kompaly doit-il te parler\u00a0?'} hint="Tu pourras changer ça dans ton profil.">
               {PERSONAS.map(p => (
                 <button key={p.key} type="button" className={choice(a.persona === p.key)} onClick={() => set({ persona: p.key })}>
                   <span>
@@ -182,7 +182,7 @@ export default function WelcomePage() {
           )}
 
           {step === 5 && (
-            <Question title={TIME_QUESTION[a.usage]} hint="Kompaly placera tes séances de travail à ce moment-là.">
+            <Question title={TIME_QUESTION[a.usage]} hint={<>Kompaly placera tes séances de travail à ce <span className="whitespace-nowrap">moment-là</span>.</>}>
               {TIMES.map(t => (
                 <button
                   key={t.value}
@@ -213,7 +213,7 @@ export default function WelcomePage() {
   );
 }
 
-function Question({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function Question({ title, hint, children }: { title: string; hint?: React.ReactNode; children: React.ReactNode }) {
   // Each new question takes the keyboard focus (the button that was clicked is gone with the old one).
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => heading.current?.focus({ preventScroll: true }), []);

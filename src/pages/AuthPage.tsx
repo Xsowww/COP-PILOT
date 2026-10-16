@@ -25,7 +25,7 @@ function Showcase() {
         <h2 className="mt-2 text-[28px] font-semibold leading-[1.15] tracking-[-0.02em]">
           Tes cours, ton planning et tes fichiers, enfin au même endroit.
         </h2>
-        <p className="mt-3 text-[14px] leading-relaxed text-stone-500">Un espace calme pour t'organiser, et Kompaly pour te rappeler ce qui compte.</p>
+        <p className="mt-3 text-[14px] leading-relaxed text-stone-500">Un espace calme pour t’organiser, et Kompaly pour te rappeler ce qui compte.</p>
       </div>
 
       {/* Product preview */}
@@ -53,7 +53,7 @@ function Showcase() {
         <div className="card col-span-2 flex flex-col p-4">
           <p className="eyebrow">Prochain examen</p>
           <p className="tabular mt-auto text-[34px] font-semibold leading-none tracking-tight">J-4</p>
-          <p className="mt-1.5 text-[12px] text-stone-500">Partiel d'anglais</p>
+          <p className="mt-1.5 text-[12px] text-stone-500">Partiel d’anglais</p>
         </div>
         <div className="card col-span-2 flex items-center gap-2.5 p-3">
           <FileIcon category="folder" size={30} />
@@ -177,10 +177,10 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     } catch (err) {
       const message = (err as Error).message;
       // The button was disabled while waiting, so the focus fell out of the form: back to the field at fault.
-      const field: Field | null = message.startsWith('Un compte existe') || message.startsWith("Confirme d'abord") ? 'email' : /\bcode\b/i.test(message) && mode === 'reset' ? 'code' : needsPassword ? 'password' : 'email';
+      const field: Field | null = message.startsWith('Un compte existe') || message.startsWith('Confirme d’abord') ? 'email' : /\bcode\b/i.test(message) && mode === 'reset' ? 'code' : needsPassword ? 'password' : 'email';
       if (field === 'code') setNeedsCode(true);
       fail(field, message);
-      if (message.startsWith("Confirme d'abord")) setCanResend(true);
+      if (message.startsWith('Confirme d’abord')) setCanResend(true);
     } finally {
       setBusy(false);
     }
@@ -189,7 +189,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   async function resend() {
     setError('');
     setInfo('');
-    if (!/^\S+@\S+\.\S+$/.test(email)) return setError("Entre ton adresse e-mail ci-dessus, puis clique à nouveau sur « Renvoyer l'e-mail ».");
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Entre ton adresse e-mail ci-dessus, puis clique à nouveau sur « Renvoyer l’e-mail ».');
     setBusy(true);
     try {
       await resendConfirmation(email);
@@ -318,9 +318,10 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               </label>
             )}
             {isRegister && (
-              <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
+              // Touch: 10 px more above and below to tap, taken back by the margins (same layout).
+              <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600 pointer-coarse:-mb-2.5 pointer-coarse:mt-0 pointer-coarse:py-2.5">
                 <input ref={el => { refs.current.age = el; }} {...invalid('age')} type="checkbox" checked={oldEnough} onChange={e => setOldEnough(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
-                <span>J’ai 15 ans ou plus, ou l’accord d’un parent.</span>
+                <span>J’ai 15&nbsp;ans ou plus, ou l’accord d’un parent.</span>
               </label>
             )}
 
@@ -332,7 +333,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             {info && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">{info}</p>}
             {canResend && cloudEnabled && (mode === 'login' || mode === 'register') && (
               <button type="button" onClick={() => void resend()} disabled={busy} className="mt-2 text-[13px] font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink disabled:opacity-50">
-                Renvoyer l'e-mail de confirmation
+                Renvoyer l’e-mail de confirmation
               </button>
             )}
 
@@ -343,7 +344,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
 
             <p className="mt-6 text-center text-[13px] text-stone-500">
               {mode === 'login' ? 'Pas encore de compte ?' : mode === 'register' ? 'Déjà inscrit ?' : null}{' '}
-              <Link to={mode === 'login' ? '/inscription' : '/connexion'} className="font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink">
+              <Link to={mode === 'login' ? '/inscription' : '/connexion'} className="hit font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink">
                 {mode === 'login' ? 'Créer un compte' : mode === 'register' ? 'Se connecter' : 'Retour à la connexion'}
               </Link>
             </p>

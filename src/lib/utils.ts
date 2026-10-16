@@ -11,8 +11,9 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
 }
 
+/** For searches: no case, no accents, and the typographic apostrophe of phone keyboards (’) is a plain one. */
 export function normalize(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'").trim();
 }
 
 export function formatBytes(bytes = 0): string {
@@ -62,7 +63,7 @@ export function uniqueName(name: string, taken: string[]): string {
 export function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.round(diff / 60000);
-  if (min < 1) return "à l'instant";
+  if (min < 1) return 'à l’instant';
   if (min < 60) return `il y a ${min} min`;
   const h = Math.round(min / 60);
   if (h < 24) return `il y a ${h} h`;

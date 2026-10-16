@@ -166,12 +166,12 @@ function ProfileTab() {
               {AVATAR_COLORS.map((c, i) => (
                 <button
                   key={c}
-                  aria-label={`Couleur de l'avatar ${i + 1}`}
+                  aria-label={`Couleur de l’avatar ${i + 1}`}
                   aria-pressed={!settings.avatarImage && settings.avatarColor === c}
                   onClick={() => settings.set({ avatarColor: c, avatarImage: null })}
                   className="flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
                   style={{ background: c, boxShadow: !settings.avatarImage && settings.avatarColor === c ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${c}` : undefined }}
-                  title="Couleur de l'avatar"
+                  title="Couleur de l’avatar"
                 />
               ))}
               {settings.avatarImage && (
@@ -235,7 +235,7 @@ function ProfileTab() {
 
       <Section title="Statistiques" description="Depuis ton inscription.">
         <div className="grid grid-cols-2 md:grid-cols-3">
-          <Stat value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d'affilée`} />
+          <Stat value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d’affilée`} />
           <Stat value={stats.done} label={plural(stats.done, 'élément coché', 'éléments cochés')} />
           <Stat value={stats.exams} label={plural(stats.exams, words.pastOne, words.pastMany)} />
           <Stat
@@ -279,8 +279,8 @@ function AppearanceTab() {
           ]}
         />
       </Row>
-      <Row label="Couleur d'accent">
-        <div className="flex gap-1.5" role="group" aria-label="Couleur d'accent">
+      <Row label="Couleur d’accent">
+        <div className="flex gap-1.5" role="group" aria-label="Couleur d’accent">
           {(Object.keys(ACCENTS) as AccentKey[]).map(k => (
             <button
               key={k}
@@ -418,7 +418,7 @@ function CopilotTab() {
           <label htmlFor="persona-notes" className="text-[13px] font-medium">
             Tes instructions pour Kompaly
           </label>
-          <p className="mt-0.5 text-[12px] text-stone-500">Un surnom, tes centres d'intérêt, le ton que tu préfères.</p>
+          <p className="mt-0.5 text-[12px] text-stone-500">Un surnom, tes centres d’intérêt, le ton que tu préfères.</p>
           <textarea
             id="persona-notes"
             className="field mt-2.5 h-auto! min-h-[84px] w-full resize-y py-2 leading-relaxed"
@@ -453,12 +453,12 @@ function CopilotTab() {
             Effacer
           </button>
         </Row>
-        <Row label="Remarques déjà faites" hint="Il oublie ce qu'il t'a déjà signalé et pourra te le redire.">
+        <Row label="Remarques déjà faites" hint="Il oublie ce qu’il t’a déjà signalé et pourra te le redire.">
           <button className="btn-secondary h-8" onClick={() => { useCopilot.setState({ memory: {} }); toast('Mémoire réinitialisée', 'success'); }}>
             Réinitialiser
           </button>
         </Row>
-        <Row label="Position sur l'écran">
+        <Row label="Position sur l’écran">
           <button className="btn-secondary h-8" onClick={() => { useCopilot.getState().setOffsetY(0.62); toast('Kompaly est revenu à sa place'); }}>
             Replacer
           </button>
@@ -794,11 +794,11 @@ function AccountTab() {
               <ShieldCheck size={15} /> Protégé
             </span>
           </Row>
-          <Row label="Changer de téléphone" hint="Affiche un nouveau QR code à scanner, avec une nouvelle clé de secours à garder. L'ancien téléphone est retiré dès que le nouveau marche.">
+          <Row label="Changer de téléphone" hint="Affiche un nouveau QR code à scanner, avec une nouvelle clé de secours à garder. L’ancien téléphone est retiré dès que le nouveau marche.">
             <button
               className="btn-secondary h-8"
               onClick={async () => {
-                if (!(await confirmAction('Changer de téléphone ?', "Tu scanneras un nouveau QR code juste après. Dès que le nouveau téléphone donne un bon code, l'ancien ne sert plus.", 'Continuer', false))) return;
+                if (!(await confirmAction('Changer de téléphone ?', 'Tu scanneras un nouveau QR code juste après. Dès que le nouveau téléphone donne un bon code, l’ancien ne sert plus.', 'Continuer', false))) return;
                 try {
                   await useAuth.getState().resetMfa();
                   navigate('/securite');
@@ -892,7 +892,7 @@ export default function ProfilePage() {
                 aria-current={tab === t.key ? 'page' : undefined}
                 onClick={() => setParams(t.key === 'profil' ? {} : { onglet: t.key })}
                 className={cx(
-                  'flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors',
+                  'flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9',
                   tab === t.key ? 'bg-surface text-ink shadow-card ring-1 ring-stone-200' : 'text-stone-600 hover:bg-stone-100 hover:text-ink',
                 )}
               >

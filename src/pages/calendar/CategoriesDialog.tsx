@@ -18,7 +18,7 @@ export function ColorChoice({ value, onChange }: { value: string; onChange: (col
           aria-checked={value === c}
           aria-label={`Couleur ${c}`}
           onClick={() => onChange(c)}
-          className={cx('flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 ring-offset-surface transition', value === c && 'ring-2 ring-stone-400')}
+          className={cx('hit-sm flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 ring-offset-surface transition', value === c && 'ring-2 ring-stone-400')}
           style={{ background: c }}
         >
           {value === c && <Check size={12} strokeWidth={3} className="text-white" />}
@@ -84,7 +84,7 @@ function Row({ cat }: { cat: CustomCategory }) {
   return (
     <li className="py-2">
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => setEditingColor(v => !v)} className="h-5 w-5 shrink-0 rounded-full ring-1 ring-stone-200" style={{ background: cat.color }} aria-label={`Changer la couleur de « ${cat.label} »`} aria-expanded={editingColor} />
+        <button type="button" onClick={() => setEditingColor(v => !v)} className="hit-sm h-5 w-5 shrink-0 rounded-full ring-1 ring-stone-200" style={{ background: cat.color }} aria-label={`Changer la couleur de « ${cat.label} »`} aria-expanded={editingColor} />
         <input
           value={label}
           onChange={e => setLabel(e.target.value)}
