@@ -123,6 +123,9 @@ export default function NotesPage() {
       const handOver = () => {
         const editor = (document.querySelector('.prose-note') as (HTMLElement & { editor?: Editor }) | null)?.editor;
         if (!editor) return Date.now() - started < 5000 ? void setTimeout(handOver, 50) : void takeContentBuffer();
+        // Focus the editor right now (Tiptap's focus() waits for the next frame): a key typed while the
+        // hidden field goes away would otherwise land on <body> and be lost.
+        editor.view.focus();
         const chain = editor.chain().focus('end');
         takeContentBuffer()
           .split('\n')
@@ -328,7 +331,7 @@ export default function NotesPage() {
         {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" aria-label="Épinglée" />}
       </div>
       <button
-        className="icon-btn touch-show h-6 w-6 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
+        className="icon-btn touch-show h-6 w-6 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-9 pointer-coarse:w-9"
         tabIndex={-1}
         title="Plus d’actions"
         aria-label={`Plus d’actions pour «\u00a0${n.title}\u00a0»`}
@@ -384,7 +387,7 @@ export default function NotesPage() {
           </div>
           {/* Shown on hover, and always on touch screens (no hover there). */}
           <button
-            className="icon-btn hidden h-6 w-6 group-hover:inline-flex [@media(hover:none)]:inline-flex"
+            className="icon-btn hidden h-6 w-6 group-hover:inline-flex [@media(hover:none)]:inline-flex pointer-coarse:h-9 pointer-coarse:w-9"
             tabIndex={-1}
             title="Nouvelle note dans ce dossier"
             aria-label={`Nouvelle note dans «\u00a0${f.name}\u00a0»`}
@@ -393,7 +396,7 @@ export default function NotesPage() {
             <FilePlus2 size={14} />
           </button>
           <button
-            className="icon-btn hidden h-6 w-6 group-hover:inline-flex [@media(hover:none)]:inline-flex"
+            className="icon-btn hidden h-6 w-6 group-hover:inline-flex [@media(hover:none)]:inline-flex pointer-coarse:h-9 pointer-coarse:w-9"
             tabIndex={-1}
             title="Plus d’actions"
             aria-label={`Plus d’actions pour «\u00a0${f.name}\u00a0»`}

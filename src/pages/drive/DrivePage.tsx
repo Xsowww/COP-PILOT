@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   ChevronDown, ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Ban, Check,
+  MoreHorizontal,
 } from 'lucide-react';
 import {
   useDrive, childrenOf, pathOf, categoryOf, folderSize, FOLDER_COLORS, type DriveItem,
@@ -740,19 +741,38 @@ export default function DrivePage() {
             </span>
             <span className="mr-1 h-4 w-px bg-on-inverse/20" />
             {[
-              { icon: Copy, label: 'Copier', fn: () => copy(selectedIds) },
-              { icon: Scissors, label: 'Couper', fn: () => cut(selectedIds) },
-              { icon: CopyPlus, label: 'Dupliquer', fn: () => void duplicate(selectedIds) },
+              // Phones: the less frequent ones go in « Plus d’actions » (9 buttons overflowed the bar).
+              { icon: Copy, label: 'Copier', fn: () => copy(selectedIds), more: true },
+              { icon: Scissors, label: 'Couper', fn: () => cut(selectedIds), more: true },
+              { icon: CopyPlus, label: 'Dupliquer', fn: () => void duplicate(selectedIds), more: true },
               { icon: FolderInput, label: 'Déplacer', fn: () => setMoveIds(selectedIds) },
               ...(single ? [{ icon: Pencil, label: 'Renommer', fn: () => void rename(single) }] : []),
-              ...(single?.kind === 'file' ? [{ icon: Download, label: 'Télécharger', fn: () => downloadItem(single) }] : []),
+              ...(single?.kind === 'file' ? [{ icon: Download, label: 'Télécharger', fn: () => downloadItem(single), more: true }] : []),
               { icon: Tag, label: 'Étiquettes', fn: () => setTagIds(selectedIds) },
               { icon: Trash2, label: 'Corbeille', fn: () => remove(selectedIds) },
             ].map(a => (
-              <button key={a.label} onClick={a.fn} className="flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 pointer-coarse:h-9 pointer-coarse:min-w-9 hover:bg-on-inverse/10 hover:text-on-inverse" title={a.label} aria-label={a.label}>
+              <button
+                key={a.label}
+                onClick={a.fn}
+                className={cx(
+                  'flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 pointer-coarse:h-9 pointer-coarse:min-w-9 hover:bg-on-inverse/10 hover:text-on-inverse',
+                  'more' in a && 'max-sm:hidden',
+                )}
+                title={a.label}
+                aria-label={a.label}
+              >
                 <a.icon size={14} /> <span className="hidden lg:inline">{a.label}</span>
               </button>
             ))}
+            <button
+              onClick={e => setMenu({ ...menuPoint(e), target: selectedIds[0] })}
+              className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-md text-on-inverse/85 hover:bg-on-inverse/10 sm:hidden"
+              title="Plus d’actions"
+              aria-label="Plus d’actions"
+              aria-haspopup="menu"
+            >
+              <MoreHorizontal size={15} />
+            </button>
           </div>
         ) : filtering ? (
           <p className="truncate px-1.5 font-medium text-stone-500">

@@ -404,7 +404,7 @@ export default function TrashPage() {
                         <span className={cx(entry.placeGone && 'italic')}>{entry.place}</span>
                         <span className="sr-only">
                           {' '}
-                          · supprimé le {deletedOn(entry.deletedAt)} · effacé {leftShort(left)}
+                          · supprimé le {deletedOn(entry.deletedAt)} · effacé {left <= 0 ? 'aujourd’hui' : `dans ${plural(left, 'jour')}`}
                         </span>
                       </span>
                     </span>
@@ -420,7 +420,8 @@ export default function TrashPage() {
                     </span>
                   </button>
                   <span className="relative z-10 flex shrink-0 items-center md:w-[72px] md:justify-end">
-                    <span className="hidden items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 md:flex">
+                    {/* Touch screens (no hover): shown, they were invisible yet tappable on a tablet. */}
+                    <span className="hidden items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 md:flex [@media(hover:none)]:opacity-100">
                       <button className="icon-btn" tabIndex={-1} onClick={() => restore(targetsOf(entry.id))} title="Restaurer" aria-label={`Restaurer « ${entry.name} »`}>
                         <RotateCcw size={15} />
                       </button>

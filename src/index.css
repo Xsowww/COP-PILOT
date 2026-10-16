@@ -328,6 +328,8 @@ body {
 .prose-note ul[data-type='taskList'] { list-style: none; padding-left: 0.1em; }
 .prose-note ul[data-type='taskList'] li { display: flex; gap: 0.55em; align-items: flex-start; }
 .prose-note ul[data-type='taskList'] li > label { margin-top: 0.28em; }
+/* Tiptap repeats the checkbox's aria-label in a hidden span: read twice by screen readers. */
+.prose-note ul[data-type='taskList'] li > label > span { display: none; }
 .prose-note ul[data-type='taskList'] input { accent-color: var(--color-ink); width: 15px; height: 15px; }
 /* Fingers: the label around the box takes taps 11 px around it (same box, same place). */
 @media (pointer: coarse) {

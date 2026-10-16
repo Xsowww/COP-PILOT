@@ -102,7 +102,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
           add(draft);
         }}
       >
-        <input ref={inputRef} autoFocus value={draft} onChange={e => setDraft(e.target.value)} placeholder={`Nouvelle étiquette, ex. ${usageWords(usage).tagExample}`} className="field min-w-0 flex-1" maxLength={32} />
+        <input ref={inputRef} autoFocus value={draft} onChange={e => setDraft(e.target.value)} aria-label="Nouvelle étiquette" placeholder={`Nouvelle étiquette, ex. ${usageWords(usage).tagExample}`} className="field min-w-0 flex-1" maxLength={32} />
         <button type="submit" className="btn-secondary" disabled={!draft.trim()}>
           <Plus size={15} /> Ajouter
         </button>
