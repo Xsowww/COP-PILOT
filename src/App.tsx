@@ -44,6 +44,9 @@ const TITLES: Record<string, string> = {
   '/conditions': 'Conditions d’utilisation',
 };
 
+/** Pages offered to search engines (same list as the sitemap, server/index.mjs). */
+const INDEXED = new Set(['/', '/connexion', '/inscription', '/mentions-legales', '/confidentialite', '/conditions']);
+
 /** The tab says where you are (history, several tabs open). */
 function PageTitle() {
   const { pathname } = useLocation();
@@ -52,6 +55,14 @@ function PageTitle() {
     const page = TITLES[pathname];
     // A visitor on « / » sees the public home page: the full name, as in index.html (search results).
     document.title = guest && pathname === '/' ? 'Kompaly · Agenda, notes, fichiers et tâches au même endroit' : page ? `${page} · Kompaly` : 'Kompaly';
+    // Search engines: only the public pages (home, sign-in, sign-up, legal) belong in their results.
+    let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.name = 'robots';
+      document.head.appendChild(robots);
+    }
+    robots.content = INDEXED.has(pathname) ? 'index, follow' : 'noindex';
   }, [pathname, guest]);
   return null;
 }
