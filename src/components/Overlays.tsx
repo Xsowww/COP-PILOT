@@ -286,8 +286,7 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
 
 /**
  * Reminders that came due while the app is in view (lib/reminderScheduler): a notification banner,
- * at the top on phones (where the phone's own banners appear), bottom right on a computer (clear of the
- * page's header and buttons). It stays until closed.
+ * centred at the top of the screen. It stays until closed.
  */
 export function ReminderAlerts() {
   const alerts = useUi(s => s.alerts);
@@ -297,7 +296,7 @@ export function ReminderAlerts() {
   return (
     <div
       role="alert"
-      className="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+10px)] z-[75] flex flex-col items-center gap-2.5 lg:inset-x-auto lg:bottom-[72px] lg:right-5 lg:top-auto lg:items-end"
+      className="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+10px)] z-[75] flex flex-col items-center gap-2.5 lg:top-4"
     >
       {alerts.map(a => (
         <div
