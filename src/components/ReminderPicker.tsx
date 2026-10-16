@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Bell, BellOff, X } from 'lucide-react';
-import { anchorOf, MAX_MINUTES, reminderLabel, reminderOptions } from '../lib/reminders';
+import { anchorOf, MAX_MINUTES, reminderLabel } from '../lib/reminders';
 import { deviceState, enableDevice } from '../lib/push';
 import { devicePushChanged } from '../lib/reminderScheduler';
 import { toast } from '../store/ui';
@@ -64,7 +64,12 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
     onChange([...value, check.minutes]);
     setCustom(null);
   };
-  const left = reminderOptions(timed).filter(o => !value.includes(o.minutes));
+  // The day before at 9:00 and at 18:00 (minutes before the item, worked out from its day and time), then « Personnalisé… ».
+  const left = date
+    ? [9, 18]
+        .map(h => ({ minutes: Math.round((anchorOf(date, time).getTime() - anchorOf(date, `${pad(h)}:00`).getTime()) / 60_000) + 1440, label: `La veille à ${h}h` }))
+        .filter(o => !value.includes(o.minutes))
+    : [];
   const sorted = [...value].sort((a, b) => a - b);
 
   const turnOn = async () => {

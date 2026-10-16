@@ -24,10 +24,10 @@ export const TIMED_OPTIONS: ReminderOption[] = [
 
 /** For an item without a time (all day): relative to 9:00 that day. */
 export const DAY_OPTIONS: ReminderOption[] = [
-  { minutes: 0, label: 'Le jour même, 9 h' },
-  { minutes: 900, label: 'La veille, 18 h' },
-  { minutes: 2880, label: '2 jours avant, 9 h' },
-  { minutes: 10080, label: '1 semaine avant, 9 h' },
+  { minutes: 0, label: 'Le jour même à 9h' },
+  { minutes: 900, label: 'La veille à 18h' },
+  { minutes: 2880, label: '2 jours avant à 9h' },
+  { minutes: 10080, label: '1 semaine avant à 9h' },
 ];
 
 export const DAY_ANCHOR = '09:00';

@@ -58,7 +58,7 @@ describe('rappels', () => {
 
   it('textes', () => {
     expect(reminderLabel(15, true)).toBe('15 min avant');
-    expect(reminderLabel(900, false)).toBe('La veille, 18 h');
+    expect(reminderLabel(900, false)).toBe('La veille à 18h');
     expect(reminderLabel(180, true)).toBe('3 h avant');
     expect(reminderBody({ kind: 'event', id: 'e', title: 'X', date: '2026-10-23' }, new Date(2026, 9, 16, 9, 0))).toBe('Vendredi 23 oct.\nAgenda');
     expect(reminderBody({ kind: 'event', id: 'e', title: 'X', date: '2026-10-16', time: '14:00', end: '15:30' }, new Date(2026, 9, 16, 13, 45))).toBe('Dans 15 min · 14h – 15h30\nAgenda');
