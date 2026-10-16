@@ -6,7 +6,7 @@ import { LEGAL_LINKS } from './links';
 
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
 
-const UPDATED = '14 octobre 2026';
+const UPDATED = '16 octobre 2026';
 const CONTACT = 'contact@kompaly.com';
 
 type Section = { title: string; body: string[] };
@@ -54,13 +54,16 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           'Compte : prénom, adresse e-mail, mot de passe (enregistré sous forme chiffrée, jamais lisible), double authentification.',
           'Contenus : fichiers du Drive, notes, événements, tâches, sessions de concentration, groupes et ce que tu y partages, réglages (thème, profil d’études facultatif).',
           'Technique : journaux d’erreurs du serveur (page concernée et message d’erreur, sans le contenu de tes documents) pour corriger les bugs.',
+          'Messages « Avis ou bug » : ton message, la page ouverte et le type d’appareil (navigateur, système, taille d’écran).',
+          'Signalements dans un groupe : la raison choisie, ta précision éventuelle et une copie du contenu signalé (titre et début du texte, ou nom du fichier).',
         ],
       },
       {
         title: 'Pourquoi et sur quelle base',
         body: [
           'Fournir le service que tu demandes en créant ton compte (exécution du contrat) : stocker et synchroniser tes contenus, les partager dans les groupes que tu rejoins, sécuriser ton compte.',
-          'Garder le service sûr et fiable (intérêt légitime) : limites anti-abus, journaux d’erreurs.',
+          'Garder le service sûr et fiable (intérêt légitime) : limites anti-abus, vérification anti-robot à l’inscription et à la connexion, journaux d’erreurs, traitement des signalements.',
+          'Améliorer Kompaly (intérêt légitime) : lire les avis et corriger les bugs que tu nous envoies.',
         ],
       },
       {
@@ -75,21 +78,22 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Qui y a accès',
         body: [
           'Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',
-          'L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé. Jamais le contenu de tes notes, fichiers ou événements.',
-          'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande) et le fournisseur d’IA indiqué plus haut.',
+          'L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé, noms des catégories que tu crées (sans tes événements). Il lit aussi les messages « Avis ou bug » et les signalements, avec la copie du contenu signalé. Jamais le reste du contenu de tes notes, fichiers ou événements.',
+          'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande) Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; contrat de traitement et clauses contractuelles types) et le fournisseur d’IA indiqué plus haut.',
         ],
       },
       {
         title: 'Durée de conservation',
         body: [
           'Tant que ton compte existe. Ce que tu mets à la corbeille est supprimé définitivement au bout de 30 jours.',
-          '« Supprimer mon compte » (Profil › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Les journaux d’erreurs sont gardés au plus 12 mois.',
+          '« Supprimer mon compte » (Profil › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Les journaux d’erreurs sont gardés au plus 12 mois, les messages « Avis ou bug » et les signalements au plus 2 ans (sans ton nom ni ton e-mail une fois ton compte supprimé).',
         ],
       },
       {
         title: 'Stockage sur ton appareil',
         body: [
-          'Kompaly garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement. La déconnexion efface cette copie.',
+          'Kompaly garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement.',
+          'Avec « Rester connecté », ton compte reste proposé sur la page de connexion de cet appareil (prénom, e-mail et session) pour l’ouvrir en un clic, même après une déconnexion ; au bout de 14 jours sans l’ouvrir, le mot de passe est redemandé. « Retirer de cet appareil » (la croix à côté du compte) l’efface et ferme sa session. Sans « Rester connecté », la déconnexion efface la copie et la session.',
         ],
       },
       {
@@ -116,6 +120,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Ton compte',
         body: [
           'Kompaly est ouvert dès 15 ans. Avant 15 ans, il faut l’accord d’un parent ou d’un responsable légal pour créer un compte.',
+          'Une vérification anti-robot peut être demandée à l’inscription et à la connexion.',
           'Tu es responsable de ton mot de passe et de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.',
           'Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, un nombre limité de questions par jour à Kompaly en mode intelligent.',
         ],
@@ -125,7 +130,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           'Déposer ou partager des contenus illégaux, haineux, violents, ou qui portent atteinte aux droits d’autrui (droit d’auteur, vie privée).',
           'Tenter de contourner la sécurité, les limites ou d’accéder aux données d’autres utilisateurs ; utiliser le service de façon automatisée ou abusive.',
-          'Nous pouvons supprimer un contenu signalé comme illicite et suspendre un compte qui ne respecte pas ces règles. Pour signaler un contenu : ' + CONTACT + '.',
+          'Nous pouvons supprimer un contenu signalé comme illicite et suspendre un compte qui ne respecte pas ces règles. Pour signaler un contenu d’un groupe : le bouton « Signaler » (le drapeau) à côté de ce contenu, ou un e-mail à ' + CONTACT + '. Chaque signalement est examiné, et le contenu retiré s’il ne respecte pas ces règles.',
         ],
       },
       {

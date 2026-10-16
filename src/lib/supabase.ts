@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { captchaToken } from './captcha';
 
 // When VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (see .env.example), accounts and
 // data live in Supabase. Otherwise the app keeps working fully offline in this browser.
@@ -65,7 +66,7 @@ export const supabase = url && key ? createClient(url, key, { auth: { storage: a
 export async function checkPassword(email: string, password: string): Promise<boolean> {
   if (!url || !key) return false;
   const tmp = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'cop-pilot-check' } });
-  const { error } = await tmp.auth.signInWithPassword({ email, password });
+  const { error } = await tmp.auth.signInWithPassword({ email, password, options: { captchaToken: await captchaToken() } });
   if (!error) await tmp.auth.signOut({ scope: 'local' });
   if (error && error.code !== 'invalid_credentials' && !/invalid login/i.test(error.message)) throw error;
   return !error;

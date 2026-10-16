@@ -5,6 +5,7 @@ import { supabase, cloudEnabled, checkIsAdmin } from '../../lib/supabase';
 import { CATEGORIES, type BuiltinCategory } from '../../store/calendar';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fmt, fromKey } from '../../lib/dates';
+import AdminInbox from './AdminInbox';
 
 interface Account {
   id: string;
@@ -211,6 +212,8 @@ export default function AdminPage() {
               <Kpi icon={CalendarDays} label="Événements" value={c!.events} sub={`${c!.events ? Math.round((c!.events_done / c!.events) * 100) : 0} % terminés`} color="#d9483b" />
               <Kpi icon={FolderClosed} label="Fichiers" value={c!.files} sub={u!.total ? `${(c!.files / u!.total).toFixed(1)} par compte` : undefined} color="#3b6fd8" />
             </div>
+
+            <AdminInbox />
 
             <div className="mt-3 grid gap-3 lg:grid-cols-2">
               <section className="card p-4">

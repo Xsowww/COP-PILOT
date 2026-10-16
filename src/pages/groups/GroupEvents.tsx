@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { CalendarPlus, Check, Clock, MapPin, Plus, Trash2, Link2 } from 'lucide-react';
+import { CalendarPlus, Check, Clock, Flag, MapPin, Plus, Trash2, Link2 } from 'lucide-react';
+import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useAuth } from '../../store/auth';
 import { useGroups } from '../../store/groups';
 import { useCalendar, guessCategory } from '../../store/calendar';
@@ -77,6 +78,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
   const inCalendar = useCalendar(s => s.events.some(e => e.externalId === `groupe:${ev.id}`));
   const { canEdit } = useRights(group);
   const [busy, setBusy] = useState(false);
+  const [reporting, setReporting] = useState(false);
   // Soi-même en dernier : « Hugo, Inès et toi viennent ».
   const coming = (attendance ?? []).filter(a => a.eventId === ev.id).map(a => a.userId).sort((a, b) => Number(a === me) - Number(b === me));
   const iCome = coming.includes(me);
@@ -182,6 +184,12 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
         <button className="icon-btn" title={inCalendar ? 'Déjà dans ton calendrier' : 'Ajouter à mon calendrier'} aria-label={inCalendar ? 'Déjà dans ton calendrier' : 'Ajouter à mon calendrier'} disabled={inCalendar} onClick={addToCalendar}>
           {inCalendar ? <Check size={15} className="text-emerald-600" /> : <CalendarPlus size={15} />}
         </button>
+        {ev.createdBy !== me && (
+          <button className="icon-btn" title="Signaler" aria-label={`Signaler « ${ev.title} »`} onClick={() => setReporting(true)}>
+            <Flag size={15} />
+          </button>
+        )}
+        <ReportDialog target={reporting ? { kind: 'event', id: ev.id, title: ev.title } : null} onClose={() => setReporting(false)} />
         {canDelete && (
           <button className="icon-btn hover:text-red-600" title={`Annuler ${w.meet.the}`} aria-label={`Annuler ${w.meet.the}`} onClick={() => void remove()}>
             <Trash2 size={15} />

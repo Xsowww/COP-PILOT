@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus } from 'lucide-react';
+import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText } from 'lucide-react';
+import { FeedbackDialog } from '../components/FeedbackDialogs';
+import { openFeedback } from '../lib/feedback';
 import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
 import Tour from '../components/Tour';
@@ -305,6 +307,14 @@ export default function AppShell() {
           <span className="flex-1">Corbeille</span>
           {trashCount > 0 && <span className="tabular text-[11px] text-stone-500">{trashCount}</span>}
         </NavLink>
+        <button
+          type="button"
+          onClick={() => openFeedback()}
+          className="-mt-1 mb-2 flex h-9 items-center gap-3 rounded-lg px-2.5 text-left text-[13px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
+        >
+          <MessageSquareText size={17} strokeWidth={1.9} />
+          Avis ou bug
+        </button>
         <FocusTimer />
         <div className="flex items-center gap-1">
         <NavLink
@@ -367,6 +377,7 @@ export default function AppShell() {
         )}
         <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-14 outline-none lg:pb-0">
           <Outlet />
+          <FeedbackDialog />
         </main>
       </div>
 

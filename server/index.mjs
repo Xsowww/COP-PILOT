@@ -43,14 +43,15 @@ const SUPABASE = (() => {
 })();
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'wasm-unsafe-eval'", // pdf.js decodes some images with WebAssembly
+  // pdf.js decodes some images with WebAssembly; Cloudflare Turnstile: the anti-robot check at sign-in.
+  "script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob:",
   `connect-src 'self' blob: data:${SUPABASE ? ` ${SUPABASE} ${SUPABASE.replace(/^https:/, 'wss:')}` : ''}`,
   "worker-src 'self' blob:",
-  "frame-src 'self' blob:", // file previews
+  "frame-src 'self' blob: https://challenges.cloudflare.com", // file previews; Turnstile's box
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -6,8 +6,10 @@ import Highlight from '@tiptap/extension-highlight';
 import TiptapImage from '@tiptap/extension-image';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import {
-  AlertTriangle, ArrowLeft, Bold, Italic, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Trash2, Undo2, Redo2,
+  AlertTriangle, ArrowLeft, Bold, Italic, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Trash2, Undo2, Redo2, Flag,
 } from 'lucide-react';
+import { useAuth } from '../../store/auth';
+import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useGroups } from '../../store/groups';
 import { askText, confirmAction, toast } from '../../store/ui';
 import { deleteNote, fetchNote, groupError, saveNote, summary, type GroupNote } from '../../lib/groups';
@@ -100,6 +102,8 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
   const id = initial.id;
   const nameOf = useMemberName(initial.groupId);
   const [meta, setMeta] = useState({ updatedAt: initial.updatedAt, updatedBy: initial.updatedBy });
+  const me = useAuth(s => s.user?.id);
+  const [reporting, setReporting] = useState(false);
   const [title, setTitle] = useState(startTitle ?? (initial.title === 'Sans titre' ? '' : initial.title));
   const titleInput = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>('saved');
@@ -299,11 +303,18 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
           />
           <p className={cx('mt-0.5 text-[12px]', conflict ? 'text-amber-700' : status === 'error' ? 'text-red-600' : 'text-stone-500')}>{statusText}</p>
         </div>
+        {/* Someone else wrote in it: it can be reported to the administrator. */}
+        {(initial.createdBy !== me || meta.updatedBy !== me) && (
+          <button className="icon-btn mt-1" title="Signaler la note" aria-label="Signaler la note" onClick={() => setReporting(true)}>
+            <Flag size={15} />
+          </button>
+        )}
         {!readOnly && (
           <button className="icon-btn mt-1 hover:text-red-600" title="Supprimer la note" aria-label="Supprimer la note" onClick={() => void remove()}>
             <Trash2 size={15} />
           </button>
         )}
+        <ReportDialog target={reporting ? { kind: 'note', id: initial.id, title: title.trim() || 'Sans titre' } : null} onClose={() => setReporting(false)} />
       </div>
 
       {gone && (

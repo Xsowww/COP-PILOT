@@ -7,6 +7,7 @@ import { needsCredentials, savedAccounts, STALE_HINT, type SavedAccount } from '
 import { toast } from '../store/ui';
 import { loadUserData, markLocalWelcome } from '../store/session';
 import { cloudEnabled, linkError, setRememberMe } from '../lib/supabase';
+import { prefetchCaptcha } from '../lib/captcha';
 import Character from '../copilot/Character';
 import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
@@ -127,6 +128,10 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   // Reset link of an account with a phone paired: the new password also needs its code.
   const [code, setCode] = useState('');
   const [needsCode, setNeedsCode] = useState(false);
+  // The anti-robot check runs while the form is being filled in.
+  useEffect(() => {
+    if (mode !== 'reset') prefetchCaptcha();
+  }, [mode]);
   useEffect(() => {
     if (mode === 'reset' && cloudEnabled) void useAuth.getState().resetNeedsCode().then(setNeedsCode);
   }, [mode]);

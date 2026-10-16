@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
-import { Download, Eye, FolderDown, Paperclip, Trash2 } from 'lucide-react';
+import { Download, Eye, Flag, FolderDown, Paperclip, Trash2 } from 'lucide-react';
+import { useAuth } from '../../store/auth';
+import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useGroups } from '../../store/groups';
 import { categoryOf, useDrive, type DriveItem } from '../../store/drive';
 import { confirmAction, toast } from '../../store/ui';
@@ -22,6 +24,8 @@ export default function GroupFiles({ group }: { group: Group }) {
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
   const [preview, setPreview] = useState<GroupFile | null>(null);
+  const [reporting, setReporting] = useState<GroupFile | null>(null);
+  const me = useAuth(s => s.user?.id);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
@@ -120,6 +124,11 @@ export default function GroupFiles({ group }: { group: Group }) {
                   <button className="icon-btn" title="Copier dans mon Drive" aria-label={`Copier ${f.name} dans mon Drive`} onClick={() => void toDrive(f)}>
                     <FolderDown size={15} />
                   </button>
+                  {f.createdBy !== me && (
+                    <button className="icon-btn" title="Signaler" aria-label={`Signaler ${f.name}`} onClick={() => setReporting(f)}>
+                      <Flag size={15} />
+                    </button>
+                  )}
                   {canEdit && (
                     <button className="icon-btn hover:text-red-600" title="Supprimer" aria-label={`Supprimer ${f.name}`} onClick={() => void remove(f)}>
                       <Trash2 size={15} />
@@ -142,6 +151,7 @@ export default function GroupFiles({ group }: { group: Group }) {
           if (list.length) void shareFiles(group, list.map(f => ({ blob: f, name: f.name })));
         }}
       />
+      <ReportDialog target={reporting && { kind: 'file', id: reporting.id, title: reporting.name }} onClose={() => setReporting(null)} />
       {preview && <PreviewModal item={asItem(preview)} getUrl={getUrl} onClose={() => setPreview(null)} />}
     </div>
   );

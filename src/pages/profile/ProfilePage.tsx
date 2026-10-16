@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  Timer, HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus,
+  Timer, HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, Lightbulb, Bug,
 } from 'lucide-react';
+import { openFeedback } from '../../lib/feedback';
 import AccountList from '../../components/AccountList';
 import { needsCredentials, STALE_DAYS } from '../../lib/accounts';
 import { useAuth } from '../../store/auth';
@@ -251,6 +252,17 @@ function ProfileTab() {
       </Section>
 
       <BadgesSection />
+
+      <Section title="Ton avis compte" description="Une idée, un manque, un bug : le message arrive directement à l’équipe de Kompaly.">
+        <div className="flex flex-wrap gap-2 px-5 py-4">
+          <button className="btn-secondary h-9" onClick={() => openFeedback('idea')}>
+            <Lightbulb size={14} /> Donner mon avis
+          </button>
+          <button className="btn-secondary h-9" onClick={() => openFeedback('bug')}>
+            <Bug size={14} /> Signaler un bug
+          </button>
+        </div>
+      </Section>
     </div>
   );
 }

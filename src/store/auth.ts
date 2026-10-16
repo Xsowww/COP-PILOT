@@ -3,6 +3,7 @@ import { uid, nowIso } from '../lib/utils';
 import { setStorageUser } from '../lib/userStorage';
 import { flushNow, stopSync, updateCloudProfile } from '../lib/cloudSync';
 import { supabase, checkPassword, remembered, authStorageKey, revokeSession } from '../lib/supabase';
+import { captchaToken } from '../lib/captcha';
 import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, needsCredentials } from '../lib/accounts';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -154,6 +155,7 @@ function authMessage(e: AuthError | Error): string {
   if (code === 'weak_password' || msg.includes('password should')) return 'Mot de passe trop faible : au moins 8 caractères, avec lettres et chiffres.';
   if (code.startsWith('over_') || msg.includes('rate limit')) return 'Trop de tentatives, réessaie dans quelques minutes.';
   if (code === 'same_password') return 'Le nouveau mot de passe doit être différent de l’ancien.';
+  if (msg.includes('captcha')) return 'La vérification anti-robot a échoué. Recharge la page et réessaie.';
   if (code === 'insufficient_aal' || msg.includes('aal2')) return 'Entre aussi le code à 6 chiffres de ton application d’authentification.';
   if (code === 'session_not_found' || msg.includes('session missing')) return 'Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.';
   if (msg.includes('fetch') || msg.includes('network')) return 'Connexion impossible, vérifie ton accès à internet.';
@@ -276,7 +278,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (supabase) {
       ownSignIn = true;
       const data = await cloud(
-        supabase.auth.signUp({ email: mail, password, options: { data: { name: name.trim() }, emailRedirectTo: `${location.origin}/connexion` } }),
+        supabase.auth.signUp({ email: mail, password, options: { data: { name: name.trim() }, emailRedirectTo: `${location.origin}/connexion`, captchaToken: await captchaToken() } }),
       ).finally(() => setTimeout(() => (ownSignIn = false), 1500));
       // An address that already has an account gets a look-alike answer and no e-mail at all.
       if (data.user && !data.user.identities?.length) throw new Error('Un compte existe déjà avec cet e-mail. Connecte-toi, ou choisis « Oublié ? » si tu n’as plus le mot de passe.');
@@ -301,7 +303,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     const mail = email.trim().toLowerCase();
     if (supabase) {
       ownSignIn = true;
-      const data = await cloud(supabase.auth.signInWithPassword({ email: mail, password })).finally(() => setTimeout(() => (ownSignIn = false), 1500));
+      const token = await captchaToken();
+      const data = await cloud(supabase.auth.signInWithPassword({ email: mail, password, options: { captchaToken: token } })).finally(() => setTimeout(() => (ownSignIn = false), 1500));
       const user = fromSupabase(data.user!);
       const mfaStep = await nextMfaStep();
       if (!mfaStep) setStorageUser(user.id);
@@ -469,12 +472,12 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   async resendConfirmation(email) {
     if (!supabase) return;
-    await cloud(supabase.auth.resend({ type: 'signup', email: email.trim().toLowerCase(), options: { emailRedirectTo: `${location.origin}/connexion` } }));
+    await cloud(supabase.auth.resend({ type: 'signup', email: email.trim().toLowerCase(), options: { emailRedirectTo: `${location.origin}/connexion`, captchaToken: await captchaToken() } }));
   },
 
   async requestPasswordReset(email) {
     if (!supabase) throw new Error('La réinitialisation par e-mail n’est disponible qu’avec la version en ligne.');
-    await cloud(supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: `${location.origin}/reinitialisation` }));
+    await cloud(supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: `${location.origin}/reinitialisation`, captchaToken: await captchaToken() }));
   },
 
   async setNewPassword(password, code) {
