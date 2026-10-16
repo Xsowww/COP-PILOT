@@ -104,7 +104,7 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
     // Sa propre liste : celle du store est vidée et rechargée par la page Groupes à chaque visite.
     let groups: Group[];
     try {
-      groups = await fetchGroups();
+      groups = (await fetchGroups()).filter(g => g.kind === 'groupe'); // shared calendars notify by push
     } catch {
       return; // réseau coupé : on garde l'affichage actuel
     }

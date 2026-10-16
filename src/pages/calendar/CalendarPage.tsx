@@ -1,9 +1,9 @@
 import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { trashEvent } from '../../lib/trash';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp } from 'lucide-react';
+import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange } from 'lucide-react';
 import { useCalendar, catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
@@ -441,6 +441,10 @@ export default function CalendarPage() {
           />
           {/* Together: on a tablet the header wraps, and the export icon was left alone on a second line. */}
           <div className="flex items-center gap-1">
+          {/* Phones: the menu has no room for « Agendas partagés » (the computer's side menu has it). */}
+          <Link to="/agendas" className="icon-btn h-8 w-8 lg:hidden" title="Agendas partagés" aria-label="Agendas partagés">
+            <CalendarRange size={16} />
+          </Link>
           <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title={`Importer un ${words.timetable} (.ics)`} aria-label={`Importer un ${words.timetable} (.ics)`}>
             <CalendarArrowDown size={16} />
           </button>

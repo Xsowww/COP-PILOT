@@ -1,12 +1,19 @@
 import { useAuth } from '../../store/auth';
 import { getSettings, useSettings } from '../../store/settings';
-import { groupWords } from '../../lib/usage';
+import { createContext, useContext } from 'react';
+import { AGENDA_WORDS, groupWords } from '../../lib/usage';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
-import { GROUP_COLORS, MAX_GROUP_FILE, groupError, uploadFile, type Group } from '../../lib/groups';
+import { GROUP_COLORS, MAX_GROUP_FILE, groupError, uploadFile, type Group, type GroupKind } from '../../lib/groups';
+
+/** Which space the group screens are in: work groups (/groupes) or shared calendars (/agendas). */
+export const KindContext = createContext<GroupKind>('groupe');
 
 /** « groupe » / « équipe », « révisions » / « réunions » / « rendez-vous », selon l'usage du compte. */
-export const useGroupWords = () => groupWords(useSettings(s => s.usage));
+export const useGroupWords = () => {
+  const words = groupWords(useSettings(s => s.usage));
+  return useContext(KindContext) === 'agenda' ? AGENDA_WORDS : words;
+};
 export const groupWordsNow = () => groupWords(getSettings().usage);
 
 export const groupColor = (g: Pick<Group, 'color'>) => g.color ?? GROUP_COLORS[0];

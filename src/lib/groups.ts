@@ -18,7 +18,10 @@ export interface Group {
   color: string | null;
   ownerId: string | null;
   createdAt: string;
+  /** 'agenda' : an « agenda partagé » (own space, /agendas); 'groupe' : a work group (/groupes). */
+  kind: GroupKind;
 }
+export type GroupKind = 'groupe' | 'agenda';
 
 export interface GroupMember {
   userId: string;
@@ -87,6 +90,7 @@ const toGroup = (r: Row): Group => ({
   color: s(r.color),
   ownerId: s(r.owner_id),
   createdAt: String(r.created_at),
+  kind: r.kind === 'agenda' ? 'agenda' : 'groupe',
 });
 
 export const toNote = (r: Row): GroupNote => ({
@@ -153,13 +157,28 @@ export async function sessionUserId(): Promise<string> {
 // ── Groupes et membres ────────────────────────────────────────────────────
 export async function fetchGroups(): Promise<Group[]> {
   // Jamais « * » : le code d'invitation n'est pas lisible dans la table (voir group_invite_code).
-  const rows = check(await db().from('groups').select('id, name, color, owner_id, created_at').order('created_at'));
+  const res = await db().from('groups').select('id, name, color, owner_id, created_at, kind').order('created_at');
+  // Server without the 2026-10-18 migration yet: no « kind » column, every group is a work group.
+  const rows = res.error?.code === '42703' ? check(await db().from('groups').select('id, name, color, owner_id, created_at').order('created_at')) : check(res);
   return (rows as Row[]).map(toGroup);
 }
 
-export async function createGroup(name: string, color: string | null): Promise<Group> {
-  const row = check(await db().rpc('create_group', { p_name: name, p_color: color }));
+export async function createGroup(name: string, color: string | null, kind: GroupKind = 'groupe'): Promise<Group> {
+  const row = check(await db().rpc('create_group', { p_name: name, p_color: color, ...(kind === 'agenda' && { p_kind: kind }) }));
   return toGroup(row as Row);
+}
+
+/** The link that makes someone join (after signing in): /groupes?rejoindre=CODE or /agendas?rejoindre=CODE. */
+export const inviteLink = (code: string, kind: GroupKind) => `${location.origin}/${kind === 'agenda' ? 'agendas' : 'groupes'}?rejoindre=${code}`;
+
+export async function copyInviteLink(code: string, kind: GroupKind) {
+  const link = inviteLink(code, kind);
+  try {
+    await navigator.clipboard.writeText(link);
+    toast('Lien d’invitation copié : envoie-le à qui tu veux', 'success');
+  } catch {
+    toast(`Lien d’invitation : ${link}`);
+  }
 }
 
 /** Renvoie l'identifiant du groupe rejoint, ou null si le code n'existe pas. */

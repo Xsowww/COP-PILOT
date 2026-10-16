@@ -30,6 +30,7 @@ const TITLES: Record<string, string> = {
   '/notes': 'Notes',
   '/taches': 'Tâches',
   '/groupes': 'Groupes',
+  '/agendas': 'Agendas partagés',
   '/corbeille': 'Corbeille',
   '/profil': 'Profil',
   '/admin': 'Administration',
@@ -67,13 +68,19 @@ function PageTitle() {
   return null;
 }
 
+export const PENDING_INVITE = 'cop-invite';
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
   const mfaStep = useAuth(s => s.mfaStep);
   const welcome = useWelcome(s => s.pending);
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   // Not signed in: « / » is the public home page, the other pages of the app ask to sign in.
-  if (!user) return pathname === '/' ? <Suspense fallback={null}><LandingPage /></Suspense> : <Navigate to="/connexion" replace />;
+  if (!user) {
+    // An invitation link opened signed out: kept for after sign-in (AppShell opens it).
+    if (search.includes('rejoindre=')) sessionStorage.setItem(PENDING_INVITE, pathname + search);
+    return pathname === '/' ? <Suspense fallback={null}><LandingPage /></Suspense> : <Navigate to="/connexion" replace />;
+  }
   if (mfaStep) return <Navigate to="/securite" replace />;
   return welcome ? <Navigate to="/bienvenue" replace /> : children;
 }
@@ -145,6 +152,7 @@ export default function App() {
           <Route path="taches" element={<Suspense fallback={null}><TasksPage /></Suspense>} />
           <Route path="progression" element={<Navigate to="/taches" replace />} />
           <Route path="groupes" element={<Suspense fallback={null}><GroupsPage /></Suspense>} />
+          <Route path="agendas" element={<Suspense fallback={null}><GroupsPage kind="agenda" /></Suspense>} />
           <Route path="corbeille" element={<Suspense fallback={null}><TrashPage /></Suspense>} />
           <Route path="profil" element={<Suspense fallback={null}><ProfilePage /></Suspense>} />
           <Route path="admin" element={<Suspense fallback={null}><AdminPage /></Suspense>} />

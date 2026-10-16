@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { House, FolderClosed, CalendarDays, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText } from 'lucide-react';
+import { House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText } from 'lucide-react';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { openFeedback } from '../lib/feedback';
 import { useAuth } from '../store/auth';
@@ -20,6 +20,7 @@ import { useTrashCount } from '../lib/trash';
 import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
 import { ContextMenu, ReminderAlerts } from '../components/Overlays';
+import { PENDING_INVITE } from '../App';
 import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
@@ -31,6 +32,8 @@ const NAV = [
   { to: '/notes', label: 'Notes', icon: NotebookText, color: SPACE_COLORS.notes },
   { to: '/drive', label: 'Drive', icon: FolderClosed, color: SPACE_COLORS.drive },
   { to: '/groupes', label: 'Groupes', icon: Users, color: '#1f8a8a' },
+  // Not in the phone's bottom bar (full): reached from the Calendar page there.
+  { to: '/agendas', label: 'Agendas partagés', icon: CalendarRange, color: '#7a5ad6', desktopOnly: true },
 ];
 
 const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
@@ -223,6 +226,13 @@ export default function AppShell() {
   const trashLabel = trashCount ? `Corbeille, ${trashCount} élément${trashCount > 1 ? 's' : ''}` : 'Corbeille';
 
   useEffect(() => registerNavigate(navigate), [navigate]);
+  // An invitation link opened before signing in (App › RequireAuth): opened now.
+  useEffect(() => {
+    const invite = sessionStorage.getItem(PENDING_INVITE);
+    if (!invite) return;
+    sessionStorage.removeItem(PENDING_INVITE);
+    navigate(invite, { replace: true });
+  }, [navigate]);
   useEffect(() => startProactive(), []);
   // Rappels des événements et des tâches (dans l'appli, et par notifications push en ligne).
   useEffect(() => startReminders(user.id), [user.id]);
@@ -422,7 +432,7 @@ export default function AppShell() {
 
       {/* Bottom nav (mobile) */}
       <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-stone-200 bg-paper/95 backdrop-blur lg:hidden">
-        {NAV.map(n => (
+        {NAV.filter(n => !('desktopOnly' in n)).map(n => (
           <NavLink
             key={n.to}
             to={n.to}

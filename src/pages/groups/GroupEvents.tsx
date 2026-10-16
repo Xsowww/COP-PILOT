@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useContext, useState, type FormEvent } from 'react';
 import { CalendarPlus, Check, Clock, Flag, MapPin, Plus, Trash2, Link2 } from 'lucide-react';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useAuth } from '../../store/auth';
@@ -9,13 +9,17 @@ import { createEvent, deleteEvent, groupError, setAttendance, type Group, type G
 import { countdownLabel, fmt, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { MemberDot } from './shared';
-import { groupColor, useGroupWords, useMemberName, useRights } from './util';
+import { KindContext, groupColor, useGroupWords, useMemberName, useRights } from './util';
 import { useSettings } from '../../store/settings';
 
 const isUrl = (s: string) => /^https?:\/\/\S+$/i.test(s.trim());
 
+/** « Proposer » a work session; « Ajouter » to a shared calendar. */
+const useVerb = () => (useContext(KindContext) === 'agenda' ? 'Ajouter' : 'Proposer');
+
 function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
   const w = useGroupWords();
+  const verb = useVerb();
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayKey());
   const [start, setStart] = useState('');
@@ -41,7 +45,7 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
 
   return (
     <form onSubmit={submit} className="card enter mb-4 p-4">
-      <p className="text-[14px] font-semibold">Proposer {w.meet.a}</p>
+      <p className="text-[14px] font-semibold">{verb} {w.meet.a}</p>
       <input autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)} placeholder={w.meet.placeholder} className="field mt-3 w-full" />
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1.4fr_1fr_1fr]">
         <label className="col-span-2 sm:col-span-1">
@@ -59,12 +63,12 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
       </div>
       <label className="mt-2 block">
         <span className="eyebrow">Lieu ou lien de visio</span>
-        <input value={place} maxLength={300} onChange={e => setPlace(e.target.value)} placeholder="BU, salle B204… ou https://…" className="field mt-1 w-full" />
+        <input value={place} maxLength={300} onChange={e => setPlace(e.target.value)} placeholder={verb === 'Ajouter' ? 'Adresse, salle… ou https://…' : 'BU, salle B204… ou https://…'} className="field mt-1 w-full" />
       </label>
       {badTime && <p className="mt-2 text-[12px] text-red-600">L’heure de fin doit être après l’heure de début.</p>}
       <div className="mt-4 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onDone}>Annuler</button>
-        <button type="submit" className="btn-primary" disabled={!title.trim() || !date || badTime || busy}>Proposer</button>
+        <button type="submit" className="btn-primary" disabled={!title.trim() || !date || badTime || busy}>{verb}</button>
       </div>
     </form>
   );
@@ -72,6 +76,7 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
 
 function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
   const w = useGroupWords();
+  const agenda = useContext(KindContext) === 'agenda';
   const me = useAuth(s => s.user?.id ?? '');
   const nameOf = useMemberName(group.id);
   const attendance = useGroups(s => s.attendance[group.id]);
@@ -169,7 +174,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
           )}
           <span className="truncate text-[12px] text-stone-500">{who.charAt(0).toUpperCase() + who.slice(1)}</span>
         </div>
-        <p className="mt-1 text-[11px] text-stone-500">Proposée par {nameOf(ev.createdBy)}</p>
+        <p className="mt-1 text-[11px] text-stone-500">{agenda ? 'Ajouté' : 'Proposée'} par {nameOf(ev.createdBy)}</p>
       </div>
       <div className="flex shrink-0 basis-full items-center gap-1.5 pl-[68px] sm:basis-auto sm:pl-0">
         <button
@@ -202,6 +207,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
 
 export default function GroupEvents({ group }: { group: Group }) {
   const w = useGroupWords();
+  const verb = useVerb();
   const events = useGroups(s => s.events[group.id]);
   const [adding, setAdding] = useState(false);
   const { canEdit } = useRights(group);
@@ -209,10 +215,10 @@ export default function GroupEvents({ group }: { group: Group }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 pb-3">
-        <p className="eyebrow mr-auto">{w.meet.Tab} à venir</p>
+        <p className="eyebrow mr-auto">{verb === 'Ajouter' ? 'À venir' : `${w.meet.Tab} à venir`}</p>
         {!adding && canEdit && (
           <button className="btn-primary h-8 px-3" onClick={() => setAdding(true)}>
-            <Plus size={14} /> Proposer {w.meet.a}
+            <Plus size={14} /> {verb} {w.meet.a}
           </button>
         )}
       </div>

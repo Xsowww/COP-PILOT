@@ -130,4 +130,18 @@ export const GROUP_WORDS: Record<Usage, GroupWords> = {
   },
 };
 
+/** « Agendas partagés » : a shared calendar is a group of another kind (lib/groups › GroupKind), same screens. */
+export const AGENDA_WORDS: GroupWords = {
+  Groups: 'Agendas partagés', groups: 'agendas partagés', a: 'un agenda partagé', the: 'l’agenda', The: 'L’agenda', of: 'de l’agenda', this: 'cet agenda', all: 'tout l’agenda',
+  none: 'Aucun agenda partagé', yours: 'un de tes agendas', created: 'Agenda créé', deleted: 'Agenda supprimé',
+  namePlaceholder: 'Ex. Coloc, Famille, Nous deux', mates: 'les personnes avec qui tu le partages', others: 'tes proches',
+  introTitle: 'Un agenda à plusieurs', introText: 'Un calendrier commun, séparé du tien : chacun y ajoute ses événements, les autres les voient et reçoivent une notification.',
+  notesHint: '',
+  meet: {
+    Tab: 'Agenda', One: 'Événement', many: 'événements', a: 'un événement', the: 'l’événement', The: 'L’événement', proposed: 'Événement ajouté', proposedMany: 'ajoutés',
+    none: 'Aucun événement prévu', placeholder: 'Ex. Dîner chez Léa',
+    hint: 'Ajoute un événement : les autres membres le voient tout de suite et reçoivent une notification.',
+  },
+};
+
 export const groupWords = (usage: Usage | undefined) => GROUP_WORDS[usage ?? 'etudes'] ?? GROUP_WORDS.etudes;

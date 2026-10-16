@@ -1,16 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, CloudOff, Copy, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
+import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, CalendarClock, CloudOff, Copy, Link2, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useGroups, watchFocus } from '../../store/groups';
 import { useGroupActivity, totalUnread } from '../../store/groupActivity';
 import { toast } from '../../store/ui';
 import { Modal } from '../../components/Overlays';
 import { cloudEnabled } from '../../lib/supabase';
-import { GROUP_COLORS, copyCode, createGroup, groupError, joinGroup, updateGroup, type Group } from '../../lib/groups';
+import { GROUP_COLORS, copyCode, copyInviteLink, createGroup, groupError, joinGroup, updateGroup, type Group, type GroupKind } from '../../lib/groups';
 import { cx } from '../../lib/utils';
 import { ColorPicker, GroupBadge } from './shared';
-import { groupColor, useGroupWords, useRights } from './util';
+import { KindContext, groupColor, useGroupWords, useRights } from './util';
 import GroupNotes from './GroupNotes';
 import GroupEvents from './GroupEvents';
 import GroupMembers from './GroupMembers';
@@ -24,9 +24,13 @@ const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: 'revisions', label: 'Révisions', icon: CalendarClock },
   { id: 'membres', label: 'Membres', icon: Users },
 ];
+// A shared calendar: its events and its members, nothing else.
+const AGENDA_TABS = TABS.filter(t => t.id === 'revisions' || t.id === 'membres');
+const spacePath = (kind: GroupKind) => (kind === 'agenda' ? '/agendas' : '/groupes');
 
 function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group) => void }) {
   const w = useGroupWords();
+  const kind = useContext(KindContext);
   const [name, setName] = useState(group?.name ?? '');
   const [color, setColor] = useState<string>(group?.color ?? GROUP_COLORS[0]);
   const [busy, setBusy] = useState(false);
@@ -40,7 +44,7 @@ function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group) => vo
         await useGroups.getState().loadGroups();
         onDone(group);
       } else {
-        const g = await createGroup(name.trim(), color);
+        const g = await createGroup(name.trim(), color, kind);
         await useGroups.getState().loadGroups();
         toast(w.created, 'success');
         onDone(g);
@@ -53,7 +57,7 @@ function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group) => vo
   return (
     <form onSubmit={submit}>
       <h3 className="text-[15px] font-semibold">{group ? `Paramètres ${w.of}` : `Créer ${w.a}`}</h3>
-      {!group && <p className="mt-1 text-[13px] text-stone-500">Tu recevras un code à donner à {w.mates} pour qu’ils te rejoignent.</p>}
+      {!group && <p className="mt-1 text-[13px] text-stone-500">Tu recevras un lien d’invitation à envoyer à {w.mates}.</p>}
       <label className="eyebrow mt-4 block" htmlFor="group-name">Nom</label>
       <input id="group-name" autoFocus value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder={w.namePlaceholder} className="field mt-1.5 w-full" />
       <p className="eyebrow mt-4">Couleur</p>
@@ -146,20 +150,24 @@ function OfflineNotice() {
   );
 }
 
-export default function GroupsPage() {
-  if (!cloudEnabled) return <OfflineNotice />;
-  return <Groups />;
+export default function GroupsPage({ kind = 'groupe' }: { kind?: GroupKind }) {
+  return <KindContext.Provider value={kind}>{cloudEnabled ? <Groups /> : <OfflineNotice />}</KindContext.Provider>;
 }
 
 function Groups() {
   const w = useGroupWords();
   const [params, setParams] = useSearchParams();
   const userId = useAuth(s => s.user?.id);
-  const { groups, loaded, failed } = useGroups();
+  const kind = useContext(KindContext);
+  const navigate = useNavigate();
+  const { groups: all, loaded, failed } = useGroups();
+  // Work groups and shared calendars share their machinery, never their screen.
+  const groups = all.filter(g => g.kind === kind);
+  const tabs = kind === 'agenda' ? AGENDA_TABS : TABS;
   const [dialog, setDialog] = useState<'create' | 'join' | 'settings' | null>(null);
 
   const gid = params.get('g');
-  const tab = (TABS.find(t => t.id === params.get('onglet'))?.id ?? 'notes') as Tab;
+  const tab = (tabs.find(t => t.id === params.get('onglet'))?.id ?? tabs[0].id) as Tab;
   const unread = useGroupActivity(s => s.unread);
   const tabNews = gid ? (unread[gid]?.[tab as 'notes'] ?? 0) : 0;
   useEffect(() => {
@@ -180,14 +188,35 @@ function Groups() {
     useGroups.getState().open(active?.id ?? null);
   }, [active?.id]);
 
-  // Groupe quitté / supprimé par quelqu'un d'autre : retour à la liste.
+  // Groupe quitté / supprimé par quelqu'un d'autre : retour à la liste. Un agenda ouvert depuis les groupes
+  // (ou l'inverse, après un code) : dans son espace.
+  const elsewhere = all.find(g => g.id === gid && g.kind !== kind);
   useEffect(() => {
-    if (loaded && gid && !active) {
-      setParams({}, { replace: true });
-    }
-  }, [loaded, gid, active, setParams]);
+    if (elsewhere) navigate(`${spacePath(elsewhere.kind)}?g=${elsewhere.id}`, { replace: true });
+    else if (loaded && gid && !active) setParams({}, { replace: true });
+  }, [loaded, gid, active, elsewhere, kind, navigate, setParams]);
 
-  const go = (id: string | null, t: Tab = 'notes') => setParams(id ? (t === 'notes' ? { g: id } : { g: id, onglet: t }) : {});
+  const go = (id: string | null, t: Tab = tabs[0].id) => setParams(id ? (t === tabs[0].id ? { g: id } : { g: id, onglet: t }) : {});
+
+  // Invitation link (…?rejoindre=CODE): joins, then opens it.
+  const invite = params.get('rejoindre');
+  const joining = useRef(false);
+  useEffect(() => {
+    if (!invite || !loaded || joining.current) return;
+    joining.current = true;
+    void joinGroup(invite)
+      .then(async id => {
+        if (!id) return toast('Ce lien d’invitation ne marche plus : demande-en un nouveau.', 'error');
+        await useGroups.getState().loadGroups();
+        toast(`Tu as rejoint ${useGroups.getState().groups.find(g => g.id === id)?.name ?? w.the}`, 'success');
+        setParams({ g: id }, { replace: true });
+      })
+      .catch(e => toast(groupError(e), 'error'))
+      .finally(() => {
+        joining.current = false;
+        if (new URLSearchParams(location.search).has('rejoindre')) setParams({}, { replace: true });
+      });
+  }, [invite, loaded, setParams, w.the]);
 
   const sorted = [...groups].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
@@ -266,7 +295,12 @@ function Groups() {
                   </button>
                 )}
               </div>
-              {rights.canEdit && (
+              {code && (
+                <button className="btn-secondary h-8 px-3" onClick={() => void copyInviteLink(code, kind)} title="Copier le lien d’invitation">
+                  <Link2 size={14} /> Inviter
+                </button>
+              )}
+              {rights.canEdit && kind === 'groupe' && (
                 <ShareButton
                   group={active}
                   onNote={id => setParams({ g: active.id, note: id })}
@@ -280,7 +314,7 @@ function Groups() {
               )}
             </div>
             <div className="flex gap-1 border-b border-stone-200" role="tablist">
-              {TABS.map(t => (
+              {tabs.map(t => (
                 <button
                   key={t.id}
                   role="tab"
@@ -313,7 +347,7 @@ function Groups() {
           <div className="card flex flex-1 flex-col items-center justify-center p-8 text-center">
             <Users size={28} strokeWidth={1.5} className="text-stone-300" />
             <p className="mt-3 text-[14px] font-medium">Choisis {w.a}</p>
-            <p className="mt-1 text-[13px] text-stone-500">Ses notes partagées, ses {w.meet.many} et ses membres s’affichent ici.</p>
+            <p className="mt-1 text-[13px] text-stone-500">{kind === 'agenda' ? 'Ses événements et ses membres s’affichent ici.' : `Ses notes partagées, ses ${w.meet.many} et ses membres s’affichent ici.`}</p>
           </div>
         )}
       </section>
