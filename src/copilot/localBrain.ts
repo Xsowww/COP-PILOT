@@ -223,7 +223,8 @@ function moreCommands(input: string, q: string): BotReply | null {
   }
 
   // ── Focus ──
-  if (/(arrete|stoppe|stop|termine|coupe)\s+(la |ma )?(session|pomodoro|focus|minuteur)/.test(q)) {
+  // « stop » alone too (outside a quiz, which handles its own « stop » first).
+  if (/(arrete|stoppe|stop|termine|coupe)\s+(la |ma )?(session|pomodoro|focus|minuteur)|^(stop|stoppe|arrete)\s*!?$/.test(q)) {
     const res = stopFocus();
     return { text: res ? 'Session arrêtée. Pense à faire une vraie pause.' : 'Il n’y a pas de session en cours.' };
   }
@@ -392,11 +393,15 @@ export function localReply(raw: string): BotReply {
   if (m) {
     const subject = m[1] ? unquote(m[1]) : '';
     const folder = m[2] && !/^(?:les |mes )?notes$/i.test(m[2]) ? unquote(m[2]) : undefined;
-    const title = `Fiche de révision${subject ? ` — ${subject.charAt(0).toUpperCase() + subject.slice(1)}` : ''}`;
-    const note = createNote(title, '# Notions clés\n- \n# Définitions\n- \n# Formules / dates à retenir\n- \n# Exemples\n- \n# Je me teste\n- ', folder);
+    const studies = (getSettings().usage ?? 'etudes') === 'etudes';
+    const Subject = subject ? ` — ${subject.charAt(0).toUpperCase() + subject.slice(1)}` : '';
+    // Outside studies, a « fiche » is a note to sum something up, not a revision sheet.
+    const note = studies
+      ? createNote(`Fiche de révision${Subject}`, '# Notions clés\n- \n# Définitions\n- \n# Formules / dates à retenir\n- \n# Exemples\n- \n# Je me teste\n- ', folder)
+      : createNote(`Fiche${Subject}`, '# L’essentiel\n- \n# Points clés\n- \n# À retenir\n- \n# À faire\n[ ] ', folder);
     return {
       text: `C’est fait : « ${note.title} »${folder ? ` dans le dossier « ${folder} »` : ''}, avec un plan prêt à remplir. (Avec l’IA, je peux aussi la remplir pour toi.)`,
-      links: [{ label: 'Ouvrir la fiche', to: linkToNote(note.id) }],
+      links: [{ label: studies ? 'Ouvrir la fiche' : 'Ouvrir la note', to: linkToNote(note.id) }],
     };
   }
 
@@ -528,7 +533,12 @@ export function localReply(raw: string): BotReply {
     return {
       text: `J’ai trouvé ${hits.length} résultat${hits.length > 1 ? 's' : ''} pour « ${term} » :\n${hits.map(h => `• ${h.title} (${h.type}) — ${h.where}`).join('\n')}`,
       // Two hits with the same name (the sessions of a plan, a note in two folders): their day or place tells them apart.
-      links: hits.slice(0, 4).map(h => ({ label: h.type === 'événement' || hits.filter(x => x.title === h.title).length > 1 ? `${h.title} · ${h.where}` : h.title, to: h.to })),
+      links: hits.slice(0, 4).map((h, _i, shown) => {
+        const label = h.type === 'événement' || hits.filter(x => x.title === h.title).length > 1 ? `${h.title} · ${h.where}` : h.title;
+        // Still the same (two notes of the same name in one folder): numbered.
+        const same = shown.filter(x => x.title === h.title && x.where === h.where);
+        return { label: same.length > 1 ? `${label} (${same.indexOf(h) + 1})` : label, to: h.to };
+      }),
     };
   }
 
@@ -556,7 +566,7 @@ export function localReply(raw: string): BotReply {
   if (/^(salut|bonjour|hello|hey|yo|coucou|bonsoir|wesh|cc)\b/.test(q)) {
     return { text: pick(['Salut ! 👋 Je surveillais ton écran, tout roule ?', 'Hey ! Besoin d’un coup de main ?', 'Coucou 😄 Qu’est-ce que je peux faire pour toi ?']) };
   }
-  if (/(merci|super|genial|top|parfait|nickel)/.test(q)) return { text: pick(['Avec plaisir 😎', 'Toujours là pour toi !', 'De rien, je retourne me cacher derrière l’écran 👀']) };
+  if (/\b(merci|super|genial|top|parfait|nickel)\b/.test(q)) return { text: pick(['Avec plaisir 😎', 'Toujours là pour toi !', 'De rien, je retourne me cacher derrière l’écran 👀']) };
   if (/(qui es[- ]tu|t'es qui|c'est quoi ton nom|presente)/.test(q)) {
     return { text: 'Moi c’est Kompaly 🤖 Je vis sur le bord de ton écran. Je peux chercher tes fichiers, analyser ton calendrier, créer des notes, des dossiers et des événements. Demande-moi !' };
   }
@@ -566,5 +576,8 @@ export function localReply(raw: string): BotReply {
   }
 
   const ex = EXAMPLES[getSettings().usage] ?? EXAMPLES.etudes;
+  if (/^(aide|help|au secours|\?+|(que|qu'est[- ]ce que) (sais|peux)[- ]tu faire|tu sais faire quoi|tu (sers|peux servir) a quoi)\s*\??$/.test(q)) {
+    return { text: `Voilà ce que je sais faire sans IA :\n${ex.map(e => `- ${e}`).join('\n')}` };
+  }
   return { text: `Je n’ai pas tout compris. Voilà ce que je sais faire sans IA :\n${ex.map(e => `- ${e}`).join('\n')}` };
 }

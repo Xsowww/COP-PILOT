@@ -53,6 +53,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         e.preventDefault();
         // Not from behind an open dialog (file preview…): its results would sit under the dimmed backdrop.
         if (document.querySelector('[aria-modal="true"]')) return;
+        if (document.activeElement !== inputRef.current) before.current = document.activeElement as HTMLElement | null;
         inputRef.current.focus();
         inputRef.current.select();
       }
@@ -61,11 +62,18 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Keyboard users: back where they were after Échap, on the page content after a result (not on <body>).
+  const before = useRef<HTMLElement | null>(null);
+  const leave = (to: HTMLElement | null) => {
+    inputRef.current?.blur();
+    if (!onDone) setTimeout(() => (to?.isConnected ? to : document.getElementById('contenu'))?.focus(), 0);
+  };
+
   const go = (hit: SearchHit) => {
     navigate(hit.to);
     setQ('');
     setOpen(false);
-    inputRef.current?.blur();
+    leave(null);
     onDone?.(false);
   };
 
@@ -92,7 +100,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
           if (e.key === 'Enter' && hits[active]) go(hits[active]);
           if (e.key === 'Escape') {
             setQ('');
-            inputRef.current?.blur();
+            leave(before.current);
             onDone?.(true);
           }
         }}

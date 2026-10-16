@@ -9,7 +9,7 @@ import { parseQuickAdd, toKey, weekStart } from '../lib/dates';
 /** Asking what is planned (not asking to plan something). */
 const ASKING = /(qu'?est[- ]ce que j'ai|j'ai quoi|je fais quoi|on fait quoi|j'ai (?:de )?prevu quoi|c'est quoi (?:mon|le) (?:programme|planning)|(?:mon|le) programme|(?:mon|le) planning|qu'?est[- ]ce qui est prevu|qu'?est[- ]ce qu'il y a|il y a quoi|quoi de prevu|au menu|prevu)/;
 const BARE_DAY = /^(?:et\s+)?(?:aujourd'hui|demain|apres[- ]demain|(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)(?: prochain)?)\s*\??$/;
-const BARE_PERIOD = /^(?:et\s+)?(?:ce |le )?(?:week-?end|weekend|semaine)(?: prochaine?)?\s*\??$/;
+const BARE_PERIOD = /^(?:et\s+)?(?:ce |le |la |cette )?(?:week-?end|weekend|semaine)(?: prochaine?)?\s*\??$/;
 
 const clean = (input: string) => normalize(input).replace(/[’‘]/g, "'");
 

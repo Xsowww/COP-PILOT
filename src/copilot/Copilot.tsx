@@ -352,7 +352,7 @@ export default function Copilot() {
               <div key={m.id} className={cx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                 <div
                   className={cx(
-                    'group relative max-w-[88%] rounded-2xl px-3 py-2 text-[13px] leading-[1.55]',
+                    'group relative min-w-0 max-w-[88%] rounded-2xl px-3 py-2 text-[13px] leading-[1.55] [overflow-wrap:anywhere]',
                     m.role === 'user' ? 'whitespace-pre-line rounded-br-md bg-inverse text-on-inverse' : 'rounded-bl-md bg-stone-100 text-stone-800',
                   )}
                 >

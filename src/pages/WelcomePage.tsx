@@ -29,7 +29,7 @@ const TIMES = [
 
 const TIME_QUESTION: Record<Usage, string> = {
   etudes: 'Quand révises-tu le mieux\u00a0?',
-  travail: 'Quand es-tu le plus concentré\u00a0?',
+  travail: 'Quand te concentres-tu le mieux\u00a0?',
   perso: 'Quand as-tu du temps pour toi\u00a0?',
 };
 
@@ -182,7 +182,7 @@ export default function WelcomePage() {
           )}
 
           {step === 5 && (
-            <Question title={TIME_QUESTION[a.usage]} hint={<>Kompaly placera tes séances de travail à ce <span className="whitespace-nowrap">moment-là</span>.</>}>
+            <Question title={TIME_QUESTION[a.usage]} hint={<>Kompaly placera {a.usage === 'perso' ? 'tes moments pour avancer' : a.usage === 'travail' ? 'tes créneaux de travail' : 'tes séances de révision'} à ce <span className="whitespace-nowrap">moment-là</span>.</>}>
               {TIMES.map(t => (
                 <button
                   key={t.value}

@@ -160,7 +160,7 @@ function ProfileTab() {
           <div className="min-w-0 flex-1">
             <p className="break-words text-[18px] font-semibold tracking-tight">{user.name}</p>
             <p className="text-[13px] text-stone-500 [overflow-wrap:anywhere]">
-              {user.email} · inscrit le {fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0')}
+              {user.email} · inscription le {fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0')}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {AVATAR_COLORS.map((c, i) => (

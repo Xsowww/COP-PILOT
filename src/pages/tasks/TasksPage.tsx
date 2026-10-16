@@ -53,7 +53,7 @@ function WorkTime() {
         </div>
 
         {sessions.length === 0 ? (
-          <p className="mt-3 text-[13px] text-stone-500">Lance une session focus pour suivre ton temps par sujet.</p>
+          <p className="mt-3 text-[13px] text-stone-500">Lance une session focus pour suivre ton temps par {subject}.</p>
         ) : (
           <div className="mt-3">
             <p className="eyebrow mb-1">7 derniers jours</p>
