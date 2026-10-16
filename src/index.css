@@ -13,6 +13,8 @@
   --color-surface: #ffffff;
   /* A touch darker than Tailwind's stone-500 so secondary text stays above 4.5:1 on stone-100. */
   --color-stone-500: #716a64;
+  /* Error texts: Tailwind's red-600 was 4.45:1 on the page background, just under 4.5:1. */
+  --color-red-600: #cf1d16;
 
   /* Accent: applyAppearance() sets the --accent-* variables. */
   --color-brand-50: var(--accent-50, #eef2fd);
@@ -216,7 +218,7 @@ body {
   @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-stone-500 transition-colors outline-none hover:bg-stone-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-focus;
 }
 @utility field {
-  @apply h-9 rounded-lg border border-stone-200 bg-surface px-3 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-400 focus:border-focus focus:ring-1 focus:ring-focus pointer-coarse:min-h-9;
+  @apply h-9 rounded-lg border border-stone-200 bg-surface px-3 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-500 focus:border-focus focus:ring-1 focus:ring-focus pointer-coarse:min-h-9;
 }
 @utility eyebrow {
   @apply text-[12px] font-medium text-stone-500;

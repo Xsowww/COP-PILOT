@@ -100,7 +100,7 @@ export default function WelcomePage() {
             ) : (
               <span className="-ml-2 h-8 w-8 shrink-0" aria-hidden />
             )}
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-100" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step + 1} aria-label={`Question ${step + 1} sur ${STEPS}`}>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-200" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step + 1} aria-label={`Question ${step + 1} sur ${STEPS}`}>
               <div className="h-full rounded-full bg-brand-500 transition-[width] duration-300" style={{ width: `${((step + 1) / STEPS) * 100}%` }} />
             </div>
             <span className="tabular text-[12px] text-stone-500">{step + 1}/{STEPS}</span>
@@ -139,11 +139,11 @@ export default function WelcomePage() {
             <Question title={a.usage === 'etudes' ? 'Où étudies-tu\u00a0?' : a.usage === 'travail' ? 'Où travailles-tu\u00a0?' : 'Un peu plus sur toi'} hint="Facultatif&nbsp;: Kompaly s’en sert pour mieux t’aider.">
               <label className="block text-[13px] font-medium">
                 {words.school}
-                <input className="field mt-1 h-10 w-full" value={a.school} placeholder={words.schoolHint} onChange={e => set({ school: e.target.value }, false)} />
+                <input className="field mt-1 h-10 w-full" value={a.school} placeholder={words.schoolHint} onChange={e => set({ school: e.target.value }, false)} onKeyDown={e => e.key === 'Enter' && go(3)} />
               </label>
               <label className="block text-[13px] font-medium">
                 {words.program}
-                <input className="field mt-1 h-10 w-full" value={a.program} placeholder={words.programHint} onChange={e => set({ program: e.target.value }, false)} />
+                <input className="field mt-1 h-10 w-full" value={a.program} placeholder={words.programHint} onChange={e => set({ program: e.target.value }, false)} onKeyDown={e => e.key === 'Enter' && go(3)} />
               </label>
               <button type="button" className="btn-primary mt-2 w-full" onClick={() => go(3)}>
                 {a.school || a.program ? 'Continuer' : 'Passer'}

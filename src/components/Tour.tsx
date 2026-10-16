@@ -169,7 +169,7 @@ export default function Tour() {
   }
 
   return (
-    <div ref={rootRef} className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div ref={rootRef} className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-text">
       {rect ? (
         <div
           className="pointer-events-none absolute rounded-lg transition-all duration-300"
@@ -184,10 +184,13 @@ export default function Tour() {
           <p className="tabular text-[11px] font-medium text-stone-500">
             {step + 1} / {STEPS.length}
           </p>
-          <h2 id="tour-title" className="mt-1 text-[15px] font-semibold">
-            {current.title}
-          </h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-stone-600">{current.text(usage, isTouch())}</p>
+          {/* Read out at each step: the focus stays on « Suivant », so nothing else would announce it. */}
+          <div aria-live="polite" aria-atomic="true">
+            <h2 id="tour-title" className="mt-1 text-[15px] font-semibold">
+              {current.title}
+            </h2>
+            <p id="tour-text" className="mt-1 text-[13px] leading-relaxed text-stone-600">{current.text(usage, isTouch())}</p>
+          </div>
           <div className="mt-4 flex items-center gap-2">
             {!last && (
               <button type="button" onClick={endTour} className="hit text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">

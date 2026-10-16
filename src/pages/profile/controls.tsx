@@ -63,7 +63,8 @@ export function Segmented<T extends string | number>({ value, options, onChange,
 export function Stepper({ value, min, max, onChange, suffix, label }: { value: number; min: number; max: number; onChange: (v: number) => void; suffix?: string; label: string }) {
   return (
     <div className="flex h-9 items-center rounded-lg border border-stone-200 bg-surface shadow-card pointer-coarse:h-10" role="group" aria-label={label}>
-      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink disabled:opacity-30 pointer-coarse:w-10" disabled={value <= min} onClick={() => onChange(value - 1)} aria-label={`${label}\u00a0: moins`}>
+      {/* aria-disabled, not disabled: a disabled button would drop the keyboard focus at the end of the range. */}
+      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value <= min} onClick={() => value > min && onChange(value - 1)} aria-label={`${label}\u00a0: moins`}>
         <Minus size={13} />
       </button>
       {/* Announced after each change (the button keeps the focus). */}
@@ -71,7 +72,7 @@ export function Stepper({ value, min, max, onChange, suffix, label }: { value: n
         {value}
         {suffix && <span className="font-normal text-stone-500"> {suffix}</span>}
       </span>
-      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink disabled:opacity-30 pointer-coarse:w-10" disabled={value >= max} onClick={() => onChange(value + 1)} aria-label={`${label}\u00a0: plus`}>
+      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value >= max} onClick={() => value < max && onChange(value + 1)} aria-label={`${label}\u00a0: plus`}>
         <Plus size={13} />
       </button>
     </div>

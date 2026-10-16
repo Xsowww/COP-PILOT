@@ -21,9 +21,9 @@ function Showcase() {
   return (
     <div className="relative flex h-full flex-col justify-center overflow-hidden px-14">
       <div className="max-w-[440px]">
-        <p className="eyebrow">Pour les étudiants</p>
+        <p className="eyebrow">Études, travail, vie perso</p>
         <h2 className="mt-2 text-[28px] font-semibold leading-[1.15] tracking-[-0.02em]">
-          Tes cours, ton planning et tes fichiers, enfin au même endroit.
+          Ton agenda, tes notes et tes fichiers, enfin au même endroit.
         </h2>
         <p className="mt-3 text-[14px] leading-relaxed text-stone-500">Un espace calme pour t’organiser, et Kompaly pour te rappeler ce qui compte.</p>
       </div>
@@ -74,7 +74,7 @@ function Showcase() {
       {/* Kompaly peeking from the edge, under the preview (never over it) */}
       <div className="-mr-14 mt-6 flex items-center justify-end gap-1">
         <div className="pop mb-6 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop" style={{ animationDelay: '600ms' }}>
-          Psst. Ton partiel est dans 4 jours, on cale des révisions&nbsp;?
+          Psst. Ton partiel est dans 4&nbsp;jours, on cale des révisions&nbsp;?
         </div>
         <Character pose="peek" look={{ x: -0.9, y: -0.2 }} mood="happy" size={104} />
       </div>
