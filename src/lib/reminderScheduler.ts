@@ -59,6 +59,7 @@ function sources(): ReminderSource[] {
       title: e.title,
       date: e.date,
       time: e.start,
+      end: e.end,
       done: e.done,
       // Events made before reminders existed: the usual reminder, if they have a time.
       reminders: eventReminders(e, defaults),

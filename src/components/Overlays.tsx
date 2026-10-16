@@ -314,7 +314,8 @@ export function ReminderAlerts() {
                 {a.at && <time className="tabular">{new Date(a.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time>}
               </p>
               <p className="mt-1 line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{a.title}</p>
-              {a.body && <p className="mt-0.5 text-[13px] leading-snug text-stone-600">{a.body}</p>}
+              {/* Line 1: when; line 2 (« Agenda · Kompaly »): the system notification's, the card already says it */}
+              {a.body && <p className="mt-0.5 text-[13px] leading-snug text-stone-600">{a.body.split('\n')[0]}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 border-t border-stone-100 text-[13px] font-medium">

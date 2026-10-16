@@ -190,7 +190,7 @@ async function pushTest(req) {
   }
   const s = { endpoint: sub?.endpoint, p256dh: sub?.keys?.p256dh, auth: sub?.keys?.auth };
   if (!pushEndpointOk(s.endpoint) || typeof s.p256dh !== 'string' || typeof s.auth !== 'string') return [400, { error: 'appareil inconnu' }];
-  const go = () => send(s, { title: 'Kompaly', body: 'Les notifications fonctionnent sur cet appareil.', url: '/profil?onglet=notifications', tag: 'test', test: true }, 300);
+  const go = () => send(s, { title: 'Notifications activées', body: 'Tes rappels Kompaly arriveront ici, même site fermé.\nEssai · Kompaly', url: '/profil?onglet=notifications', tag: 'test', test: true }, 300);
   const wait = Math.min(Math.max(Number(delay) || 0, 0), 30) * 1000;
   if (wait) {
     setTimeout(go, wait).unref();

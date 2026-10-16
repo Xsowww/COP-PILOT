@@ -22,6 +22,7 @@ import { chime, showSystemNotification } from '../../lib/notify';
 import { deviceState, disableDevice, enableDevice, pushActive, sendTestPush } from '../../lib/push';
 import { devicePushChanged } from '../../lib/reminderScheduler';
 import { TIMED_OPTIONS } from '../../lib/reminders';
+import { install, installed, macSafari, useInstallOffer } from '../../lib/install';
 import { formatBytes, stripHtml, cx } from '../../lib/utils';
 import { fmt, todayKey } from '../../lib/dates';
 import Avatar from '../../components/Avatar';
@@ -624,6 +625,7 @@ function NotificationsTab() {
   const [state, setState] = useState(deviceState);
   const [push, setPush] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const canInstall = useInstallOffer();
   useEffect(() => {
     let alive = true;
     void pushActive().then(p => alive && setPush(p));
@@ -677,9 +679,25 @@ function NotificationsTab() {
         <Row label="Notifications" hint={hint}>
           {(state === 'on' || state === 'off') && <Toggle label="Notifications sur cet appareil" checked={state === 'on'} onChange={v => !busy && void toggle(v)} />}
         </Row>
+        {!installed() && (canInstall || macSafari()) && (
+          <Row
+            label="Installer Kompaly sur cet appareil"
+            hint={
+              canInstall
+                ? 'Ses notifications porteront alors le nom et le logo de Kompaly (au lieu de ceux du navigateur), et il s’ouvrira dans sa propre fenêtre.'
+                : 'Dans Safari : menu Fichier › Ajouter au Dock. Ses notifications porteront alors le nom et le logo de Kompaly.'
+            }
+          >
+            {canInstall && (
+              <button className="btn-primary h-8" onClick={() => void install().then(ok => ok && toast('Kompaly est installé', 'success'))}>
+                Installer
+              </button>
+            )}
+          </Row>
+        )}
         {state === 'on' && (
           <Row label="Tester" hint={push ? '« Site fermé » : ferme ou quitte Kompaly juste après, la notification arrive 10 secondes plus tard.' : undefined}>
-            <button className="btn-secondary h-8" onClick={() => void showSystemNotification('Kompaly', 'Les notifications fonctionnent sur cet appareil.', 'test', '/profil?onglet=notifications')}>
+            <button className="btn-secondary h-8" onClick={() => void showSystemNotification('Notifications activées', 'Tes rappels Kompaly arriveront ici.\nEssai · Kompaly', 'test', '/profil?onglet=notifications')}>
               <Bell size={14} /> Essayer
             </button>
             {push && (

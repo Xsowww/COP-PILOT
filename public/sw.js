@@ -26,6 +26,24 @@ function shownInPage(windows, data) {
   });
 }
 
+/** Same look as the app's own notifications (src/lib/notify.ts): keep the two in step. */
+function notificationOptions(data) {
+  return {
+    body: data.body || '',
+    tag: data.tag || undefined, // the same reminder from the page and from the server: shown once
+    lang: 'fr',
+    icon: '/icon-192.png', // the Kompaly logo
+    badge: '/notification-badge.png', // Android status bar: one colour, the logo's two circles
+    data: { url: data.url || '/' },
+    timestamp: Date.now(),
+    // Computers and Android (Chrome, Edge): two buttons under the notification; elsewhere a tap opens it.
+    actions: [
+      { action: 'voir', title: 'Voir' },
+      { action: 'ok', title: 'OK' },
+    ],
+  };
+}
+
 self.addEventListener('push', e => {
   let data;
   try {
@@ -38,20 +56,14 @@ self.addEventListener('push', e => {
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       if ((await shownInPage(windows, data)) && inPageAllowed) return;
-      await self.registration.showNotification(title, {
-        body: data.body || '',
-        tag: data.tag || undefined, // the same reminder from the page and from the server: shown once
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
-        data: { url: data.url || '/' },
-        timestamp: Date.now(),
-      });
+      await self.registration.showNotification(title, notificationOptions(data));
     })(),
   );
 });
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  if (e.action === 'ok') return; // « OK » : seen, nothing to open
   const url = new URL(e.notification.data?.url || '/', self.location.origin).href;
   e.waitUntil(
     (async () => {

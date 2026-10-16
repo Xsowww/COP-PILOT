@@ -11,8 +11,10 @@ export async function showSystemNotification(title: string, body: string, tag?: 
   if (!canNotify()) return false;
   try {
     const reg = await serviceWorker();
-    if (reg) await reg.showNotification(title, { body, tag, icon: '/icon-192.png', badge: '/icon-192.png', data: { url } });
-    else new Notification(title, { body, tag, icon: '/icon-192.png' });
+    // Same look as the service worker's (public/sw.js › notificationOptions): logo, badge, « Voir » / « OK ».
+    const options = { body, tag, lang: 'fr', icon: '/icon-192.png', badge: '/notification-badge.png', data: { url }, timestamp: Date.now() };
+    if (reg) await reg.showNotification(title, { ...options, actions: [{ action: 'voir', title: 'Voir' }, { action: 'ok', title: 'OK' }] } as NotificationOptions);
+    else new Notification(title, options);
     return true;
   } catch {
     return false;

@@ -93,6 +93,8 @@ export interface ReminderSource {
   title: string;
   date?: string;
   time?: string;
+  /** End time of an event (HH:mm), shown in the notification. */
+  end?: string;
   done?: boolean;
   reminders?: number[];
 }
@@ -107,23 +109,30 @@ export interface DueReminder {
 }
 
 
-/** « Dans 15 min, à 14h », « Demain à 9h30 », « Aujourd’hui », « Dans 2 jours »… as seen when it fires. */
+const WEEKDAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
+/**
+ * What a notification says under its title, as seen when it fires — line 1: when (« Dans 15 min · 14h – 15h30 »,
+ * « Demain · 9h30 », « À faire aujourd’hui »); line 2: where it comes from (« Agenda · Kompaly »).
+ */
 export function reminderBody(src: ReminderSource, fireAt: Date): string {
   const at = anchorOf(src.date!, src.time);
-  const timed = !!src.time;
   const minutes = Math.round((at.getTime() - fireAt.getTime()) / 60_000);
   const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const days = Math.round((day(at) - day(fireAt)) / 86_400_000);
-  const what = src.kind === 'task' ? 'À faire' : '';
-  if (timed) {
-    if (minutes <= 0) return src.kind === 'task' ? `À faire maintenant (${hhmm(at)})` : `Maintenant, à ${hhmm(at)}`;
-    if (minutes < 60) return `Dans ${minutes} min, à ${hhmm(at)}`;
-    if (days === 0) return `Aujourd’hui à ${hhmm(at)}`;
-    if (days === 1) return `Demain à ${hhmm(at)}`;
-    return `Dans ${days} jours, à ${hhmm(at)}`;
+  const task = src.kind === 'task';
+  const dayName = days <= 0 ? 'aujourd’hui' : days === 1 ? 'demain' : `${WEEKDAY_NAMES[at.getDay()].toLowerCase()} ${at.getDate()} ${MONTHS[at.getMonth()]}`;
+  let when: string;
+  if (src.time) {
+    const end = src.end && /^\d{2}:\d{2}$/.test(src.end) && src.end > src.time ? ` – ${hhmm(anchorOf(src.date!, src.end))}` : '';
+    const hours = `${hhmm(at)}${end}`;
+    const rel = minutes <= 0 ? 'maintenant' : minutes < 60 ? `dans ${minutes} min` : dayName;
+    when = `${task ? 'À faire ' : ''}${rel} · ${hours}`;
+  } else {
+    when = task ? `À faire ${dayName}` : dayName;
   }
-  const when = days <= 0 ? 'aujourd’hui' : days === 1 ? 'demain' : days === 7 ? 'dans une semaine' : `dans ${days} jours`;
-  return what ? `${what} ${when}` : when.charAt(0).toUpperCase() + when.slice(1);
+  const line1 = when.charAt(0).toUpperCase() + when.slice(1);
+  return `${line1}\n${task ? 'Tâches' : 'Agenda'} · Kompaly`;
 }
 
 /** The reminders still to come, from now up to `horizonDays`, soonest first. */

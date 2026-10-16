@@ -19,9 +19,9 @@ describe('rappels', () => {
   it('plusieurs rappels sur un même événement, dans l’ordre', () => {
     const r = upcomingReminders([{ kind: 'event', id: 'e1', title: 'Réunion client', date: '2026-10-16', time: '14:00', reminders: [60, 15, 0] }], now);
     expect(r.map(x => `${x.fireAt.getHours()}:${x.fireAt.getMinutes()}`)).toEqual(['13:0', '13:45', '14:0']);
-    expect(r[0].body).toBe('Aujourd’hui à 14h');
-    expect(r[1].body).toBe('Dans 15 min, à 14h');
-    expect(r[2].body).toBe('Maintenant, à 14h');
+    expect(r[0].body).toBe('Aujourd’hui · 14h\nAgenda · Kompaly');
+    expect(r[1].body).toBe('Dans 15 min · 14h\nAgenda · Kompaly');
+    expect(r[2].body).toBe('Maintenant · 14h\nAgenda · Kompaly');
     expect(r[0].url).toBe('/calendrier?jour=2026-10-16');
   });
 
@@ -43,8 +43,8 @@ describe('rappels', () => {
       [17, 18],
       [18, 9],
     ]);
-    expect(r[0].body).toBe('À faire demain');
-    expect(r[1].body).toBe('À faire aujourd’hui');
+    expect(r[0].body).toBe('À faire demain\nTâches · Kompaly');
+    expect(r[1].body).toBe('À faire aujourd’hui\nTâches · Kompaly');
     expect(r[0].url).toBe('/taches');
   });
 
@@ -60,7 +60,9 @@ describe('rappels', () => {
     expect(reminderLabel(15, true)).toBe('15 min avant');
     expect(reminderLabel(900, false)).toBe('La veille, 18 h');
     expect(reminderLabel(180, true)).toBe('3 h avant');
-    expect(reminderBody({ kind: 'event', id: 'e', title: 'X', date: '2026-10-23' }, new Date(2026, 9, 16, 9, 0))).toBe('Dans une semaine');
+    expect(reminderBody({ kind: 'event', id: 'e', title: 'X', date: '2026-10-23' }, new Date(2026, 9, 16, 9, 0))).toBe('Vendredi 23 oct.\nAgenda · Kompaly');
+    expect(reminderBody({ kind: 'event', id: 'e', title: 'X', date: '2026-10-16', time: '14:00', end: '15:30' }, new Date(2026, 9, 16, 13, 45))).toBe('Dans 15 min · 14h – 15h30\nAgenda · Kompaly');
+    expect(reminderBody({ kind: 'task', id: 't', title: 'X', date: '2026-10-17', time: '09:30' }, new Date(2026, 9, 16, 18, 0))).toBe('À faire demain · 9h30\nTâches · Kompaly');
   });
 
   it('rappel personnalisé : le moment choisi, ou la durée', () => {
