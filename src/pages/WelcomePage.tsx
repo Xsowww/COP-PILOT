@@ -16,7 +16,7 @@ const NEEDS = (usage: Usage) => [
   { key: 'notes', label: 'Prendre et ranger mes notes' },
   { key: 'taches', label: 'Suivre mes tâches' },
   { key: 'equipe', label: usage === 'travail' ? 'Travailler en équipe' : 'Travailler à plusieurs' },
-  { key: 'ia', label: 'Être aidé par une IA' },
+  { key: 'ia', label: 'Me faire aider par une IA' },
 ];
 
 
@@ -182,7 +182,13 @@ export default function WelcomePage() {
           )}
 
           {step === 5 && (
-            <Question title={TIME_QUESTION[a.usage]} hint={<>Kompaly placera {a.usage === 'perso' ? 'tes moments pour avancer' : a.usage === 'travail' ? 'tes créneaux de travail' : 'tes séances de révision'} à ce <span className="whitespace-nowrap">moment-là</span>.</>}>
+            <Question title={TIME_QUESTION[a.usage]} hint={
+                a.usage === 'perso' ? (
+                  'Kompaly te proposera ce créneau pour avancer sur tes projets.'
+                ) : (
+                  <>Kompaly placera {a.usage === 'travail' ? 'tes créneaux de travail' : 'tes séances de révision'} à ce <span className="whitespace-nowrap">moment-là</span>.</>
+                )
+              }>
               {TIMES.map(t => (
                 <button
                   key={t.value}

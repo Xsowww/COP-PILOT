@@ -38,7 +38,7 @@ export function TagPill({ tag, active, onClick, onRemove, size = 'sm' }: { tag: 
             e.stopPropagation();
             onRemove();
           }}
-          className="-my-1 -mr-1.5 flex h-6 w-6 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-ink"
+          className="hit-sm -my-1 -mr-1.5 flex h-6 w-6 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-ink pointer-coarse:h-9 pointer-coarse:w-9"
         >
           <X size={11} />
         </button>

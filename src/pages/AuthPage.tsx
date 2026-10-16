@@ -158,7 +158,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         const user = await register(name, email, password);
         if (!user) {
           setInfo(
-            `Presque fini ! Un e-mail vient de partir à ${email.trim()}. Ouvre-le sur cet ordinateur (en laissant ce site ouvert) et clique sur le lien : tu seras connecté automatiquement.`,
+            `Presque fini ! Un e-mail vient de partir à ${email.trim()}. Ouvre-le sur cet ordinateur (en laissant ce site ouvert) et clique sur le lien : la connexion se fera automatiquement.`,
           );
           setCanResend(true);
           setPassword('');
@@ -296,7 +296,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                 <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>
                   Rester connecté sur cet appareil
-                  <span className="block text-[11.5px] text-stone-500">Décoche sur un ordinateur partagé : tu seras déconnecté en fermant l’onglet.</span>
+                  <span className="block text-[11.5px] text-stone-500">Décoche sur un ordinateur partagé : la session se fermera avec l’onglet.</span>
                 </span>
               </label>
             )}
@@ -343,7 +343,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             </button>
 
             <p className="mt-6 text-center text-[13px] text-stone-500">
-              {mode === 'login' ? 'Pas encore de compte ?' : mode === 'register' ? 'Déjà inscrit ?' : null}{' '}
+              {mode === 'login' ? 'Pas encore de compte ?' : mode === 'register' ? 'Déjà un compte ?' : null}{' '}
               <Link to={mode === 'login' ? '/inscription' : '/connexion'} className="hit font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink">
                 {mode === 'login' ? 'Créer un compte' : mode === 'register' ? 'Se connecter' : 'Retour à la connexion'}
               </Link>

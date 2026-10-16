@@ -200,8 +200,11 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
   useEffect(() => {
     const el = ref.current;
     if (el) {
+      // Always on screen, 8 px from the edges (a keyboard opening could give x = 0 or less). Measured
+      // at its widest (no right edge squeezing it), else it grows once moved and touches the edge.
+      el.style.left = '0px';
       const r = el.getBoundingClientRect();
-      // Always on screen, 8 px from the edges (a keyboard opening could give x = 0 or less).
+      el.style.left = '';
       setPos({ x: Math.max(8, Math.min(x, window.innerWidth - r.width - 8)), y: Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) });
     }
     const close = () => closeRef.current();

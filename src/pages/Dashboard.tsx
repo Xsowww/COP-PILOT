@@ -6,7 +6,7 @@ import { ArrowUpRight, CalendarDays, Check, Plus } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
 import { useCalendar, catOf, sortEvents, type CalendarEvent } from '../store/calendar';
-import { fmt, toKey, fromKey, weekStart, daysUntil } from '../lib/dates';
+import { fmt, toKey, fromKey, weekStart, daysUntil, hasStarted } from '../lib/dates';
 import { relativeTime, stripHtml, cx } from '../lib/utils';
 import { hasRevisionPlan, revisionNote, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
@@ -62,6 +62,7 @@ const preloadNotes = () => void import('./notes/NotesPage');
 
 export default function Dashboard() {
   const words = WORDS[useSettings(st => st.usage)] ?? WORDS.etudes;
+  const revisionTime = useSettings(st => st.revisionTime) || '18:00';
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
   const { notes, folders } = useNotes();
@@ -109,6 +110,9 @@ export default function Dashboard() {
   const examSheet = nextExam && notes.length ? revisionNote(nextExam) : undefined;
 
   const examDays = nextExam ? daysUntil(nextExam.date) : 0;
+  // Same rule as revisionSlot (copilot/actions): the evening before, once the usual time is gone and less than
+  // 1 h 30 is left before midnight, no session fits any more (also true after a reload, unlike `tooLate`).
+  const noTimeLeft = !!nextExam && (hasStarted(nextExam) || (examDays === 1 && nowTime > revisionTime && nowTime >= '22:30'));
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
@@ -183,12 +187,12 @@ export default function Dashboard() {
                     <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
                       <Check size={13} className="text-emerald-600" /> {words.planned}
                     </p>
-                  ) : examSheet && (examDays === 0 || tooLate === nextExam.id) ? (
-                    // A sheet but no session (today, or just answered « too late »): asking again would only repeat it.
+                  ) : examSheet && (examDays === 0 || tooLate === nextExam.id || noTimeLeft) ? (
+                    // A sheet but no session and no time left for one: asking again would only repeat « Plus le temps… ».
                     <Link to={linkToNote(examSheet.id)} className="btn-secondary h-8 text-[12px]">
                       {words === WORDS.etudes ? 'Ouvrir la fiche' : 'Ouvrir la note'}
                     </Link>
-                  ) : (
+                  ) : hasStarted(nextExam) ? null : (
                     <button onClick={planExam} className="btn-secondary h-8 text-[12px]">
                       {words.plan}
                     </button>

@@ -264,11 +264,13 @@ export default function TrashPage() {
 
   const targetsOf = (id: string) => (selected.has(id) && selectedIds.length > 1 ? selectedIds : [id]);
 
+  // No keyboard shortcuts in the menu on a touch screen (as in the Drive).
+  const keys = !window.matchMedia('(pointer: coarse)').matches;
   const menuItems = (ids: string[]): MenuItem[] => [
-    ...(ids.length === 1 ? [{ label: 'Aperçu', icon: <Eye size={15} />, shortcut: 'Entrée', onClick: () => openPreview(ids[0]) }] : []),
+    ...(ids.length === 1 ? [{ label: 'Aperçu', icon: <Eye size={15} />, shortcut: keys ? 'Entrée' : undefined, onClick: () => openPreview(ids[0]) }] : []),
     { label: ids.length > 1 ? `Restaurer (${ids.length})` : 'Restaurer', icon: <RotateCcw size={15} />, onClick: () => restore(ids) },
     { label: '', divider: true, onClick: () => {} },
-    { label: ids.length > 1 ? `Supprimer définitivement (${ids.length})` : 'Supprimer définitivement', icon: <Trash2 size={15} />, shortcut: 'Suppr', danger: true, onClick: () => void purge(ids) },
+    { label: ids.length > 1 ? `Supprimer définitivement (${ids.length})` : 'Supprimer définitivement', icon: <Trash2 size={15} />, shortcut: keys ? 'Suppr' : undefined, danger: true, onClick: () => void purge(ids) },
   ];
 
   const onListKey = (e: React.KeyboardEvent) => {

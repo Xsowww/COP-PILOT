@@ -389,7 +389,7 @@ export function localReply(raw: string): BotReply {
   }
 
   // ── Revision sheet: « crée une fiche de révision de maths dans le dossier Cours » ──
-  let m = input.match(/(?:cr[ée]e|cr[ée]er|fais|faire|pr[ée]pare|[ée]cris)\s+(?:moi\s+)?(?:une\s+)?(?:petite\s+)?fiche(?:\s+de\s+r[ée]vision)?(?:\s+(?:de|d'|en|sur|pour)\s*(.+?))?(?:\s+dans\s+(?:le\s+dossier\s+)?(.+?))?(?:\s+dans\s+(?:les\s+|mes\s+)?notes)?\s*[.!?]*$/i);
+  let m = input.match(/(?:cr[ée]e|cr[ée]er|fais|faire|pr[ée]pare|[ée]cris)\s+(?:moi\s+)?(?:une\s+)?(?:petite\s+)?fiche(?:\s+de\s+r[ée]vision)?(?:\s+(?:(?:de|d'|en|sur|pour)\s*)?(.+?))?(?:\s+dans\s+(?:le\s+dossier\s+)?(.+?))?(?:\s+dans\s+(?:les\s+|mes\s+)?notes)?\s*[.!?]*$/i);
   if (m) {
     const subject = m[1] ? unquote(m[1]) : '';
     const folder = m[2] && !/^(?:les |mes )?notes$/i.test(m[2]) ? unquote(m[2]) : undefined;
@@ -576,7 +576,8 @@ export function localReply(raw: string): BotReply {
   }
 
   const ex = EXAMPLES[getSettings().usage] ?? EXAMPLES.etudes;
-  if (/^(aide|help|au secours|\?+|(que|qu'est[- ]ce que) (sais|peux)[- ]tu faire|tu sais faire quoi|tu (sers|peux servir) a quoi)\s*\??$/.test(q)) {
+  // A request for help, anywhere in a short sentence (« Aide ! », « aide-moi », « j'ai besoin d'aide », « qu'est-ce que tu sais faire ? »).
+  if (/^\?+$|\b(aide|help|au secours)\b|(sais|peux)[- ]tu faire|tu (sais|peux) faire( quoi)?|tu (sers|peux servir) a quoi/.test(q.replace(/[’‘]/g, "'"))) {
     return { text: `Voilà ce que je sais faire sans IA :\n${ex.map(e => `- ${e}`).join('\n')}` };
   }
   return { text: `Je n’ai pas tout compris. Voilà ce que je sais faire sans IA :\n${ex.map(e => `- ${e}`).join('\n')}` };

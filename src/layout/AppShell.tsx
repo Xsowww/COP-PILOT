@@ -311,6 +311,8 @@ export default function AppShell() {
                 setSearchOpen(false);
                 // Échap: back to the magnifier, not to the top of the page.
                 if (cancelled) searchBtn.current?.focus();
+                // A result opened: on the page content, not on <body>.
+                else setTimeout(() => document.getElementById('contenu')?.focus(), 0);
               }}
             />
           </div>

@@ -301,7 +301,7 @@ export default function DrivePage() {
   const duplicate = useCallback(async (ids: string[]) => {
     if (!ids.length) return;
     await useDrive.getState().duplicate(ids);
-    toast('Copie créée', 'success');
+    toast(ids.length > 1 ? `${ids.length} copies créées` : 'Copie créée', 'success');
   }, []);
 
   const moveTo = useCallback((ids: string[], target: string | null) => {
