@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { KeyRound, X } from 'lucide-react';
-import { forgetAccount, needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
+import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
+import { useAuth } from '../store/auth';
 import { relativeTime } from '../lib/utils';
 
 /**
  * The accounts saved on this device (except `currentId`): a click opens one, the cross forgets it here
- * (the account itself is not touched). `onPick` gets the account; the caller switches or asks for its password.
+ * and ends its kept session (the account itself is not touched). `onPick` gets the account; the caller switches or asks for its password.
  */
 export default function AccountList({ currentId, onPick, busy }: { currentId?: string; onPick: (a: SavedAccount) => void; busy?: string | null }) {
   const [list, setList] = useState(() => savedAccounts().filter(a => a.id !== currentId));
@@ -42,7 +43,7 @@ export default function AccountList({ currentId, onPick, busy }: { currentId?: s
               title="Retirer de cet appareil"
               aria-label={`Retirer le compte ${a.email} de cet appareil`}
               onClick={() => {
-                forgetAccount(a.id);
+                useAuth.getState().removeAccount(a.id);
                 setList(l => l.filter(x => x.id !== a.id));
               }}
             >

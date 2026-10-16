@@ -23,7 +23,7 @@ import { fmt, todayKey } from '../../lib/dates';
 import Avatar from '../../components/Avatar';
 import Character from '../../copilot/Character';
 import { Section, Row, Toggle, Segmented, Stepper } from './controls';
-import { cloudEnabled } from '../../lib/supabase';
+import { cloudEnabled, remembered } from '../../lib/supabase';
 import { getStorageUser } from '../../lib/userStorage';
 import { currentStreak, useBadges } from '../../lib/badges';
 import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
@@ -854,7 +854,16 @@ function AccountTab() {
       </Section>
 
       <Section title="Session">
-        <Row label="Se déconnecter" hint={cloudEnabled ? 'Tes données restent en sécurité dans ton compte.' : 'Tes données restent sur cet appareil, tu les retrouveras en te reconnectant.'}>
+        <Row
+          label="Se déconnecter"
+          hint={
+            !cloudEnabled
+              ? 'Tes données restent sur cet appareil, tu les retrouveras en te reconnectant.'
+              : remembered()
+                ? `Ton compte reste proposé en un clic sur la page de connexion de cet appareil (${STALE_DAYS}\u00a0jours sans l’ouvrir et le mot de passe est redemandé). Pour l’en retirer, utilise la croix à côté de son nom.`
+                : 'Tes données restent en sécurité dans ton compte.'
+          }
+        >
           <button className="btn-secondary h-8" onClick={() => void logout().then(leave)}>
             <LogOut size={14} /> Se déconnecter
           </button>

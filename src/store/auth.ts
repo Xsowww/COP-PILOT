@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { uid, nowIso } from '../lib/utils';
 import { setStorageUser } from '../lib/userStorage';
 import { flushNow, stopSync, updateCloudProfile } from '../lib/cloudSync';
-import { supabase, checkPassword, remembered, authStorageKey } from '../lib/supabase';
+import { supabase, checkPassword, remembered, authStorageKey, revokeSession } from '../lib/supabase';
 import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, needsCredentials } from '../lib/accounts';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -92,6 +92,8 @@ interface AuthState {
   /** Keeps the current account on this device and opens the login page for another one. */
   /** Leaves this account open on the device and goes to the sign-in page (`email`: the saved account to sign in to again). */
   addAccount: (email?: string) => Promise<void>;
+  /** Forgets a saved account on this device and ends its kept session. */
+  removeAccount: (id: string) => void;
   updateName: (name: string) => Promise<void>;
   verifyPassword: (password: string) => Promise<void>;
   changePassword: (current: string, next: string) => Promise<void>;
@@ -189,6 +191,20 @@ async function rememberCurrent(user: User | null) {
   if (s && s.user.id === user.id) rememberAccount({ id: user.id, email: user.email, name: user.name, session: { access_token: s.access_token, refresh_token: s.refresh_token } });
 }
 
+/**
+ * Puts the account in use aside without signOut() (which would end its session for good): its latest tokens
+ * go to the device's list, then this browser forgets which account is open.
+ */
+async function leaveSession(user: User) {
+  if (!supabase) return;
+  // No refresh in between: it would make the saved refresh token an already used one.
+  await supabase.auth.stopAutoRefresh();
+  await rememberCurrent(user);
+  localStorage.removeItem(authStorageKey);
+  sessionStorage.removeItem(authStorageKey);
+  await supabase.auth.startAutoRefresh(); // for the next sign-in on this page
+}
+
 const OWN_SWITCH = 'cop-own-switch';
 
 /** True while this tab itself is signing in (its own SIGNED_IN event must not reload it). */
@@ -219,6 +235,10 @@ export const useAuth = create<AuthState>((set, get) => ({
       }
       return false;
     };
+    // Account put aside in another tab (« Se déconnecter », « Ajouter un compte »): no session here either.
+    window.addEventListener('storage', e => {
+      if (e.key === authStorageKey && e.newValue === null && get().user) location.reload();
+    });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') return;
       void supabase!.auth.getSession().then(async ({ data: d }) => {
@@ -298,21 +318,30 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   async logout() {
-    const userId = get().user?.id;
-    // « Se déconnecter » : still offered on the sign-in page, but with its password only.
-    if (userId) lockAccount(userId);
+    const user = get().user;
+    const userId = user?.id;
     let sent = false;
+    let ended = true;
     if (supabase) {
       sent = await flushNow().catch(() => false);
       stopSync();
-      await supabase.auth.signOut().catch(() => undefined);
+      if (user && !get().mfaStep && remembered()) {
+        // « Rester connecté » : the account stays one click away on the sign-in page (until STALE_DAYS
+        // unused), so its session is kept, not ended. « Retirer de cet appareil » ends it for good.
+        await leaveSession(user);
+        ended = false;
+      } else {
+        // Shared computer (« Rester connecté » unticked) or code not entered yet: the session really ends.
+        if (userId) lockAccount(userId);
+        await supabase.auth.signOut().catch(() => undefined);
+      }
     } else {
-      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY); // the account stays in the device's list
     }
     setStorageUser(null);
     // Ordinateur partagé : tout est sur le serveur, on ne laisse rien de lisible ici.
     // Si l'envoi a échoué, on garde la copie locale pour la prochaine connexion.
-    if (sent && userId) {
+    if (sent && ended && userId) {
       clearLocalCache(userId);
       void import('../lib/textIndex').then(m => m.forgetTextIndex());
     }
@@ -423,17 +452,19 @@ export const useAuth = create<AuthState>((set, get) => ({
     const current = get().user;
     if (supabase) {
       await flushNow().catch(() => false);
-      await rememberCurrent(current);
       stopSync();
-      // Not signOut(): it would end this account's session for good. Only this device forgets which one is open.
-      await supabase.auth.stopAutoRefresh();
-      localStorage.removeItem(authStorageKey);
-      sessionStorage.removeItem(authStorageKey);
+      if (current) await leaveSession(current);
     } else {
       void rememberCurrent(current);
       localStorage.removeItem(SESSION_KEY);
     }
     location.assign(`/connexion?ajout=1${email ? `&email=${encodeURIComponent(email)}` : ''}`);
+  },
+
+  removeAccount(id) {
+    const a = savedAccount(id);
+    forgetAccount(id);
+    if (a?.session) void revokeSession(a.session).catch(() => undefined);
   },
 
   async resendConfirmation(email) {

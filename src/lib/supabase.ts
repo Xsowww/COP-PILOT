@@ -72,6 +72,14 @@ export async function checkPassword(email: string, password: string): Promise<bo
 }
 export const cloudEnabled = supabase !== null;
 
+/** Ends a session kept for an account that is not the one in use (« Retirer de cet appareil »). */
+export async function revokeSession(session: { access_token: string; refresh_token: string }) {
+  if (!url || !key) return;
+  const tmp = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'cop-pilot-revoke' } });
+  const { error } = await tmp.auth.setSession(session);
+  if (!error) await tmp.auth.signOut({ scope: 'local' });
+}
+
 /** Access token of the signed-in user, to authenticate calls to our own server. */
 export async function accessToken(): Promise<string | null> {
   if (!supabase) return null;

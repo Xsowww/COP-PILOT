@@ -81,9 +81,12 @@ export default function Dashboard() {
   // An exam already over today (end, else start, passed) is no longer the next one.
   const nowTime = fmt(now, 'HH:mm');
   // The nearest big day: an exam (deadline, « grand jour ») or any event marked important.
-  const nextExam = events
+  const bigDays = events
     .filter(e => isBigEvent(e) && !e.done && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime)))
-    .sort(sortEvents)[0];
+    .sort(sortEvents);
+  const nextExam = bigDays[0];
+  // The ones after it, smaller: a big day two days later must not stay hidden behind the first.
+  const laterBig = bigDays.slice(1, 3);
   const studies = words === WORDS.etudes;
   // In studies an important event that isn't an exam (job interview…) is no « Prochain examen », nor revised for.
   const notExam = !!nextExam && nextExam.category !== 'examen' && studies;
@@ -174,7 +177,7 @@ export default function Dashboard() {
           <Widget title={notExam ? 'Prochain grand jour' : words.nextBig} className="lg:col-start-2 lg:row-start-1">
             {nextExam ? (
               <div className="flex flex-1 flex-col">
-                <Link to={linkToDay(nextExam.date)} className="group flex items-baseline gap-3">
+                <Link to={linkToDay(nextExam.date)} className="group flex items-center gap-3">
                   <span className={cx('tabular shrink-0 text-[32px] font-semibold leading-none tracking-[-0.03em]', examDays <= 3 ? 'text-[var(--cat-examen-text)]' : 'text-ink')}>
                     {examDays === 0 ? "Auj." : `J-${examDays}`}
                   </span>
@@ -189,6 +192,34 @@ export default function Dashboard() {
                     </span>
                   </span>
                 </Link>
+                {laterBig.length > 0 && (
+                  <div className="mt-3 border-t border-stone-100 pt-3">
+                    <p className="eyebrow mb-1">Ensuite</p>
+                    <ul className="space-y-0.5">
+                      {laterBig.map(e => {
+                        const d = daysUntil(e.date);
+                        return (
+                          <li key={e.id}>
+                            <Link to={linkToDay(e.date)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px]">
+                              <span className={cx('tabular w-9 shrink-0 font-semibold', d <= 3 ? 'text-[var(--cat-examen-text)]' : 'text-stone-600')}>{d === 0 ? 'Auj.' : `J-${d}`}</span>
+                              {e.important && <Flag size={11} className="shrink-0 fill-amber-500 text-amber-500" aria-label="Important" />}
+                              <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
+                              <span className="ml-auto shrink-0 text-[12px] text-stone-500">
+                                {fmt(fromKey(e.date), 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
+                                {e.start && ` · ${e.start}`}
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {bigDays.length > 3 && (
+                      <Link to="/calendrier" className="mt-1 inline-block text-[12px] text-stone-500 hover:text-ink hover:underline">
+                        +{bigDays.length - 3} autre{bigDays.length > 4 ? 's' : ''} dans le calendrier
+                      </Link>
+                    )}
+                  </div>
+                )}
                 <div className="mt-auto pt-4">
                   {hasRevisionPlan(nextExam) ? (
                     <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
