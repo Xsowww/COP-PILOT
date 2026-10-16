@@ -13,6 +13,7 @@ import { KindContext } from './util';
 import { GroupForm } from './GroupsPage';
 import GroupMembers from './GroupMembers';
 import SharedCalendar from './SharedCalendar';
+import { setViewingAgenda, useAgendaNews } from '../../store/agendaNews';
 
 // « Agendas partagés » : calendars shared with others (groups of the 'agenda' kind, lib/groups). Joined only by
 // their link (/agendas?invitation=…), shown with the same day / week / month views as my own calendar.
@@ -52,6 +53,19 @@ function Agendas() {
   const active = agendas.find(g => g.id === wanted) ?? agendas[0] ?? null;
   const token = useGroups(s => (active ? s.codes[active.id] : null));
   const members = useGroups(s => (active ? s.members[active.id] : undefined));
+  const news = useAgendaNews(s => s.news);
+
+  // The calendar on screen: its changes are seen live (no badge, no card) — again each time the tab comes back.
+  useEffect(() => {
+    const id = active?.id ?? null;
+    setViewingAgenda(id);
+    const onVisible = () => document.visibilityState === 'visible' && setViewingAgenda(id);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      setViewingAgenda(null);
+    };
+  }, [active?.id]);
 
   useEffect(() => {
     useGroups.getState().reset();
@@ -124,6 +138,11 @@ function Agendas() {
               >
                 <GroupBadge group={g} size={26} />
                 <span className="max-w-[160px] truncate">{g.name}</span>
+                {g.id !== active?.id && (news[g.id] ?? 0) > 0 && (
+                  <span className="rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-[18px] text-white tabular" aria-label={`${news[g.id]} nouveautés`}>
+                    {news[g.id]}
+                  </span>
+                )}
               </button>
             ))}
           </div>

@@ -16,6 +16,7 @@ import { supabase } from './supabase';
 import { chime, canNotify, showSystemNotification } from './notify';
 import { pushActive, refreshDevice } from './push';
 import { goTo } from '../copilot/actions';
+import { useAgendaNews, viewingAgenda } from '../store/agendaNews';
 
 /** Push on this device: the server's notification comes first; the app shows it only if it didn't come. */
 const FALLBACK_DELAY = 45_000;
@@ -135,6 +136,12 @@ function onWorkerMessage(e: MessageEvent) {
   const key = r.tag || `push:${Date.now()}`;
   const seen = !r.test && wasShown(key);
   if (!r.test) markShown(key);
+  // A shared calendar's news: the badge follows; nothing to announce when that calendar is on screen (seen live).
+  const agenda = key.startsWith('agenda') ? /[?&]g=([0-9a-f-]{36})/.exec(r.url ?? '')?.[1] : undefined;
+  if (agenda) {
+    setTimeout(() => void useAgendaNews.getState().refresh(), 1500);
+    if (agenda === viewingAgenda()) return reply('shown');
+  }
   if (d.mayShow && document.visibilityState === 'visible') {
     if (!seen) showInApp({ key, title: r.title || 'Kompaly', body: r.body || '', url: r.url || '/' });
     return reply('shown');

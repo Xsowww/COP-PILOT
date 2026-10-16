@@ -94,9 +94,13 @@ async function saveSubscription(sub: PushSubscription) {
   const userId = (await supabase?.auth.getSession())?.data.session?.user.id;
   if (!supabase || !userId) return;
   const j = sub.toJSON();
-  const { error } = await supabase
-    .from('push_subscriptions')
-    .upsert({ user_id: userId, endpoint: j.endpoint, p256dh: j.keys?.p256dh, auth: j.keys?.auth, device: deviceName() }, { onConflict: 'user_id,endpoint' });
+  // This device is now the signed-in account's: another account kept on it stops getting its notifications here
+  // (else, with two accounts on one phone, you'd be told of what you just did yourself).
+  let { error } = await supabase.rpc('claim_push_endpoint', { p_endpoint: j.endpoint, p_p256dh: j.keys?.p256dh, p_auth: j.keys?.auth, p_device: deviceName() });
+  if (error?.code === 'PGRST202')
+    ({ error } = await supabase
+      .from('push_subscriptions')
+      .upsert({ user_id: userId, endpoint: j.endpoint, p256dh: j.keys?.p256dh, auth: j.keys?.auth, device: deviceName() }, { onConflict: 'user_id,endpoint' }));
   // Server without the 2026-10-17 migration yet: reminders still show while the app is open.
   if (error && !/push_subscriptions|PGRST205|42P01/.test(`${error.code} ${error.message}`)) console.warn('[notifications]', error.message);
 }

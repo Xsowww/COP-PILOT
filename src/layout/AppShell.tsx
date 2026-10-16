@@ -14,6 +14,7 @@ import FocusTimer from '../components/FocusTimer';
 import { cx } from '../lib/utils';
 import { adminPendingCount, checkIsAdmin, cloudEnabled } from '../lib/supabase';
 import { startReminders } from '../lib/reminderScheduler';
+import { useAgendaNews, totalAgendaNews, watchAgendaNews } from '../store/agendaNews';
 import { useUi } from '../store/ui';
 import { useGroupActivity, totalUnread } from '../store/groupActivity';
 import { useTrashCount } from '../lib/trash';
@@ -243,6 +244,10 @@ export default function AppShell() {
     return () => useGroupActivity.getState().stop();
   }, [user.id]);
   const groupNews = useGroupActivity(s => Object.values(s.unread).reduce((n, c) => n + totalUnread(c), 0));
+  // Shared calendars: what the others changed since my last visit (store/agendaNews).
+  useEffect(() => (cloudEnabled ? watchAgendaNews() : undefined), [user.id]);
+  const agendaNews = useAgendaNews(s => totalAgendaNews(s.news));
+  const news = (to: string) => (to === '/groupes' ? groupNews : to === '/agendas' ? agendaNews : 0);
 
   // Lien « Administration » : seulement pour les comptes déclarés dans public.admins.
   const [isAdmin, setIsAdmin] = useState(false);
@@ -298,9 +303,12 @@ export default function AppShell() {
                 <>
                   <n.icon size={18} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
                   {label(n)}
-                  {n.to === '/groupes' && groupNews > 0 && (
-                    <span className="ml-auto rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={`${groupNews} nouveautés dans tes ${groupsLabel.toLowerCase()}`}>
-                      {groupNews}
+                  {news(n.to) > 0 && (
+                    <span
+                      className={cx('ml-auto rounded-full px-1.5 text-[11px] font-semibold leading-[18px] tabular', n.to === '/agendas' ? 'bg-red-500 text-white' : 'bg-brand-solid text-on-brand')}
+                      aria-label={n.to === '/agendas' ? `${agendaNews} nouveautés dans tes agendas partagés` : `${groupNews} nouveautés dans tes ${groupsLabel.toLowerCase()}`}
+                    >
+                      {news(n.to)}
                     </span>
                   )}
                 </>
@@ -443,7 +451,7 @@ export default function AppShell() {
               <>
                 <span className="relative">
                   <n.icon size={19} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
-                  {n.to === '/groupes' && groupNews > 0 && <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-brand-solid ring-2 ring-paper" aria-label="nouveautés" />}
+                  {news(n.to) > 0 && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full ring-2 ring-paper', n.to === '/agendas' ? 'bg-red-500' : 'bg-brand-solid')} aria-label="nouveautés" />}
                 </span>
                 <span className="max-w-full truncate px-0.5">{'short' in n ? n.short : label(n)}</span>
               </>
