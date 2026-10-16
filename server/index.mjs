@@ -106,7 +106,7 @@ async function serveStatic(req, res) {
 
 // ── Search engines ──────────────────────────────────────────────────────────
 // The public pages; everything else needs an account. SITE_URL = the site's address (https://…).
-const PUBLIC_PAGES = ['/inscription', '/connexion', '/mentions-legales', '/confidentialite', '/conditions'];
+const PUBLIC_PAGES = ['/', '/inscription', '/connexion', '/mentions-legales', '/confidentialite', '/conditions'];
 const siteUrl = req => (process.env.SITE_URL || `${req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http'}://${req.headers.host}`).replace(/\/+$/, '');
 
 function serveSeo(req, res) {

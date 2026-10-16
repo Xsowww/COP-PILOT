@@ -20,6 +20,8 @@ const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
 const GroupsPage = lazy(() => import('./pages/groups/GroupsPage'));
 const TrashPage = lazy(() => import('./pages/trash/TrashPage'));
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
+// The public home page, for visitors not signed in (and search engines).
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 const TITLES: Record<string, string> = {
   '/': 'Accueil',
@@ -45,10 +47,12 @@ const TITLES: Record<string, string> = {
 /** The tab says where you are (history, several tabs open). */
 function PageTitle() {
   const { pathname } = useLocation();
+  const guest = useAuth(s => !s.user);
   useEffect(() => {
     const page = TITLES[pathname];
-    document.title = page ? `${page} · Kompaly` : 'Kompaly';
-  }, [pathname]);
+    // A visitor on « / » sees the public home page: the full name, as in index.html (search results).
+    document.title = guest && pathname === '/' ? 'Kompaly · Agenda, notes, fichiers et tâches au même endroit' : page ? `${page} · Kompaly` : 'Kompaly';
+  }, [pathname, guest]);
   return null;
 }
 
@@ -56,7 +60,9 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
   const mfaStep = useAuth(s => s.mfaStep);
   const welcome = useWelcome(s => s.pending);
-  if (!user) return <Navigate to="/connexion" replace />;
+  const { pathname } = useLocation();
+  // Not signed in: « / » is the public home page, the other pages of the app ask to sign in.
+  if (!user) return pathname === '/' ? <Suspense fallback={null}><LandingPage /></Suspense> : <Navigate to="/connexion" replace />;
   if (mfaStep) return <Navigate to="/securite" replace />;
   return welcome ? <Navigate to="/bienvenue" replace /> : children;
 }

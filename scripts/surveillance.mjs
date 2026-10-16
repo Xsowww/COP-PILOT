@@ -47,7 +47,7 @@ await check('Application (page d’accueil et script)', async () => {
 });
 
 // 3. Public pages (sign-in, legal pages, SEO files).
-for (const path of ['/connexion', '/inscription', '/mentions-legales', '/confidentialite', '/conditions', '/robots.txt', '/sitemap.xml', '/manifest.webmanifest']) {
+for (const path of ['/connexion', '/inscription', '/mentions-legales', '/confidentialite', '/conditions', '/robots.txt', '/sitemap.xml', '/manifest.webmanifest', '/og-image.png']) {
   await check(`Page ${path}`, async () => {
     const r = await get(path);
     must(r.status === 200, `réponse ${r.status}`);
