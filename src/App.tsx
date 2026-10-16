@@ -18,6 +18,7 @@ const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
 const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
 const GroupsPage = lazy(() => import('./pages/groups/GroupsPage'));
+const AgendasPage = lazy(() => import('./pages/groups/AgendasPage'));
 const TrashPage = lazy(() => import('./pages/trash/TrashPage'));
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 // The public home page, for visitors not signed in (and search engines).
@@ -78,7 +79,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   // Not signed in: « / » is the public home page, the other pages of the app ask to sign in.
   if (!user) {
     // An invitation link opened signed out: kept for after sign-in (AppShell opens it).
-    if (search.includes('rejoindre=')) sessionStorage.setItem(PENDING_INVITE, pathname + search);
+    if (/[?&](rejoindre|invitation)=/.test(search)) sessionStorage.setItem(PENDING_INVITE, pathname + search);
     return pathname === '/' ? <Suspense fallback={null}><LandingPage /></Suspense> : <Navigate to="/connexion" replace />;
   }
   if (mfaStep) return <Navigate to="/securite" replace />;
@@ -152,7 +153,7 @@ export default function App() {
           <Route path="taches" element={<Suspense fallback={null}><TasksPage /></Suspense>} />
           <Route path="progression" element={<Navigate to="/taches" replace />} />
           <Route path="groupes" element={<Suspense fallback={null}><GroupsPage /></Suspense>} />
-          <Route path="agendas" element={<Suspense fallback={null}><GroupsPage kind="agenda" /></Suspense>} />
+          <Route path="agendas" element={<Suspense fallback={null}><AgendasPage /></Suspense>} />
           <Route path="corbeille" element={<Suspense fallback={null}><TrashPage /></Suspense>} />
           <Route path="profil" element={<Suspense fallback={null}><ProfilePage /></Suspense>} />
           <Route path="admin" element={<Suspense fallback={null}><AdminPage /></Suspense>} />

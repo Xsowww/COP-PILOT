@@ -1,10 +1,9 @@
 import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { trashEvent } from '../../lib/trash';
+import { useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange } from 'lucide-react';
-import { useCalendar, catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp } from 'lucide-react';
+import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
@@ -12,6 +11,7 @@ import { WORDS } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
+import { useCalendarSource } from './source';
 import DayView from './DayView';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { isIcsFile } from '../../lib/ics';
@@ -59,9 +59,10 @@ interface EventItemProps {
 }
 
 function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
-  const { toggleDone } = useCalendar.getState();
+  const { toggleDone, remove, shared } = useCalendarSource();
   const c = catOf(ev.category);
-  const reminders = eventReminders(ev, useSettings(s => s.defaultReminders));
+  const defaults = useSettings(s => s.defaultReminders);
+  const reminders = shared ? [] : eventReminders(ev, defaults);
   return (
     <div className="group enter flex items-stretch gap-4">
       <div className="tabular w-12 shrink-0 pt-3 text-right text-[12px]">
@@ -80,13 +81,13 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
         className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-lg border border-stone-200/80 bg-surface py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:border-stone-300', ev.done && 'bg-stone-50', dragging && 'opacity-40')}
       >
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
-        <button
+        {!shared && <button
           onClick={() => toggleDone(ev.id)}
           className={cx('hit mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', ev.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
           title={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'} aria-label={`Marquer « ${ev.title} » comme ${ev.done ? 'à faire' : 'fait'}`}
         >
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
-        </button>
+        </button>}
         <button className="min-w-0 flex-1 text-left pointer-coarse:py-2" onClick={onEdit}>
           <p className={cx('text-[14px] font-medium leading-snug [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>
             {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label="Important" />}
@@ -94,6 +95,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           </p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
+            {shared && ` · par ${shared.author(ev.id)}`}
             {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}
             {!ev.done && reminders.length > 0 && (
               <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap" title="Rappels">
@@ -112,7 +114,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           <button
             className="icon-btn hover:text-red-600"
             title="Supprimer" aria-label={`Supprimer « ${ev.title} »`}
-            onClick={() => trashEvent(ev.id)}
+            onClick={() => remove(ev.id)}
           >
             <Trash2 size={14} />
           </button>
@@ -134,7 +136,8 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
   onToggle: (k: EventCategory) => void;
   onImportant: () => void;
   onReset: () => void;
-  onManage: () => void;
+  /** Absent in a shared calendar (my categories are mine). */
+  onManage?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -198,16 +201,18 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
             <button type="button" className="btn-ghost h-8 px-2 text-[12px]" disabled={!count} onClick={onReset}>
               Tout afficher
             </button>
-            <button
-              type="button"
-              className="btn-ghost ml-auto h-8 px-2 text-[12px]"
-              onClick={() => {
-                setOpen(false);
-                onManage();
-              }}
-            >
-              Gérer les catégories
-            </button>
+            {onManage && (
+              <button
+                type="button"
+                className="btn-ghost ml-auto h-8 px-2 text-[12px]"
+                onClick={() => {
+                  setOpen(false);
+                  onManage();
+                }}
+              >
+                Gérer les catégories
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -217,7 +222,8 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
 
 export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
-  const events = useCalendar(s => s.events);
+  const source = useCalendarSource();
+  const { events, shared } = source;
   const [selected, setSelected] = useState(() => validKey(params.get('jour')) ?? todayKey());
   const [mode, setModeState] = useState<Mode>(savedMode);
   const [quick, setQuick] = useState('');
@@ -225,7 +231,8 @@ export default function CalendarPage() {
   const [shown, setShown] = useState<Set<EventCategory>>(new Set());
   const [importantOnly, setImportantOnly] = useState(false);
   const filtering = shown.size > 0 || importantOnly;
-  const custom = useSettings(s => s.customCategories);
+  const mine = useSettings(s => s.customCategories);
+  const custom = shared ? [] : mine; // a shared calendar: the built-in categories only (mine aren't the others')
   const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
   const wide = useWide();
   const [allExams, setAllExams] = useState(false);
@@ -256,13 +263,14 @@ export default function CalendarPage() {
   useEffect(() => {
     if (params.get('ajout')) {
       quickRef.current?.focus();
-      setParams({});
+      setParams(p => (p.delete('ajout'), p), { replace: true });
     }
   }, [params, setParams]);
 
   const selectDay = (key: string) => {
     setSelected(key);
-    if (jour) setParams({});
+    // Only « jour »: in a shared calendar, the URL also says which one (?g=…).
+    if (jour) setParams(p => (p.delete('jour'), p), { replace: true });
   };
 
   const passes = useCallback((e: Pick<CalendarEvent, 'category' | 'important'>) => (shown.size === 0 || shown.has(e.category)) && (!importantOnly || !!e.important), [shown, importantOnly]);
@@ -298,7 +306,7 @@ export default function CalendarPage() {
     if (!parsed) return;
     if (!parsed.title) return openForm();
     const date = parsed.date ?? selected;
-    useCalendar.getState().add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
+    source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
     setQuick('');
     showSaved({ date, category: parsedCat!, important: parsed.important });
     toast(
@@ -340,7 +348,7 @@ export default function CalendarPage() {
     const timeChanged = patch.start !== undefined && patch.start !== ev.start;
     if (!dayChanged && !timeChanged) return;
     const before = { date: ev.date, start: ev.start, end: ev.end };
-    const { update } = useCalendar.getState();
+    const { update } = source;
     update(ev.id, patch);
     const label = dayChanged ? `Déplacé au ${fmt(fromKey(target.day), 'EEEE d MMM')}${timeChanged ? ` à ${patch.start}` : ''}` : `Déplacé à ${patch.start}`;
     toast(label, 'success', { label: 'Annuler', run: () => update(ev.id, before) });
@@ -351,7 +359,7 @@ export default function CalendarPage() {
   // Drop an .ics file anywhere on the page to import it.
   const hasFiles = (e: React.DragEvent) => e.dataTransfer.types.includes('Files');
   const onFileDrop = async (e: React.DragEvent) => {
-    if (!hasFiles(e)) return;
+    if (!hasFiles(e) || shared) return;
     e.preventDefault();
     setFileOver(false);
     const file = e.dataTransfer.files[0];
@@ -386,9 +394,9 @@ export default function CalendarPage() {
 
   return (
     <div
-      className="h-full overflow-y-auto px-4 pb-12 md:px-8"
+      className={cx('h-full overflow-y-auto pb-12', !shared && 'px-4 md:px-8')}
       onDragOver={e => {
-        if (!hasFiles(e)) return;
+        if (!hasFiles(e) || shared) return;
         e.preventDefault();
         if (!fileOver) setFileOver(true);
       }}
@@ -400,7 +408,7 @@ export default function CalendarPage() {
       <div className="mx-auto max-w-[1180px]">
         {/* Header */}
         <div className="flex flex-wrap items-center gap-2 pb-4 pt-2">
-          <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">Calendrier</h1>
+          {!shared && <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">Calendrier</h1>}
           <div className="ml-auto flex items-center gap-1">
             <button className="icon-btn" onClick={() => shift(-1)} title={mode === 'day' ? 'Jour précédent' : 'Précédent'} aria-label={mode === 'day' ? 'Jour précédent' : 'Précédent'}>
               <ChevronLeft size={17} />
@@ -437,14 +445,10 @@ export default function CalendarPage() {
               setShown(new Set());
               setImportantOnly(false);
             }}
-            onManage={() => setManaging(true)}
+            onManage={shared ? undefined : () => setManaging(true)}
           />
           {/* Together: on a tablet the header wraps, and the export icon was left alone on a second line. */}
-          <div className="flex items-center gap-1">
-          {/* Phones: the menu has no room for « Agendas partagés » (the computer's side menu has it). */}
-          <Link to="/agendas" className="icon-btn h-8 w-8 lg:hidden" title="Agendas partagés" aria-label="Agendas partagés">
-            <CalendarRange size={16} />
-          </Link>
+          {!shared && <div className="flex items-center gap-1">
           <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title={`Importer un ${words.timetable} (.ics)`} aria-label={`Importer un ${words.timetable} (.ics)`}>
             <CalendarArrowDown size={16} />
           </button>
@@ -452,7 +456,7 @@ export default function CalendarPage() {
           <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => exportIcs()} title="Exporter le calendrier (.ics)" aria-label="Exporter le calendrier (.ics)">
             <CalendarArrowUp size={16} />
           </button>
-          </div>
+          </div>}
         </div>
 
         {/* Quick add */}
@@ -677,7 +681,7 @@ export default function CalendarPage() {
                   <li key={e.id} className="flex h-8 items-center gap-3 px-1.5">
                     <span className="flex w-9 shrink-0">
                       <button
-                        onClick={() => useCalendar.getState().toggleDone(e.id)}
+                        onClick={() => source.toggleDone(e.id)}
                         className="hit h-4 w-4 rounded border-[1.5px] border-stone-300 transition-colors hover:border-stone-500"
                         title={`Marquer comme ${words.markDone}`}
                         aria-label={`Marquer « ${e.title} » comme ${words.markDone}`}

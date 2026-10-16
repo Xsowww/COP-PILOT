@@ -7,7 +7,7 @@ import { useGroupActivity, totalUnread } from '../../store/groupActivity';
 import { toast } from '../../store/ui';
 import { Modal } from '../../components/Overlays';
 import { cloudEnabled } from '../../lib/supabase';
-import { GROUP_COLORS, copyCode, copyInviteLink, createGroup, groupError, joinGroup, updateGroup, type Group, type GroupKind } from '../../lib/groups';
+import { GROUP_COLORS, copyCode, copyInviteLink, createGroup, groupError, joinGroup, updateGroup, type Group } from '../../lib/groups';
 import { cx } from '../../lib/utils';
 import { ColorPicker, GroupBadge } from './shared';
 import { KindContext, groupColor, useGroupWords, useRights } from './util';
@@ -24,11 +24,9 @@ const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: 'revisions', label: 'Révisions', icon: CalendarClock },
   { id: 'membres', label: 'Membres', icon: Users },
 ];
-// A shared calendar: its events and its members, nothing else.
-const AGENDA_TABS = TABS.filter(t => t.id === 'revisions' || t.id === 'membres');
-const spacePath = (kind: GroupKind) => (kind === 'agenda' ? '/agendas' : '/groupes');
 
-function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group) => void }) {
+
+export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group) => void }) {
   const w = useGroupWords();
   const kind = useContext(KindContext);
   const [name, setName] = useState(group?.name ?? '');
@@ -150,20 +148,20 @@ function OfflineNotice() {
   );
 }
 
-export default function GroupsPage({ kind = 'groupe' }: { kind?: GroupKind }) {
-  return <KindContext.Provider value={kind}>{cloudEnabled ? <Groups /> : <OfflineNotice />}</KindContext.Provider>;
+export default function GroupsPage() {
+  if (!cloudEnabled) return <OfflineNotice />;
+  return <Groups />;
 }
 
 function Groups() {
   const w = useGroupWords();
   const [params, setParams] = useSearchParams();
   const userId = useAuth(s => s.user?.id);
-  const kind = useContext(KindContext);
   const navigate = useNavigate();
   const { groups: all, loaded, failed } = useGroups();
-  // Work groups and shared calendars share their machinery, never their screen.
-  const groups = all.filter(g => g.kind === kind);
-  const tabs = kind === 'agenda' ? AGENDA_TABS : TABS;
+  // Work groups and shared calendars share their machinery, never their screen (shared calendars: AgendasPage).
+  const groups = all.filter(g => g.kind === 'groupe');
+  const tabs = TABS;
   const [dialog, setDialog] = useState<'create' | 'join' | 'settings' | null>(null);
 
   const gid = params.get('g');
@@ -190,11 +188,11 @@ function Groups() {
 
   // Groupe quitté / supprimé par quelqu'un d'autre : retour à la liste. Un agenda ouvert depuis les groupes
   // (ou l'inverse, après un code) : dans son espace.
-  const elsewhere = all.find(g => g.id === gid && g.kind !== kind);
+  const elsewhere = all.find(g => g.id === gid && g.kind === 'agenda');
   useEffect(() => {
-    if (elsewhere) navigate(`${spacePath(elsewhere.kind)}?g=${elsewhere.id}`, { replace: true });
+    if (elsewhere) navigate(`/agendas?g=${elsewhere.id}`, { replace: true });
     else if (loaded && gid && !active) setParams({}, { replace: true });
-  }, [loaded, gid, active, elsewhere, kind, navigate, setParams]);
+  }, [loaded, gid, active, elsewhere, navigate, setParams]);
 
   const go = (id: string | null, t: Tab = tabs[0].id) => setParams(id ? (t === tabs[0].id ? { g: id } : { g: id, onglet: t }) : {});
 
@@ -296,11 +294,11 @@ function Groups() {
                 )}
               </div>
               {code && (
-                <button className="btn-secondary h-8 px-3" onClick={() => void copyInviteLink(code, kind)} title="Copier le lien d’invitation">
+                <button className="btn-secondary h-8 px-3" onClick={() => void copyInviteLink(code, 'groupe')} title="Copier le lien d’invitation">
                   <Link2 size={14} /> Inviter
                 </button>
               )}
-              {rights.canEdit && kind === 'groupe' && (
+              {rights.canEdit && (
                 <ShareButton
                   group={active}
                   onNote={id => setParams({ g: active.id, note: id })}
@@ -347,7 +345,7 @@ function Groups() {
           <div className="card flex flex-1 flex-col items-center justify-center p-8 text-center">
             <Users size={28} strokeWidth={1.5} className="text-stone-300" />
             <p className="mt-3 text-[14px] font-medium">Choisis {w.a}</p>
-            <p className="mt-1 text-[13px] text-stone-500">{kind === 'agenda' ? 'Ses événements et ses membres s’affichent ici.' : `Ses notes partagées, ses ${w.meet.many} et ses membres s’affichent ici.`}</p>
+            <p className="mt-1 text-[13px] text-stone-500">Ses notes partagées, ses {w.meet.many} et ses membres s’affichent ici.</p>
           </div>
         )}
       </section>

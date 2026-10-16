@@ -1,0 +1,205 @@
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { CalendarRange, CloudOff, Link2, Plus, Settings2, Users } from 'lucide-react';
+import { useAuth } from '../../store/auth';
+import { useGroups, watchFocus } from '../../store/groups';
+import { toast } from '../../store/ui';
+import { Modal } from '../../components/Overlays';
+import { cloudEnabled } from '../../lib/supabase';
+import { copyInviteLink, groupError, joinAgenda } from '../../lib/groups';
+import { cx } from '../../lib/utils';
+import { GroupBadge } from './shared';
+import { KindContext } from './util';
+import { GroupForm } from './GroupsPage';
+import GroupMembers from './GroupMembers';
+import SharedCalendar from './SharedCalendar';
+
+// « Agendas partagés » : calendars shared with others (groups of the 'agenda' kind, lib/groups). Joined only by
+// their link (/agendas?invitation=…), shown with the same day / week / month views as my own calendar.
+
+const LAST = 'cop-agenda';
+
+export default function AgendasPage() {
+  return <KindContext.Provider value="agenda">{cloudEnabled ? <Agendas /> : <Offline />}</KindContext.Provider>;
+}
+
+function Offline() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+      <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
+      <p className="mt-3 text-[14px] font-medium">Disponible dans la version en ligne</p>
+      <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur : un agenda partagé a besoin d’un compte en ligne.</p>
+    </div>
+  );
+}
+
+function Agendas() {
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const userId = useAuth(s => s.user?.id);
+  const { groups: all, loaded, failed } = useGroups();
+  const agendas = all.filter(g => g.kind === 'agenda').sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const [dialog, setDialog] = useState<'create' | 'settings' | 'members' | null>(null);
+
+  // Which one: ?g=…, else the last one opened here, else the first.
+  const wanted = params.get('g') ?? (() => {
+    try {
+      return localStorage.getItem(LAST);
+    } catch {
+      return null;
+    }
+  })();
+  const active = agendas.find(g => g.id === wanted) ?? agendas[0] ?? null;
+  const token = useGroups(s => (active ? s.codes[active.id] : null));
+  const members = useGroups(s => (active ? s.members[active.id] : undefined));
+
+  useEffect(() => {
+    useGroups.getState().reset();
+    void useGroups.getState().loadGroups();
+    return () => useGroups.getState().reset();
+  }, [userId]);
+  useEffect(() => watchFocus(), []);
+  useEffect(() => {
+    useGroups.getState().open(active?.id ?? null);
+    if (active)
+      try {
+        localStorage.setItem(LAST, active.id);
+      } catch {
+        /* private mode: the first one opens next time */
+      }
+  }, [active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A work group's id here (old link): to its space.
+  const group = all.find(g => g.id === params.get('g') && g.kind === 'groupe');
+  useEffect(() => {
+    if (group) navigate(`/groupes?g=${group.id}`, { replace: true });
+  }, [group, navigate]);
+
+  // Invitation link (/agendas?invitation=…): joins (the owner is told), then opens it.
+  const invitation = params.get('invitation');
+  const joining = useRef(false);
+  useEffect(() => {
+    if (!invitation || !loaded || joining.current) return;
+    joining.current = true;
+    void joinAgenda(invitation)
+      .then(async id => {
+        if (!id) {
+          toast('Ce lien d’invitation ne marche plus : demande un nouveau lien à la personne qui te l’a envoyé.', 'error');
+          setParams({}, { replace: true });
+          return;
+        }
+        await useGroups.getState().loadGroups();
+        toast(`Tu as rejoint « ${useGroups.getState().groups.find(g => g.id === id)?.name ?? 'l’agenda'} »`, 'success');
+        setParams({ g: id }, { replace: true });
+      })
+      .catch(e => {
+        toast(groupError(e), 'error');
+        setParams({}, { replace: true });
+      })
+      .finally(() => (joining.current = false));
+  }, [invitation, loaded, setParams]);
+
+  const open = (id: string) => setParams({ g: id });
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Title, the shared calendars (scroll sideways on a phone), « Nouveau » */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-2 md:px-8">
+        <h1 className="text-[22px] font-semibold tracking-[-0.02em] md:text-[24px]">Agendas partagés</h1>
+        <button className="btn-primary ml-auto h-8 px-3" onClick={() => setDialog('create')}>
+          <Plus size={14} /> Nouveau
+        </button>
+        {agendas.length > 0 && (
+          <div className="-mx-4 flex w-[calc(100%+2rem)] gap-1.5 overflow-x-auto px-4 pb-1 md:-mx-8 md:w-[calc(100%+4rem)] md:px-8" role="tablist" aria-label="Agendas partagés">
+            {agendas.map(g => (
+              <button
+                key={g.id}
+                role="tab"
+                aria-selected={g.id === active?.id}
+                onClick={() => open(g.id)}
+                className={cx(
+                  'flex h-9 shrink-0 items-center gap-2 rounded-full border pl-1 pr-3 text-[13px] font-medium transition-colors',
+                  g.id === active?.id ? 'border-stone-300 bg-surface text-ink shadow-card' : 'border-stone-200 text-stone-600 hover:bg-stone-100',
+                )}
+              >
+                <GroupBadge group={g} size={26} />
+                <span className="max-w-[160px] truncate">{g.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {!loaded ? (
+        <p className="px-4 text-[13px] text-stone-500 md:px-8">Chargement…</p>
+      ) : failed ? (
+        <p className="px-4 text-[13px] text-stone-500 md:px-8">
+          Impossible de charger tes agendas.{' '}
+          <button className="font-medium text-ink underline underline-offset-2" onClick={() => void useGroups.getState().loadGroups()}>
+            Réessayer
+          </button>
+        </p>
+      ) : !active ? (
+        <div className="px-4 md:px-8">
+          <div className="card mx-auto mt-4 max-w-[520px] p-6 md:p-8">
+            <CalendarRange size={26} strokeWidth={1.6} className="text-brand-600" />
+            <h2 className="mt-3 text-[18px] font-semibold tracking-[-0.01em]">Un agenda à plusieurs</h2>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-stone-600">
+              Un calendrier commun, séparé du tien : chacun y ajoute, modifie ou supprime des événements, et les autres sont prévenus. On le rejoint seulement avec son lien d’invitation.
+            </p>
+            <button className="btn-primary mt-5" onClick={() => setDialog('create')}>
+              <Plus size={15} /> Créer un agenda partagé
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* The open one: who is in it, invite, settings */}
+          <div className="flex shrink-0 items-center gap-1.5 px-4 pb-1 sm:gap-2 md:px-8">
+            <p className="mr-auto min-w-0 truncate text-[13px] text-stone-500">
+              {members ? `${members.length} membre${members.length > 1 ? 's' : ''}` : ' '}
+              {active.ownerId === userId ? ' · tu l’as créé' : ''}
+            </p>
+            {/* Phones: icons only, the row stays on one line */}
+            <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => setDialog('members')} title="Membres">
+              <Users size={14} /> <span className="max-sm:sr-only">Membres</span>
+            </button>
+            {token && (
+              <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => void copyInviteLink(token, 'agenda')} title="Copier le lien d’invitation">
+                <Link2 size={14} /> <span className="max-sm:sr-only">Inviter</span>
+              </button>
+            )}
+            {active.ownerId === userId && (
+              <button className="icon-btn" title="Paramètres de l’agenda" aria-label="Paramètres de l’agenda" onClick={() => setDialog('settings')}>
+                <Settings2 size={16} />
+              </button>
+            )}
+          </div>
+          <div className="min-h-0 flex-1 px-4 md:px-8">
+            <SharedCalendar key={active.id} group={active} />
+          </div>
+        </>
+      )}
+
+      <Modal open={dialog === 'create' || dialog === 'settings'} onClose={() => setDialog(null)}>
+        {(dialog === 'create' || dialog === 'settings') && (
+          <GroupForm
+            group={dialog === 'settings' ? (active ?? undefined) : undefined}
+            onDone={g => {
+              setDialog(null);
+              if (g && dialog === 'create') open(g.id);
+            }}
+          />
+        )}
+      </Modal>
+      <Modal open={dialog === 'members' && !!active} onClose={() => setDialog(null)} width={560}>
+        {dialog === 'members' && active && (
+          <div className="flex max-h-[70vh] flex-col">
+            <h3 className="mb-3 text-[15px] font-semibold">Membres de « {active.name} »</h3>
+            <GroupMembers group={active} onLeft={() => setDialog(null)} />
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}

@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { FileText, Flag, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
-import { catOf, allCategories, guessCategory, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
-import { trashEvent } from '../../lib/trash';
+import { catOf, allCategories, guessCategory, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { useCalendarSource } from './source';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
 import { WORDS } from '../../lib/usage';
@@ -25,7 +25,8 @@ interface Props {
 }
 
 export default function EventForm({ event, date, start: initialStart, end: initialEnd, onClose, onSaved }: Props) {
-  const { add, update } = useCalendar.getState();
+  // My calendar or a shared one (no « important », reminders or my own categories there).
+  const { add, update, remove, shared } = useCalendarSource();
   const [title, setTitle] = useState(event?.title ?? '');
   const [day, setDay] = useState(event?.date ?? date);
   const [start, setStart] = useState(event?.start ?? initialStart ?? '');
@@ -37,7 +38,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [chosen, setChosen] = useState<number[] | undefined>(event?.reminders);
   const defaults = useSettings(s => s.defaultReminders);
   const reminders = eventReminders({ reminders: chosen, start, externalId: event?.externalId }, defaults);
-  const custom = useSettings(s => s.customCategories);
+  const mine = useSettings(s => s.customCategories);
+  const custom = shared ? [] : mine;
   const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
   const [creating, setCreating] = useState(false);
   const effective = category ?? guessCategory(title, !!start);
@@ -79,14 +81,14 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               </button>
             );
           })}
-          <button
+          {!shared && <button
             type="button"
             onClick={() => setCreating(v => !v)}
             aria-expanded={creating}
             className="flex h-8 items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 text-[13px] pointer-coarse:h-9 text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
           >
             <Plus size={14} /> Nouvelle
-          </button>
+          </button>}
         </div>
         {creating && (
           <div className="mt-2.5 rounded-lg bg-stone-50 p-3">
@@ -128,7 +130,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         </div>
 
         {/* What makes it a « big day » for the home page and Kompaly, whatever its category. */}
-        <button
+        {!shared && <button
           type="button"
           onClick={() => setImportant(v => !v)}
           aria-pressed={important}
@@ -139,9 +141,9 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         >
           <Flag size={14} className={important ? 'fill-current' : ''} />
           {important ? 'Important' : 'Marquer comme important'}
-        </button>
+        </button>}
 
-        <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} date={day || undefined} time={start || undefined} />
+        {!shared && <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} date={day || undefined} time={start || undefined} />}
 
         <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={`Notes (${words.notesExample})`} aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
 
@@ -167,7 +169,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               type="button"
               className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={() => {
-                trashEvent(event.id);
+                remove(event.id);
                 onClose();
               }}
             >

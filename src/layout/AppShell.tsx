@@ -32,8 +32,7 @@ const NAV = [
   { to: '/notes', label: 'Notes', icon: NotebookText, color: SPACE_COLORS.notes },
   { to: '/drive', label: 'Drive', icon: FolderClosed, color: SPACE_COLORS.drive },
   { to: '/groupes', label: 'Groupes', icon: Users, color: '#1f8a8a' },
-  // Not in the phone's bottom bar (full): reached from the Calendar page there.
-  { to: '/agendas', label: 'Agendas partagés', icon: CalendarRange, color: '#7a5ad6', desktopOnly: true },
+  { to: '/agendas', label: 'Agendas partagés', short: 'Agendas', icon: CalendarRange, color: '#7a5ad6' },
 ];
 
 const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
@@ -432,12 +431,13 @@ export default function AppShell() {
 
       {/* Bottom nav (mobile) */}
       <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-stone-200 bg-paper/95 backdrop-blur lg:hidden">
-        {NAV.filter(n => !('desktopOnly' in n)).map(n => (
+        {NAV.map(n => (
           <NavLink
             key={n.to}
             to={n.to}
             end={n.end}
-            className={({ isActive }) => cx('flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive ? 'text-ink' : 'text-stone-500')}
+            // 7 spaces: each takes its share, the label shortened rather than pushed off a narrow screen.
+            className={({ isActive }) => cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-medium tracking-[-0.01em] max-[359px]:text-[9.5px]', isActive ? 'text-ink' : 'text-stone-500')}
           >
             {({ isActive }) => (
               <>
@@ -445,7 +445,7 @@ export default function AppShell() {
                   <n.icon size={19} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
                   {n.to === '/groupes' && groupNews > 0 && <span className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-brand-solid ring-2 ring-paper" aria-label="nouveautés" />}
                 </span>
-                {label(n)}
+                <span className="max-w-full truncate px-0.5">{'short' in n ? n.short : label(n)}</span>
               </>
             )}
           </NavLink>

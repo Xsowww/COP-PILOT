@@ -3,7 +3,7 @@ import { Copy, LogOut, RefreshCw, Trash2, UserMinus } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useGroups } from '../../store/groups';
 import { confirmAction, toast } from '../../store/ui';
-import { copyCode, deleteGroup, groupError, leaveGroup, regenerateCode, removeMember, setMemberRights, type Group, type GroupMember, type GroupRole } from '../../lib/groups';
+import { copyCode, copyInviteLink, deleteGroup, groupError, leaveGroup, regenerateAgendaToken, regenerateCode, removeMember, setMemberRights, type Group, type GroupMember, type GroupRole } from '../../lib/groups';
 import { fmt } from '../../lib/dates';
 import { MemberDot } from './shared';
 import { useGroupWords } from './util';
@@ -28,17 +28,20 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
     }
   };
 
+  // A shared calendar is joined by its link only (a secret token), a group by its code.
+  const agenda = group.kind === 'agenda';
   const newCode = async () => {
-    if (!(await confirmAction('Créer un nouveau code ?', `L’ancien code ne fonctionnera plus. Les membres actuels restent dans ${w.the}.`, 'Nouveau code', false))) return;
+    const what = agenda ? 'lien' : 'code';
+    if (!(await confirmAction(`Créer un nouveau ${what} ?`, `L’ancien ${what} ne fonctionnera plus. Les membres actuels restent dans ${w.the}.`, `Nouveau ${what}`, false))) return;
     await run(async () => {
-      await regenerateCode(group.id);
+      await (agenda ? regenerateAgendaToken(group.id) : regenerateCode(group.id));
       await useGroups.getState().refresh(group.id, ['members']);
-      toast('Nouveau code créé', 'success');
+      toast(agenda ? 'Nouveau lien créé : l’ancien ne marche plus' : 'Nouveau code créé', 'success');
     });
   };
 
   const kick = async (m: GroupMember) => {
-    if (!(await confirmAction(`Retirer ${m.name} ${w.of} ?`, `Ses notes partagées restent dans ${w.the}. Il pourra revenir seulement avec le code.`, 'Retirer'))) return;
+    if (!(await confirmAction(`Retirer ${m.name} ${w.of} ?`, `Ses notes partagées restent dans ${w.the}. Il pourra revenir seulement avec ${agenda ? 'le lien' : 'le code'}.`, 'Retirer'))) return;
     await run(async () => {
       await removeMember(group.id, m.userId);
       await useGroups.getState().refresh(group.id, ['members']);
@@ -58,8 +61,8 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
     const message = alone
       ? `Il n’y a que toi, donc tout sera supprimé : ${w.the}, ses notes et ses ${w.meet.many}.`
       : isOwner
-        ? 'Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec le code.'
-        : `Tes notes partagées restent dans ${w.the}. Tu pourras revenir avec le code.`;
+        ? `Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec ${agenda ? 'le lien' : 'le code'}.`
+        : `${agenda ? 'Tes événements restent' : 'Tes notes partagées restent'} dans ${w.the}. Tu pourras revenir avec ${agenda ? 'le lien' : 'le code'}.`;
     if (!(await confirmAction(`Quitter « ${group.name} » ?`, message, 'Quitter'))) return;
     await run(async () => {
       await leaveGroup(group.id, alone);
@@ -81,7 +84,24 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto pb-4">
-      {code ? (
+      {code && agenda ? (
+        <div className="card flex flex-wrap items-center gap-3 p-4">
+          <div className="min-w-[220px] flex-1">
+            <p className="text-[14px] font-medium">Inviter quelqu’un</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">Envoie le lien : en cliquant dessus, la personne rejoint {w.the} (après s’être connectée). Tu seras prévenu.</p>
+          </div>
+          <div className="flex gap-1.5">
+            <button className="btn-primary h-8 px-3" onClick={() => void copyInviteLink(code, 'agenda')}>
+              <Copy size={14} /> Copier le lien
+            </button>
+            {isOwner && (
+              <button className="icon-btn" title="Nouveau lien (l’ancien ne marchera plus)" aria-label="Nouveau lien (l’ancien ne marchera plus)" disabled={busy} onClick={() => void newCode()}>
+                <RefreshCw size={15} />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : code ? (
         <div className="card flex flex-wrap items-center gap-4 p-4">
           <div className="min-w-[220px] flex-1">
             <p className="text-[14px] font-medium">Inviter quelqu’un</p>

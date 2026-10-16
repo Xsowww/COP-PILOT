@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { todayKey } from '../lib/dates';
+import { addDays } from 'date-fns';
+import { toKey, todayKey } from '../lib/dates';
 import * as api from '../lib/groups';
 import type { Attendance, Group, GroupEvent, GroupFile, GroupMember, GroupNoteSummary } from '../lib/groups';
 
@@ -115,18 +116,21 @@ export const useGroups = create<GroupsState>((set, get) => {
       if (id) void get().refresh(id);
     },
 
-    async refresh(id, parts = ['members', 'notes', 'events', 'files']) {
+    async refresh(id, parts) {
+      // A shared calendar: its link token instead of a code, a year of past events (month view), no notes or files.
+      const agenda = get().groups.find(g => g.id === id)?.kind === 'agenda';
+      parts ??= agenda ? ['members', 'events'] : ['members', 'notes', 'events', 'files'];
       const jobs: Promise<unknown>[] = [];
       if (parts.includes('members'))
         jobs.push(
           api.fetchMembers(id).then(m => set(s => ({ members: { ...s.members, [id]: m } }))),
-          api.fetchInviteCode(id).then(c => set(s => ({ codes: { ...s.codes, [id]: c } }))),
+          (agenda ? api.fetchAgendaToken(id) : api.fetchInviteCode(id)).then(c => set(s => ({ codes: { ...s.codes, [id]: c } }))),
         );
       if (parts.includes('files')) jobs.push(api.fetchFiles(id).then(f => set(s => ({ files: { ...s.files, [id]: f } }))));
       if (parts.includes('notes')) jobs.push(api.fetchNotes(id).then(n => set(s => ({ notes: { ...s.notes, [id]: n } }))));
       if (parts.includes('events'))
         jobs.push(
-          api.fetchEvents(id, todayKey()).then(r => set(s => ({ events: { ...s.events, [id]: r.events }, attendance: { ...s.attendance, [id]: r.attendance } }))),
+          api.fetchEvents(id, agenda ? toKey(addDays(new Date(), -366)) : todayKey()).then(r => set(s => ({ events: { ...s.events, [id]: r.events }, attendance: { ...s.attendance, [id]: r.attendance } }))),
         );
       const res = await Promise.allSettled(jobs);
       // Plus membre (retiré par le propriétaire, groupe supprimé) : la liste des groupes le dira.

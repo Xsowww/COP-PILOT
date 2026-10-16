@@ -70,6 +70,9 @@ export interface GroupEvent {
   start: string | null;
   end: string | null;
   place: string | null;
+  /** Shared calendars: a built-in category (cours, examen…) and notes. */
+  category: string | null;
+  details: string | null;
   createdBy: string | null;
   createdAt: string;
 }
@@ -79,7 +82,7 @@ export interface Attendance {
   userId: string;
 }
 
-export type NewGroupEvent = Pick<GroupEvent, 'title' | 'date' | 'start' | 'end' | 'place'>;
+export type NewGroupEvent = Pick<GroupEvent, 'title' | 'date' | 'start' | 'end' | 'place'> & Partial<Pick<GroupEvent, 'category' | 'details'>>;
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? null : String(v));
@@ -112,6 +115,8 @@ export const toEvent = (r: Row): GroupEvent => ({
   start: s(r.start_time),
   end: s(r.end_time),
   place: s(r.place),
+  category: s(r.category),
+  details: s(r.details),
   createdBy: s(r.created_by),
   createdAt: String(r.created_at),
 });
@@ -168,17 +173,34 @@ export async function createGroup(name: string, color: string | null, kind: Grou
   return toGroup(row as Row);
 }
 
-/** The link that makes someone join (after signing in): /groupes?rejoindre=CODE or /agendas?rejoindre=CODE. */
-export const inviteLink = (code: string, kind: GroupKind) => `${location.origin}/${kind === 'agenda' ? 'agendas' : 'groupes'}?rejoindre=${code}`;
+/** The link that makes someone join (after signing in): a group by its code, a shared calendar by its secret token. */
+export const inviteLink = (secret: string, kind: GroupKind) =>
+  kind === 'agenda' ? `${location.origin}/agendas?invitation=${secret}` : `${location.origin}/groupes?rejoindre=${secret}`;
 
-export async function copyInviteLink(code: string, kind: GroupKind) {
-  const link = inviteLink(code, kind);
+export async function copyInviteLink(secret: string, kind: GroupKind) {
+  const link = inviteLink(secret, kind);
   try {
     await navigator.clipboard.writeText(link);
     toast('Lien d’invitation copié : envoie-le à qui tu veux', 'success');
   } catch {
     toast(`Lien d’invitation : ${link}`);
   }
+}
+
+/** A shared calendar's link token (null: not allowed to invite). Never in the groups table's readable columns. */
+export async function fetchAgendaToken(id: string): Promise<string | null> {
+  const t = check(await db().rpc('agenda_invite_token', { p_group: id }));
+  return typeof t === 'string' ? t : null;
+}
+
+export async function regenerateAgendaToken(id: string): Promise<string> {
+  return String(check(await db().rpc('regenerate_agenda_token', { p_group: id })));
+}
+
+/** Joins a shared calendar from its link; null when the link no longer works. */
+export async function joinAgenda(token: string): Promise<string | null> {
+  const id = check(await db().rpc('join_agenda', { p_token: token }));
+  return id ? String(id) : null;
 }
 
 /** Renvoie l'identifiant du groupe rejoint, ou null si le code n'existe pas. */
@@ -295,11 +317,24 @@ export async function createEvent(groupId: string, e: NewGroupEvent): Promise<Gr
   const row = check(
     await db()
       .from('group_events')
-      .insert({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place })
+      .insert({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, ...(e.category !== undefined && { category: e.category }), ...(e.details !== undefined && { details: e.details }) })
       .select('*')
       .single(),
   );
   return toEvent(row as Row);
+}
+
+/** Shared calendars: any editor changes any event (the database checks it). */
+export async function updateEvent(id: string, patch: Partial<NewGroupEvent>) {
+  const row: Row = {};
+  if (patch.title !== undefined) row.title = patch.title;
+  if (patch.date !== undefined) row.date = patch.date;
+  if (patch.start !== undefined) row.start_time = patch.start;
+  if (patch.end !== undefined) row.end_time = patch.end;
+  if (patch.place !== undefined) row.place = patch.place;
+  if (patch.category !== undefined) row.category = patch.category;
+  if (patch.details !== undefined) row.details = patch.details;
+  changed(await db().from('group_events').update(row).eq('id', id).select('id'), 'Tu peux seulement consulter cet agenda.');
 }
 
 export async function deleteEvent(id: string) {
