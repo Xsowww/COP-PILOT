@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2 } from 'lucide-react';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox } from 'lucide-react';
 import { supabase, cloudEnabled, checkIsAdmin } from '../../lib/supabase';
 import { CATEGORIES, type BuiltinCategory } from '../../store/calendar';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fmt, fromKey } from '../../lib/dates';
 import AdminInbox from './AdminInbox';
+import { fetchInbox, openCount, type Inbox as InboxData } from './inbox';
 
 interface Account {
   id: string;
@@ -36,9 +37,9 @@ interface Stats {
 
 const REFRESH_MS = 20_000;
 
-function Kpi({ icon: Icon, label, value, sub, color }: { icon: typeof Users; label: string; value: string | number; sub?: string; color: string }) {
+function Kpi({ icon: Icon, label, value, sub, color, className }: { icon: typeof Users; label: string; value: string | number; sub?: string; color: string; className?: string }) {
   return (
-    <div className="card p-4">
+    <div className={cx('card p-4', className)}>
       <div className="flex items-center gap-2">
         <span className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 12%, var(--color-surface))`, color }}>
           <Icon size={14} />
@@ -59,7 +60,8 @@ function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; v
   const top = max <= 4 ? 4 : Math.ceil(max / 5) * 5;
   const W = 600;
   const H = 140;
-  const slot = W / data.length;
+  const PLOT = W - 26; // the axis numbers sit in the gutter on the right, clear of the last bars
+  const slot = PLOT / data.length;
   const bar = Math.min(16, slot - 2);
   const total = values.reduce((a, b) => a + b, 0);
   const tip = hover !== null ? data[hover] : null;
@@ -72,9 +74,9 @@ function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; v
       <svg viewBox={`0 0 ${W} ${H + 18}`} className="mt-3 w-full overflow-visible" role="img" aria-label={`${label} par jour sur 30 jours : ${total} au total, maximum ${max} par jour`} onMouseLeave={() => setHover(null)}>
         {[0, 0.5, 1].map(f => (
           <g key={f}>
-            <line x1="0" x2={W} y1={H - f * H} y2={H - f * H} stroke="var(--color-stone-200)" strokeWidth="1" />
+            <line x1="0" x2={PLOT} y1={H - f * H} y2={H - f * H} stroke="var(--color-stone-200)" strokeWidth="1" />
             {f > 0 && (
-              <text x={W} y={H - f * H - 4} textAnchor="end" fontSize="10" fill="var(--color-stone-500)">
+              <text x={W} y={H - f * H + 3} textAnchor="end" fontSize="10" fill="var(--color-stone-500)">
                 {Math.round(top * f)}
               </text>
             )}
@@ -118,18 +120,33 @@ function DailyColumns({ data, valueKey, label, color }: { data: Stats['days']; v
   );
 }
 
+type View = 'apercu' | 'traiter' | 'comptes' | 'contenus';
+const VIEWS: { key: View; label: string; short?: string; icon: typeof Users }[] = [
+  { key: 'apercu', label: 'Vue d’ensemble', short: 'Aperçu', icon: LayoutDashboard },
+  { key: 'traiter', label: 'À traiter', icon: Inbox },
+  { key: 'comptes', label: 'Comptes', icon: Users },
+  { key: 'contenus', label: 'Contenus', icon: CalendarDays },
+];
+
 export default function AdminPage() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [inbox, setInbox] = useState<InboxData | null>(null);
+  const [inboxMissing, setInboxMissing] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
+  const [params, setParams] = useSearchParams();
+  const view = (VIEWS.find(v => v.key === params.get('vue'))?.key ?? 'apercu') as View;
+  const show = (v: View) => setParams(v === 'apercu' ? {} : { vue: v }, { replace: true });
 
   const load = useCallback(async () => {
     if (!supabase) return;
     setLoading(true);
-    const { data, error: err } = await supabase.rpc('admin_stats');
+    const [{ data, error: err }, box] = await Promise.all([supabase.rpc('admin_stats'), fetchInbox()]);
     setLoading(false);
+    setInbox(box.inbox);
+    setInboxMissing(box.missing);
     if (err) {
       setError(err.message.includes('mfa') ? 'Reconnecte-toi avec ton code de sécurité pour voir ces chiffres.' : 'Impossible de charger les statistiques.');
       return;
@@ -165,16 +182,14 @@ export default function AdminPage() {
 
   const u = stats?.users;
   const c = stats?.content;
-  const categories = (Object.keys(CATEGORIES) as BuiltinCategory[]).map(k => ({ key: k, n: stats?.events_by_category[k] ?? 0 }));
-  // « Autres » : the events in the categories users created themselves (ids « c-… »).
-  const others = Object.entries(stats?.events_by_category ?? {}).reduce((sum, [k, n]) => (k.startsWith('c-') ? sum + (n ?? 0) : sum), 0);
-  const customs = stats?.custom_categories;
-  const catMax = Math.max(1, others, ...categories.map(x => x.n));
+  const pending = openCount(inbox);
+  const pendingReports = inbox?.reports.filter(r => r.status === 'open').length ?? 0;
+  const count: Partial<Record<View, number>> = { traiter: pending, comptes: stats?.accounts.length };
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        <div className="flex flex-wrap items-center gap-3 pb-5 pt-2">
+        <div className="flex flex-wrap items-center gap-3 pb-4 pt-2">
           <div className="mr-auto">
             <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Administration</h1>
             <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone-500">
@@ -190,6 +205,43 @@ export default function AdminPage() {
           </button>
         </div>
 
+        <nav aria-label="Parties de l’administration" className="-mx-4 mb-5 overflow-x-auto border-b border-stone-200 px-4 md:mx-0 md:px-0">
+          <div className="flex min-w-max gap-1">
+            {VIEWS.map(v => (
+              <button
+                key={v.key}
+                type="button"
+                aria-current={view === v.key ? 'page' : undefined}
+                onClick={() => show(v.key)}
+                className={cx(
+                  '-mb-px flex h-10 items-center gap-2 border-b-2 px-3 text-[13.5px] transition-colors',
+                  view === v.key ? 'border-ink font-medium text-ink' : 'border-transparent text-stone-500 hover:text-ink',
+                )}
+              >
+                <v.icon size={15} aria-hidden className="hidden sm:block" />
+                {v.short ? (
+                  <>
+                    <span className="sm:hidden">{v.short}</span>
+                    <span className="hidden sm:inline">{v.label}</span>
+                  </>
+                ) : (
+                  v.label
+                )}
+                {!!count[v.key] && (
+                  <span
+                    className={cx(
+                      'tabular rounded-full px-1.5 py-px text-[11px] font-semibold',
+                      v.key === 'traiter' ? 'bg-red-50 text-red-700' : 'bg-stone-100 text-stone-600',
+                    )}
+                  >
+                    {count[v.key]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </nav>
+
         {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</p>}
 
         {!stats ? (
@@ -198,146 +250,188 @@ export default function AdminPage() {
               <Loader2 className="animate-spin text-stone-400" />
             </div>
           )
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Kpi icon={Users} label="Comptes" value={u!.total} sub={`+${u!.new_7d} cette semaine`} color="var(--color-brand-500)" />
-              <Kpi icon={Activity} label="Actifs (7 jours)" value={u!.active_7d} sub={`${u!.active_24h} aujourd’hui · ${u!.active_30d} sur 30 jours`} color="#2f9e6b" />
-              <Kpi icon={ShieldCheck} label="Double authentification" value={`${u!.total ? Math.round((stats.mfa_users / u!.total) * 100) : 0} %`} sub={`${stats.mfa_users} compte${stats.mfa_users > 1 ? 's' : ''} protégé${stats.mfa_users > 1 ? 's' : ''}`} color="#7a5ad6" />
-              <Kpi icon={HardDrive} label="Stockage" value={formatBytes(c!.storage_bytes)} sub={`${c!.files} fichiers · ${c!.folders} dossiers`} color="#3b6fd8" />
-            </div>
+        ) : view === 'apercu' ? (
+          <div className="space-y-6">
+            {pending > 0 && (
+              <button
+                type="button"
+                onClick={() => show('traiter')}
+                className="flex w-full items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left text-[13.5px] text-red-800 transition-colors hover:bg-red-100"
+              >
+                <Inbox size={16} aria-hidden />
+                <span className="flex-1">
+                  {pendingReports > 0 && `${pendingReports} signalement${pendingReports > 1 ? 's' : ''}`}
+                  {pendingReports > 0 && pending - pendingReports > 0 && ' et '}
+                  {pending - pendingReports > 0 && `${pending - pendingReports} avis ou bug${pending - pendingReports > 1 ? 's' : ''}`} à traiter
+                </span>
+                <span className="font-medium">Voir</span>
+              </button>
+            )}
 
-            <div className="mt-3 grid grid-cols-3 gap-3">
-              <Kpi icon={NotebookText} label="Notes" value={c!.notes} sub={`${c!.note_folders} dossiers`} color="#d48a17" />
-              <Kpi icon={CalendarDays} label="Événements" value={c!.events} sub={`${c!.events ? Math.round((c!.events_done / c!.events) * 100) : 0} % terminés`} color="#d9483b" />
-              <Kpi icon={FolderClosed} label="Fichiers" value={c!.files} sub={u!.total ? `${(c!.files / u!.total).toFixed(1)} par compte` : undefined} color="#3b6fd8" />
-            </div>
+            <section aria-labelledby="admin-users">
+              <h2 id="admin-users" className="eyebrow mb-2">Utilisateurs</h2>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <Kpi icon={Users} label="Comptes" value={u!.total} sub={`+${u!.new_7d} cette semaine`} color="var(--color-brand-500)" />
+                <Kpi icon={Activity} label="Actifs (7 jours)" value={u!.active_7d} sub={`${u!.active_24h} aujourd’hui · ${u!.active_30d} sur 30 jours`} color="#2f9e6b" />
+                <Kpi icon={ShieldCheck} label="Double authentification" value={`${u!.total ? Math.round((stats.mfa_users / u!.total) * 100) : 0} %`} sub={`${stats.mfa_users} compte${stats.mfa_users > 1 ? 's' : ''} protégé${stats.mfa_users > 1 ? 's' : ''}`} color="#7a5ad6" className="col-span-2 md:col-span-1" />
+              </div>
+            </section>
 
-            <AdminInbox />
+            <section aria-labelledby="admin-content">
+              <h2 id="admin-content" className="eyebrow mb-2">Contenus</h2>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <Kpi icon={NotebookText} label="Notes" value={c!.notes} sub={`${c!.note_folders} dossiers`} color="#d48a17" />
+                <Kpi icon={CalendarDays} label="Événements" value={c!.events} sub={`${c!.events ? Math.round((c!.events_done / c!.events) * 100) : 0} % terminés`} color="#d9483b" />
+                <Kpi icon={FolderClosed} label="Fichiers" value={c!.files} sub={u!.total ? `${(c!.files / u!.total).toFixed(1)} par compte` : undefined} color="#3b6fd8" />
+                <Kpi icon={HardDrive} label="Stockage" value={formatBytes(c!.storage_bytes)} sub={`${c!.folders} dossiers`} color="#3b6fd8" />
+              </div>
+            </section>
 
-            <div className="mt-3 grid gap-3 lg:grid-cols-2">
-              <section className="card p-4">
-                <h2 className="text-[13px] font-medium text-stone-600">Activité</h2>
-                <p className="text-[12px] text-stone-500">Notes, événements et fichiers créés par jour</p>
-                <div className="mt-3">
-                  <DailyColumns data={stats.days} valueKey="created" label="éléments créés" color="var(--color-brand-500)" />
-                </div>
-              </section>
-              <section className="card p-4">
-                <h2 className="text-[13px] font-medium text-stone-600">Inscriptions</h2>
-                <p className="text-[12px] text-stone-500">Nouveaux comptes par jour</p>
-                <div className="mt-3">
-                  <DailyColumns data={stats.days} valueKey="signups" label="inscriptions" color="#3b6fd8" />
-                </div>
-              </section>
-            </div>
-
-            <section className="card mt-3 p-4">
-              <h2 className="text-[13px] font-medium text-stone-600">Calendrier : répartition des événements</h2>
-              <div className="mt-3 space-y-2">
-                {categories.map(({ key, n }) => (
-                  <div key={key} className="grid grid-cols-[90px_1fr_48px] items-center gap-3 text-[13px]">
-                    <span className="flex items-center gap-2 text-stone-600">
-                      <span className="h-2 w-2 rounded-full" style={{ background: CATEGORIES[key].color }} />
-                      {CATEGORIES[key].label}
-                    </span>
-                    <span className="h-3 overflow-hidden rounded-r-[4px] bg-stone-100">
-                      <span className="block h-full rounded-r-[4px]" style={{ width: `${(n / catMax) * 100}%`, background: CATEGORIES[key].color }} />
-                    </span>
-                    <span className="tabular text-right text-stone-600">{n}</span>
+            <section aria-labelledby="admin-trends">
+              <h2 id="admin-trends" className="eyebrow mb-2">30 derniers jours</h2>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <div className="card p-4">
+                  <h3 className="text-[13px] font-medium text-stone-600">Activité</h3>
+                  <p className="text-[12px] text-stone-500">Notes, événements et fichiers créés par jour</p>
+                  <div className="mt-3">
+                    <DailyColumns data={stats.days} valueKey="created" label="éléments créés" color="var(--color-brand-500)" />
                   </div>
-                ))}
-                <div className="grid grid-cols-[90px_1fr_48px] items-center gap-3 text-[13px]">
-                  <span className="flex items-center gap-2 text-stone-600">
-                    <span className="h-2 w-2 rounded-full bg-stone-400" />
-                    Autres
-                  </span>
-                  <span className="h-3 overflow-hidden rounded-r-[4px] bg-stone-100">
-                    <span className="block h-full rounded-r-[4px] bg-stone-400" style={{ width: `${(others / catMax) * 100}%` }} />
-                  </span>
-                  <span className="tabular text-right text-stone-600">{others}</span>
+                </div>
+                <div className="card p-4">
+                  <h3 className="text-[13px] font-medium text-stone-600">Inscriptions</h3>
+                  <p className="text-[12px] text-stone-500">Nouveaux comptes par jour</p>
+                  <div className="mt-3">
+                    <DailyColumns data={stats.days} valueKey="signups" label="inscriptions" color="#3b6fd8" />
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 border-t border-stone-100 pt-3">
-                <h3 className="text-[12px] font-medium text-stone-600">
-                  Autres : catégories créées par les utilisateurs{customs ? ` (${customs.length})` : ''}
-                </h3>
-                {!customs ? (
-                  <p className="mt-1 text-[12px] text-stone-500">Le détail s’affichera une fois la migration 2026-10-16 appliquée sur Supabase.</p>
-                ) : customs.length === 0 ? (
-                  <p className="mt-1 text-[12px] text-stone-500">Aucune catégorie personnelle pour l’instant.</p>
-                ) : (
-                  <ul className="mt-2 grid gap-x-6 gap-y-1 text-[13px] sm:grid-cols-2">
-                    {customs.map(c => (
-                      <li key={c.label} className="flex items-baseline gap-2">
-                        <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                        <span className="tabular shrink-0 text-[12px] text-stone-500">
-                          {c.events} événement{c.events > 1 ? 's' : ''} · {c.users} compte{c.users > 1 ? 's' : ''}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
             </section>
-
-            <section className="card mt-3 overflow-hidden">
-              <div className="flex flex-wrap items-center gap-3 border-b border-stone-100 px-4 py-3">
-                <h2 className="mr-auto text-[13px] font-medium text-stone-600">
-                  Comptes <span className="tabular text-stone-500">({accounts.length})</span>
-                </h2>
-                <div className="relative">
-                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                  <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Nom ou e-mail" className="field h-8 w-56 pl-8" />
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px] text-[13px]">
-                  <thead>
-                    <tr className="border-b border-stone-100 text-left text-[12px] text-stone-500">
-                      <th className="px-4 py-2 font-medium">Compte</th>
-                      <th className="px-3 py-2 font-medium">Inscrit</th>
-                      <th className="px-3 py-2 font-medium">Dernière connexion</th>
-                      <th className="px-3 py-2 font-medium">Sécurité</th>
-                      <th className="px-3 py-2 text-right font-medium">Notes</th>
-                      <th className="px-3 py-2 text-right font-medium">Événements</th>
-                      <th className="px-3 py-2 text-right font-medium">Fichiers</th>
-                      <th className="px-4 py-2 text-right font-medium">Stockage</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {accounts.map(a => (
-                      <tr key={a.id} className="border-b border-stone-50 last:border-0 hover:bg-stone-50">
-                        <td className="px-4 py-2.5">
-                          <p className="font-medium">
-                            {a.name || '—'}
-                            {a.admin && <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">Admin</span>}
-                          </p>
-                          <p className="text-[12px] text-stone-500">{a.email}</p>
-                        </td>
-                        <td className="px-3 py-2.5 text-stone-600">{fmt(new Date(a.created_at), 'd MMM yyyy')}</td>
-                        <td className="px-3 py-2.5 text-stone-600">{a.last_sign_in_at ? relativeTime(a.last_sign_in_at) : 'jamais'}</td>
-                        <td className="px-3 py-2.5">
-                          <span className={cx('inline-flex items-center gap-1 text-[12px]', a.mfa ? 'text-emerald-700' : 'text-stone-500')}>
-                            <ShieldCheck size={13} /> {a.mfa ? '2FA active' : 'Sans 2FA'}
-                          </span>
-                        </td>
-                        <td className="tabular px-3 py-2.5 text-right">{a.notes}</td>
-                        <td className="tabular px-3 py-2.5 text-right">{a.events}</td>
-                        <td className="tabular px-3 py-2.5 text-right">{a.files}</td>
-                        <td className="tabular px-4 py-2.5 text-right text-stone-600">{formatBytes(a.storage)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-            <p className="mt-3 text-[11px] text-stone-500">
-              Seuls des chiffres sont affichés : le contenu des notes, des événements et des fichiers des étudiants n’est jamais visible ici.
-            </p>
-          </>
+          </div>
+        ) : view === 'traiter' ? (
+          <AdminInbox inbox={inbox} missing={inboxMissing} reload={() => void load()} />
+        ) : view === 'comptes' ? (
+          <AccountsTable accounts={accounts} total={stats.accounts.length} query={query} setQuery={setQuery} />
+        ) : (
+          <Categories stats={stats} />
         )}
+
+        <p className="mt-6 text-[11px] text-stone-500">
+          Ici, seulement des chiffres et la liste des comptes : le contenu des notes, des événements et des fichiers n’est jamais visible, sauf la copie d’un contenu de groupe signalé.
+        </p>
       </div>
+    </div>
+  );
+}
+
+function AccountsTable({ accounts, total, query, setQuery }: { accounts: Account[]; total: number; query: string; setQuery: (q: string) => void }) {
+  return (
+    <section className="card overflow-hidden" aria-labelledby="admin-accounts">
+      <div className="flex flex-wrap items-center gap-3 border-b border-stone-100 px-4 py-3">
+        <h2 id="admin-accounts" className="mr-auto text-[13px] font-medium text-stone-600">
+          Comptes <span className="tabular text-stone-500">({accounts.length === total ? total : `${accounts.length} sur ${total}`})</span>
+        </h2>
+        <div className="relative">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Nom ou e-mail" aria-label="Chercher un compte" className="field h-8 w-56 pl-8" />
+        </div>
+      </div>
+      {accounts.length === 0 ? (
+        <p className="px-4 py-8 text-center text-[13px] text-stone-500">Aucun compte ne correspond.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px] text-[13px]">
+            <thead>
+              <tr className="border-b border-stone-100 text-left text-[12px] text-stone-500">
+                <th className="px-4 py-2 font-medium">Compte</th>
+                <th className="px-3 py-2 font-medium">Inscrit</th>
+                <th className="px-3 py-2 font-medium">Dernière connexion</th>
+                <th className="px-3 py-2 font-medium">Sécurité</th>
+                <th className="px-3 py-2 text-right font-medium">Notes</th>
+                <th className="px-3 py-2 text-right font-medium">Événements</th>
+                <th className="px-3 py-2 text-right font-medium">Fichiers</th>
+                <th className="px-4 py-2 text-right font-medium">Stockage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map(a => (
+                <tr key={a.id} className="border-b border-stone-50 last:border-0 hover:bg-stone-50">
+                  <td className="px-4 py-2.5">
+                    <p className="font-medium">
+                      {a.name || '—'}
+                      {a.admin && <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">Admin</span>}
+                    </p>
+                    <p className="text-[12px] text-stone-500">{a.email}</p>
+                  </td>
+                  <td className="px-3 py-2.5 text-stone-600">{fmt(new Date(a.created_at), 'd MMM yyyy')}</td>
+                  <td className="px-3 py-2.5 text-stone-600">{a.last_sign_in_at ? relativeTime(a.last_sign_in_at) : 'jamais'}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={cx('inline-flex items-center gap-1 text-[12px]', a.mfa ? 'text-emerald-700' : 'text-stone-500')}>
+                      <ShieldCheck size={13} /> {a.mfa ? '2FA active' : 'Sans 2FA'}
+                    </span>
+                  </td>
+                  <td className="tabular px-3 py-2.5 text-right">{a.notes}</td>
+                  <td className="tabular px-3 py-2.5 text-right">{a.events}</td>
+                  <td className="tabular px-3 py-2.5 text-right">{a.files}</td>
+                  <td className="tabular px-4 py-2.5 text-right text-stone-600">{formatBytes(a.storage)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Categories({ stats }: { stats: Stats }) {
+  const categories = (Object.keys(CATEGORIES) as BuiltinCategory[]).map(k => ({ key: k, n: stats.events_by_category[k] ?? 0 }));
+  // « Autres » : the events in the categories users created themselves (ids « c-… »).
+  const others = Object.entries(stats.events_by_category).reduce((sum, [k, n]) => (k.startsWith('c-') ? sum + (n ?? 0) : sum), 0);
+  const customs = stats.custom_categories;
+  const catMax = Math.max(1, others, ...categories.map(x => x.n));
+  const row = (key: string, label: string, n: number, color: string) => (
+    <div key={key} className="grid grid-cols-[110px_1fr_48px] items-center gap-3 text-[13px]">
+      <span className="flex items-center gap-2 text-stone-600">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+        {label}
+      </span>
+      <span className="h-3 overflow-hidden rounded-r-[4px] bg-stone-100">
+        <span className="block h-full rounded-r-[4px]" style={{ width: `${(n / catMax) * 100}%`, background: color }} />
+      </span>
+      <span className="tabular text-right text-stone-600">{n}</span>
+    </div>
+  );
+  return (
+    <div className="grid items-start gap-3 lg:grid-cols-2">
+      <section className="card p-4" aria-labelledby="admin-cats">
+        <h2 id="admin-cats" className="text-[13px] font-medium text-stone-600">Événements par catégorie</h2>
+        <p className="text-[12px] text-stone-500">Tous les comptes confondus</p>
+        <div className="mt-4 space-y-2">
+          {categories.map(({ key, n }) => row(key, CATEGORIES[key].label, n, CATEGORIES[key].color))}
+          {row('autres', 'Autres', others, 'var(--color-stone-400)')}
+        </div>
+      </section>
+      <section className="card p-4" aria-labelledby="admin-customs">
+        <h2 id="admin-customs" className="text-[13px] font-medium text-stone-600">
+          Autres : catégories créées par les utilisateurs{customs ? ` (${customs.length})` : ''}
+        </h2>
+        {!customs ? (
+          <p className="mt-2 text-[12px] text-stone-500">Le détail s’affichera une fois la migration 2026-10-16 appliquée sur Supabase.</p>
+        ) : customs.length === 0 ? (
+          <p className="mt-2 text-[12px] text-stone-500">Aucune catégorie personnelle pour l’instant.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-stone-100 text-[13px]">
+            {customs.map(c => (
+              <li key={c.label} className="flex items-baseline gap-2 py-1.5">
+                <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                <span className="tabular shrink-0 text-[12px] text-stone-500">
+                  {c.events} événement{c.events > 1 ? 's' : ''} · {c.users} compte{c.users > 1 ? 's' : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
