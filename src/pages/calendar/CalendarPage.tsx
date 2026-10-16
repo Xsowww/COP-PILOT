@@ -439,6 +439,8 @@ export default function CalendarPage() {
               </button>
             ))}
           </div>
+          {/* Filter and import wrap together: on a phone the import icon was left alone on its own line. */}
+          <div className="flex items-center gap-2">
           <CalendarFilter
             categories={allCategories(custom)}
             shown={shown}
@@ -468,6 +470,7 @@ export default function CalendarPage() {
             <CalendarArrowUp size={16} />
           </button>
           </div>}
+          </div>
         </div>
 
         {/* Quick add */}

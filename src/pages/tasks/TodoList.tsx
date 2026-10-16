@@ -262,8 +262,9 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
                 }
             }}
             className={cx(
-              'hit shrink-0 rounded-md',
-              t.due ? 'min-w-[58px] px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
+              // Same width with or without a date: the reminder bells stay in one column.
+              'hit min-w-[58px] shrink-0 rounded-md',
+              t.due ? 'px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
             )}
             title={t.due ? 'Changer l’échéance' : 'Ajouter une échéance'}
             aria-label={t.due ? `Changer l’échéance de «\u00a0${t.title}\u00a0» (${dueText(t.due, overdue)})` : `Ajouter une échéance à «\u00a0${t.title}\u00a0»`}

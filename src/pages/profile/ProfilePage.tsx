@@ -166,8 +166,10 @@ function ProfileTab() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="break-words text-[18px] font-semibold tracking-tight">{user.name}</p>
+            {/* Phones: the date on its own line, so a long e-mail never leaves « · » at the start of a line. */}
             <p className="text-[13px] text-stone-500 [overflow-wrap:anywhere]">
-              {user.email}{'\u00a0'}· inscription le {fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0')}
+              {user.email}<span className="max-sm:hidden">{'\u00a0'}· </span>
+              <span className="max-sm:block max-sm:first-letter:uppercase">inscription le {fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0')}</span>
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {AVATAR_COLORS.map((c, i) => (
