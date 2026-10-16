@@ -284,38 +284,53 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
   );
 }
 
-/** Reminders that came due while the app is in view (lib/reminderScheduler): they stay until closed. */
+/**
+ * Reminders that came due while the app is in view (lib/reminderScheduler): a notification banner,
+ * at the top on phones (where the phone's own banners appear), bottom right on a computer (clear of the
+ * page's header and buttons). It stays until closed.
+ */
 export function ReminderAlerts() {
   const alerts = useUi(s => s.alerts);
   const dismiss = useUi(s => s.dismissAlert);
   const navigate = useNavigate();
   if (!alerts.length) return null;
   return (
-    <div role="alert" className="pointer-events-none fixed inset-x-3 top-3 z-[75] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:top-4 sm:items-end">
+    <div
+      role="alert"
+      className="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+10px)] z-[75] flex flex-col items-center gap-2.5 lg:inset-x-auto lg:bottom-[72px] lg:right-5 lg:top-auto lg:items-end"
+    >
       {alerts.map(a => (
-        <div key={a.key} className="pop pointer-events-auto flex w-full max-w-[380px] gap-3 rounded-xl border border-stone-200 bg-surface p-3.5 shadow-pop">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600" aria-hidden>
-            <BellRing size={16} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-stone-500">Rappel</p>
-            <p className="mt-0.5 text-[14px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{a.title}</p>
-            {a.body && <p className="mt-0.5 text-[13px] text-stone-600">{a.body}</p>}
-            <div className="mt-2.5 flex gap-2">
-              <button
-                type="button"
-                className="btn-primary h-8 px-3 text-[13px]"
-                onClick={() => {
-                  dismiss(a.key);
-                  navigate(a.url);
-                }}
-              >
-                Voir
-              </button>
-              <button type="button" className="btn-secondary h-8 px-3 text-[13px]" onClick={() => dismiss(a.key)}>
-                OK
-              </button>
+        <div
+          key={a.key}
+          className="notif-in pointer-events-auto w-full max-w-[400px] overflow-hidden rounded-[18px] border border-stone-200/80 bg-surface shadow-pop lg:w-[360px]"
+        >
+          <div className="flex gap-3 px-3.5 pb-3 pt-3.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-solid text-on-brand" aria-hidden>
+              <BellRing size={18} strokeWidth={2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="flex items-baseline justify-between gap-2 text-[12px] leading-4 text-stone-500">
+                <span className="font-medium">Rappel</span>
+                {a.at && <time className="tabular">{new Date(a.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time>}
+              </p>
+              <p className="mt-1 line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{a.title}</p>
+              {a.body && <p className="mt-0.5 text-[13px] leading-snug text-stone-600">{a.body}</p>}
             </div>
+          </div>
+          <div className="grid grid-cols-2 border-t border-stone-100 text-[13px] font-medium">
+            <button type="button" className="h-10 text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink" onClick={() => dismiss(a.key)}>
+              Fermer
+            </button>
+            <button
+              type="button"
+              className="h-10 border-l border-stone-100 text-brand-600 transition-colors hover:bg-brand-50"
+              onClick={() => {
+                dismiss(a.key);
+                navigate(a.url);
+              }}
+            >
+              Voir
+            </button>
           </div>
         </div>
       ))}

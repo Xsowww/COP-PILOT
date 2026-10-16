@@ -20,6 +20,8 @@ export interface ReminderAlert {
   title: string;
   body: string;
   url: string;
+  /** When it came (ms). */
+  at?: number;
 }
 
 interface DialogRequest {

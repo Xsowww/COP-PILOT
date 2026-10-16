@@ -16,7 +16,7 @@ try {
 }
 loadPublicEnv();
 // After the environment is read: push.mjs takes its settings when loaded.
-const { handlePush, startPushLoop, pushStatus } = await import('./push.mjs');
+const { handlePush, startPushLoop, pushStatus, keyKind } = await import('./push.mjs');
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -187,7 +187,7 @@ async function serveHealth(req, res) {
   res.end(
     req.method === 'HEAD'
       ? undefined
-      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? `erreur ${pushStatus.lastCode}` : 'actifs') : 'désactivés', version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
+      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? `erreur ${pushStatus.lastCode}` : 'actifs') : 'désactivés', ...(pushStatus.lastError && { rappelsDetail: [pushStatus.lastHint, `clé ${keyKind}`].filter(Boolean).join(' · ') }), version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
   );
   return true;
 }

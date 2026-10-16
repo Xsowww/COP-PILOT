@@ -261,6 +261,19 @@ body {
   .check-hit { margin: -11px; padding: 11px; }
 }
 .pop { animation: pop 0.22s cubic-bezier(.2,.9,.3,1.2) both; }
+/* In-app reminder: slides down from the top on phones, in from the right on a computer. */
+@keyframes notif-down {
+  from { opacity: 0; transform: translateY(-14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes notif-side {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+.notif-in { animation: notif-down 0.32s cubic-bezier(.2,.9,.3,1) both; }
+@media (min-width: 1024px) {
+  .notif-in { animation-name: notif-side; }
+}
 
 /* Copilot */
 @keyframes cop-breathe {

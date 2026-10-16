@@ -22,7 +22,24 @@ const SUPABASE = (() => {
     return '';
   }
 })();
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+// Pasted with a space, a line break or quotes around it: cleaned (a key never contains them).
+const SERVICE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim().replace(/^["']+|["']+$/g, '').trim();
+
+/** What kind of key it is, shown by /api/sante to find a wrong paste — never the key itself. */
+export const keyKind = (() => {
+  if (!SERVICE_KEY) return 'absente';
+  if (SERVICE_KEY.startsWith('sb_secret_')) return 'secrète';
+  if (SERVICE_KEY.startsWith('sb_publishable_')) return 'publique (pas la bonne : il faut la clé secrète)';
+  if (SERVICE_KEY.startsWith('eyJ')) {
+    try {
+      const role = JSON.parse(Buffer.from(SERVICE_KEY.split('.')[1], 'base64url').toString()).role;
+      return role === 'service_role' ? 'ancienne service_role' : `ancienne ${role ?? 'inconnue'} (pas la bonne : il faut service_role)`;
+    } catch {
+      return 'format inconnu';
+    }
+  }
+  return 'format inconnu';
+})();
 const SECRET = process.env.PUSH_SECRET || '';
 const SUBJECT = (process.env.SITE_URL || 'https://kompaly.com').replace(/\/+$/, '');
 
@@ -63,9 +80,9 @@ async function send(sub, payload, ttl) {
 
 // ── Supabase with the secret key (bypasses the access rules: only for what this file does) ──
 const serviceHeaders = () => ({
+  // Both, as Supabase's own client sends them (a « sb_secret_… » key is accepted there when it equals apikey).
   apikey: SERVICE_KEY,
-  // A legacy « service_role » key is a JWT and also goes here; the new « sb_secret_… » keys only in apikey.
-  ...(SERVICE_KEY.startsWith('sb_') ? {} : { Authorization: `Bearer ${SERVICE_KEY}` }),
+  Authorization: `Bearer ${SERVICE_KEY}`,
   'Content-Type': 'application/json',
 });
 async function rest(path, init = {}) {
@@ -76,7 +93,7 @@ async function rest(path, init = {}) {
 
 // ── The loop ────────────────────────────────────────────────────────────────
 /** lastCode: the HTTP status of the last failure (or 'réseau'), shown by /api/sante — never the message itself. */
-export const pushStatus = { active: false, lastRun: null, lastError: null, lastCode: null, sent: 0 };
+export const pushStatus = { active: false, lastRun: null, lastError: null, lastCode: null, lastHint: null, sent: 0 };
 
 async function deliverDue() {
   const due = await rest('/rest/v1/rpc/claim_due_reminders', { method: 'POST', body: '{}' });
@@ -117,12 +134,22 @@ export function startPushLoop() {
       await deliverDue();
       pushStatus.lastError = null;
       pushStatus.lastCode = null;
+      pushStatus.lastHint = null;
     } catch (e) {
       // Migration 2026-10-17 not applied yet, network…: said once per kind of error, retried at the next turn.
       const msg = e instanceof Error ? e.message : String(e);
       if (msg !== pushStatus.lastError) console.error('[push]', msg);
       pushStatus.lastError = msg;
       pushStatus.lastCode = e?.status ?? 'réseau';
+      pushStatus.lastHint = /legacy api keys are disabled/i.test(msg)
+        ? 'anciennes clés désactivées dans Supabase : prends la clé secrète sb_secret_…'
+        : /invalid api key|no api key/i.test(msg)
+          ? 'clé refusée par Supabase (autre projet, ou mal copiée)'
+          : /permission denied|42501/i.test(msg)
+            ? 'clé sans les droits (clé publique ?)'
+            : /PGRST202|could not find the function/i.test(msg)
+              ? 'migration 2026-10-17 pas appliquée'
+              : null;
     } finally {
       pushStatus.lastRun = new Date().toISOString();
       running = false;
