@@ -212,3 +212,18 @@ export const fromMinutes = (min: number) => {
   const v = Math.max(0, Math.min(23 * 60 + 59, Math.round(min)));
   return `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
 };
+
+/** Already behind us: an earlier day, or today with its end (else its start) passed. Without a time, it lasts all day. */
+export function isOver(e: { date: string; start?: string | null; end?: string | null }, now = new Date()) {
+  const today = toKey(now);
+  if (e.date !== today) return e.date < today;
+  const last = e.end ?? e.start;
+  return !!last && last <= format(now, 'HH:mm');
+}
+
+/** Already started (today, its start passed): too late to prepare for it. */
+export function hasStarted(e: { date: string; start?: string | null }, now = new Date()) {
+  const today = toKey(now);
+  if (e.date !== today) return e.date < today;
+  return !!e.start && e.start <= format(now, 'HH:mm');
+}

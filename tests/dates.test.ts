@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmt, parseQuickAdd } from '../src/lib/dates';
+import { fmt, parseQuickAdd, hasStarted } from '../src/lib/dates';
 
 // Mardi 13 octobre 2026, 10 h.
 const base = new Date(2026, 9, 13, 10);
@@ -55,5 +55,17 @@ describe('fmt', () => {
     expect(fmt(new Date(2026, 8, 1), 'd MMM yyyy')).toBe('1er sept. 2026');
     expect(fmt(new Date(2026, 10, 2), 'EEEE d MMMM')).toBe('lundi 2 novembre');
     expect(fmt(new Date(2026, 10, 1), 'dd/MM')).toBe('01/11');
+  });
+});
+
+describe('hasStarted', () => {
+  const now = new Date(2026, 9, 15, 19, 55);
+  it('un examen commencé ou passé', () => {
+    expect(hasStarted({ date: '2026-10-15', start: '19:00' }, now)).toBe(true);
+    expect(hasStarted({ date: '2026-10-14' }, now)).toBe(true);
+  });
+  it('un examen à venir, ou sans heure aujourd’hui', () => {
+    expect(hasStarted({ date: '2026-10-15', start: '21:00' }, now)).toBe(false);
+    expect(hasStarted({ date: '2026-10-15' }, now)).toBe(false);
   });
 });

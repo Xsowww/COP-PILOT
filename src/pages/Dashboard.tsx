@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
@@ -90,6 +91,7 @@ export default function Dashboard() {
 
   const recentNotes = [...notes].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
 
+  const [tooLate, setTooLate] = useState<string>();
   const planExam = () => {
     if (!nextExam) return;
     const r = runOffer({ label: 'Planifier', kind: 'plan_revisions', payload: { eventId: nextExam.id } });
@@ -98,6 +100,7 @@ export default function Dashboard() {
     if (planned) return toast(`${words.planned}, ${words === WORDS.etudes ? 'fiche créée' : 'note créée'}`, 'success');
     // Too late for a session: the sheet Kompaly made anyway is one tap away.
     const sheet = r.links?.find(l => l.to.startsWith('/notes'));
+    setTooLate(nextExam.id); // the card now offers the sheet instead of the same message again
     toast(r.text, 'info', sheet && { label: sheet.label, run: () => navigate(sheet.to) });
   };
 
@@ -180,8 +183,8 @@ export default function Dashboard() {
                     <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
                       <Check size={13} className="text-emerald-600" /> {words.planned}
                     </p>
-                  ) : examSheet && examDays === 0 ? (
-                    // Today with a sheet but no session: it was too late, asking again would only repeat it.
+                  ) : examSheet && (examDays === 0 || tooLate === nextExam.id) ? (
+                    // A sheet but no session (today, or just answered « too late »): asking again would only repeat it.
                     <Link to={linkToNote(examSheet.id)} className="btn-secondary h-8 text-[12px]">
                       {words === WORDS.etudes ? 'Ouvrir la fiche' : 'Ouvrir la note'}
                     </Link>

@@ -79,7 +79,10 @@ function Row({ cat }: { cat: CustomCategory }) {
   const count = useCalendar(s => s.events.filter(e => e.category === cat.id).length);
   const remove = async () => {
     const msg = count > 1 ? `Ses ${count} événements passeront dans « ${CATEGORIES.perso.label} ».` : count ? `Son événement passera dans « ${CATEGORIES.perso.label} ».` : 'Aucun événement ne l’utilise.';
-    if (await confirmAction(`Supprimer « ${cat.label} » ?`, msg, 'Supprimer')) deleteCategory(cat.id);
+    if (!(await confirmAction(`Supprimer « ${cat.label} » ?`, msg, 'Supprimer'))) return;
+    deleteCategory(cat.id);
+    // Its row (and the button the confirmation gave the focus back to) is gone: stay in the dialog.
+    setTimeout(() => document.querySelector<HTMLInputElement>('[aria-label="Nom de la nouvelle catégorie"]')?.focus(), 0);
   };
   return (
     <li className="py-2">

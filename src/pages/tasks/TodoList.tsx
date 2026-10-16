@@ -174,7 +174,8 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           Lancer
         </button>
       )}
-      {!t.done && editable ? (
+      {/* The tour task has « Lancer » in that column instead (no deadline to give it). */}
+      {!t.done && editable && !(isTourTodo(t.title) && !t.due) ? (
         dating ? (
           // Only while changing it: a date field on every row meant 4 Tab stops per task.
           <span

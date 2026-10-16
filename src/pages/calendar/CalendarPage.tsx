@@ -5,7 +5,7 @@ import { trashEvent } from '../../lib/trash';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
 import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp } from 'lucide-react';
 import { useCalendar, catOf, allCategories, guessCategory, isDeliverable, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
-import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes } from '../../lib/dates';
+import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
@@ -259,7 +259,8 @@ export default function CalendarPage() {
   };
 
   // Same filter as the calendar (the category chips sit in this block).
-  const isUpcomingExam = (e: CalendarEvent) => e.category === 'examen' && e.date >= today && !e.done;
+  // An exam of today already over (its end, else its start, passed) is no longer « à venir », as on the home page.
+  const isUpcomingExam = (e: CalendarEvent) => e.category === 'examen' && !e.done && !isOver(e);
   const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14;
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
   const upcomingHidden = hidden.size > 0 && events.some(e => hidden.has(e.category) && (isUpcomingExam(e) || isHomeworkSoon(e)));
@@ -313,6 +314,8 @@ export default function CalendarPage() {
               </button>
             ))}
           </div>
+          {/* Together: on a tablet the header wraps, and the export icon was left alone on a second line. */}
+          <div className="flex items-center gap-1">
           <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title={`Importer un ${words.timetable} (.ics)`} aria-label={`Importer un ${words.timetable} (.ics)`}>
             <CalendarArrowDown size={16} />
           </button>
@@ -320,6 +323,7 @@ export default function CalendarPage() {
           <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => exportIcs()} title="Exporter le calendrier (.ics)" aria-label="Exporter le calendrier (.ics)">
             <CalendarArrowUp size={16} />
           </button>
+          </div>
         </div>
 
         {/* Quick add */}

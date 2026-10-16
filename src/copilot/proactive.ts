@@ -10,7 +10,9 @@ import { useAuth } from '../store/auth';
 import { useTodos } from '../store/todos';
 import { useFocusLog } from '../store/focusLog';
 import { useFocus } from '../store/focus';
-import { toKey, todayKey, daysUntil, fmt, fromKey, weekStart, countdownLabel } from '../lib/dates';
+import { toKey, todayKey, daysUntil, fmt, fromKey, weekStart, countdownLabel, isOver, hasStarted } from '../lib/dates';
+
+export { isOver };
 import { hasRevisionPlan, linkToDay, linkToNote } from './actions';
 import { aiNudge, type NudgeKind } from './claudeBrain';
 import { getSettings } from '../store/settings';
@@ -72,14 +74,6 @@ async function nudge(n: Nudge) {
   return true;
 }
 
-/** Already behind us: an earlier day, or today with its end (else its start) passed. Without a time, it lasts all day. */
-export function isOver(e: Pick<CalendarEvent, 'date' | 'start' | 'end'>, now = new Date()) {
-  const today = toKey(now);
-  if (e.date !== today) return e.date < today;
-  const last = e.end ?? e.start;
-  return !!last && last <= fmt(now, 'HH:mm');
-}
-
 const when = (e: CalendarEvent) => `${fmt(fromKey(e.date), 'EEEE d MMMM')}${e.start ? ` à ${e.start.replace(':', 'h')}` : ''}`;
 
 const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
@@ -120,7 +114,7 @@ function onEventAdded(e: CalendarEvent) {
   if (e.title.startsWith('Révision · ') || e.title.startsWith('Préparation · ')) return; // created by Kompaly himself
   if (e.category === 'examen') {
     const d = daysUntil(e.date);
-    if (isOver(e)) return; // added after the fact (« Exam hier », « Partiel aujourd'hui 8h » at 20h): nothing left to prepare
+    if (hasStarted(e)) return; // added after the fact (or already under way) (« Exam hier », « Partiel aujourd'hui 8h » at 20h): nothing left to prepare
     void nudge({
       key: `exam-added:${e.id}`,
       every: 365 * DAY,
