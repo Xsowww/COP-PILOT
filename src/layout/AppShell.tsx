@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText } from 'lucide-react';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
@@ -34,7 +34,8 @@ const NAV = [
   { to: '/taches', label: 'Tâches', icon: ListChecks, color: '#2f9e6b' },
   { to: '/notes', label: 'Notes', icon: NotebookText, color: SPACE_COLORS.notes },
   { to: '/drive', label: 'Drive', icon: FolderClosed, color: SPACE_COLORS.drive },
-  { to: '/groupes', label: 'Groupes', icon: Users, color: '#1f8a8a' },
+  // `section`: a small title above this entry in the sidebar (what is shared with others comes after).
+  { to: '/groupes', label: 'Groupes', icon: Users, color: '#1f8a8a', section: 'Espaces partagés' },
   { to: '/agendas', label: 'Agendas partagés', short: 'Agendas', icon: CalendarRange, color: '#7a5ad6' },
 ];
 
@@ -288,8 +289,9 @@ export default function AppShell() {
         </div>
         <nav aria-label="Navigation principale" className="flex flex-1 flex-col gap-1">
           {NAV.map(n => (
+            <Fragment key={n.to}>
+            {'section' in n && <p className="mb-1 mt-5 px-2.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-stone-500">{n.section}</p>}
             <NavLink
-              key={n.to}
               to={n.to}
               end={n.end}
               className={({ isActive }) =>
@@ -314,6 +316,7 @@ export default function AppShell() {
                 </>
               )}
             </NavLink>
+            </Fragment>
           ))}
           {isAdmin && (
             <NavLink
