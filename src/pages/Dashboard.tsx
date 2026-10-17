@@ -167,10 +167,10 @@ export default function Dashboard() {
             {nowEvent ? (
               <span className="flex items-end justify-between gap-4">
                 <span className="min-w-0">
-                  <span className="block truncate text-[26px] font-extrabold leading-tight tracking-[-0.03em]">{nowEvent.title}</span>
+                  <span className="line-clamp-2 block text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">{nowEvent.title}</span>
                   {nowEvent.details && <span className="block truncate text-[14px] text-white/80">{nowEvent.details.split('\n')[0]}</span>}
                 </span>
-                <span className="tabular shrink-0 text-[40px] font-extrabold leading-none tracking-[-0.04em]">{nowEvent.start}</span>
+                <span className="tabular shrink-0 text-[34px] font-extrabold leading-none tracking-[-0.04em] sm:text-[40px]">{nowEvent.start}</span>
               </span>
             ) : (
               <span className="text-[22px] font-extrabold tracking-[-0.02em]">Plus rien de prévu aujourd’hui. Ajouter quelque chose ?</span>

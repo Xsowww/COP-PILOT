@@ -181,7 +181,7 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
         {count > 0 && <span className="tabular rounded-full bg-ink px-1.5 text-[11px] leading-[18px] text-paper">{count}</span>}
       </button>
       {open && (
-        <div id="filtre-calendrier" role="group" aria-label="Filtrer les événements" className="pop absolute right-0 top-10 z-[60] w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop">
+        <div id="filtre-calendrier" role="group" aria-label="Filtrer les événements" className="pop absolute right-0 top-10 z-[60] w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop max-sm:left-0 max-sm:right-auto">
           <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{count ? 'Seuls les éléments cochés sont affichés.' : 'Tout est affiché. Coche pour n’afficher que certains éléments.'}</p>
           {onImportant && (
             <>
@@ -557,7 +557,7 @@ export default function CalendarPage() {
                       <span
                         className={cx(
                           'tabular mt-1 flex h-8 w-8 items-center justify-center rounded-full text-[15px] font-semibold',
-                          isSel ? 'bg-ink text-paper' : isToday ? 'text-brand-600' : '',
+                          isSel ? 'bg-tile-blue text-white' : isToday ? 'text-brand-600' : '',
                         )}
                       >
                         {fmt(d, 'd')}
@@ -600,7 +600,7 @@ export default function CalendarPage() {
                         <span
                           className={cx(
                             'tabular mb-0.5 flex h-6 w-6 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
-                            isSel ? 'bg-ink text-paper' : key === today && 'text-brand-600',
+                            isSel ? 'bg-tile-blue text-white' : key === today && 'text-brand-600',
                           )}
                         >
                           {fmt(d, 'd')}
@@ -676,7 +676,7 @@ export default function CalendarPage() {
                   return (
                     <li key={e.id}>
                       <button onClick={() => selectDay(e.date)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
-                        <span className={cx('tabular w-9 shrink-0 text-[13px] font-semibold', n <= 3 ? 'text-[var(--cat-examen-text)]' : 'text-ink')}>{n === 0 ? 'Auj.' : `J-${n}`}</span>
+                        <span className={cx('tabular w-9 shrink-0 text-[13px] font-semibold', n <= 3 ? 'font-extrabold text-urgent-text' : 'text-ink')}>{n === 0 ? 'Auj.' : `J-${n}`}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium">{e.title}</span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">

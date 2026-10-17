@@ -71,8 +71,8 @@ function HeroDemo() {
           <div>
             <div className="grid grid-cols-5 gap-1.5 text-center">
               {days.map(x => (
-                <div key={x.n} className={x.today ? 'rounded-lg bg-ink py-1.5 text-paper' : 'py-1.5'}>
-                  <p className={x.today ? 'text-[10px] text-paper/60' : 'text-[10px] text-stone-500'}>{x.d}</p>
+                <div key={x.n} className={x.today ? 'rounded-xl bg-tile-blue py-1.5 text-white' : 'py-1.5'}>
+                  <p className={x.today ? 'text-[10px] text-white/75' : 'text-[10px] text-stone-500'}>{x.d}</p>
                   <p className="tabular text-[14px] font-semibold">{x.n}</p>
                   <span className="mx-auto mt-1 block h-1 w-1 rounded-full transition-colors" style={{ background: x.dot ?? 'transparent' }} />
                 </div>
@@ -94,10 +94,10 @@ function HeroDemo() {
               </div>
             </div>
           </div>
-          <div className="flex flex-col rounded-xl border border-stone-200 p-3">
-            <p className="text-[11.5px] text-stone-500">Prochaine échéance</p>
-            <p className={cx('tabular mt-auto pt-4 text-[34px] font-semibold leading-none tracking-tight', step >= 1 && 'text-[var(--cat-examen-text)]')}>{step >= 1 ? 'J-2' : 'J-3'}</p>
-            <p className="mt-1.5 truncate text-[12px] text-stone-600">{step >= 1 ? 'Présentation client' : 'Envoyer le devis'}</p>
+          <div className="flex flex-col rounded-2xl bg-tile-dark p-3.5 text-white">
+            <p className="text-[11.5px] font-semibold text-white/65">Prochaine échéance</p>
+            <p className="tabular mt-auto pt-4 text-[40px] font-extrabold leading-none tracking-[-0.05em] text-urgent">{step >= 1 ? 'J-2' : 'J-3'}</p>
+            <p className="mt-1.5 truncate text-[12px] font-semibold">{step >= 1 ? 'Présentation client' : 'Envoyer le devis'}</p>
           </div>
         </div>
       </div>
@@ -146,7 +146,7 @@ function Usages() {
     <section id="usages" aria-labelledby="usages-title" className="mx-auto max-w-[1120px] px-5 py-20 md:px-8">
       <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,420px)_1fr]">
         <div>
-          <h2 id="usages-title" className="text-[30px] font-semibold leading-[1.1] tracking-[-0.025em] md:text-[36px]">
+          <h2 id="usages-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
             Pour tes études, ton travail ou ta vie perso.
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-stone-600">
@@ -160,7 +160,7 @@ function Usages() {
                 role="radio"
                 aria-checked={usage === u.key}
                 onClick={() => setUsage(u.key)}
-                className={cx('h-9 rounded-lg px-3.5 text-[13.5px] font-medium transition-colors', usage === u.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                className={cx('h-9 rounded-lg px-3.5 text-[13.5px] font-semibold transition-colors', usage === u.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
               >
                 {u.label}
               </button>
@@ -176,10 +176,10 @@ function Usages() {
               <span className="text-stone-400">+</span> {w.quickExample}
             </p>
           </div>
-          <div className="card flex flex-col p-4">
-            <p className="text-[12px] text-stone-500">{w.nextBig}</p>
-            <p className="tabular mt-5 text-[34px] font-semibold leading-none tracking-tight">{ex.days}</p>
-            <p className="mt-1.5 text-[13px] text-stone-600">{ex.big}</p>
+          <div className="card flex flex-col bg-tile-dark p-4 text-white">
+            <p className="text-[12px] font-semibold text-white/65">{w.nextBig}</p>
+            <p className="tabular mt-5 text-[44px] font-extrabold leading-none tracking-[-0.05em] text-urgent">{ex.days}</p>
+            <p className="mt-1.5 text-[13px] font-semibold">{ex.big}</p>
           </div>
           <div className="card flex flex-col gap-3 p-4">
             <p className="text-[12px] text-stone-500">{w.groups}</p>
@@ -241,7 +241,7 @@ export default function LandingPage() {
         {/* Hero */}
         <section className="mx-auto grid max-w-[1120px] items-center gap-14 px-5 pb-24 pt-10 md:px-8 md:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
           <div>
-            <h1 className="max-w-[13ch] text-[42px] font-semibold leading-[1.02] tracking-[-0.04em] md:text-[58px]">Ton agenda, tes notes et tes fichiers, enfin au même endroit.</h1>
+            <h1 className="max-w-[13ch] text-[42px] font-extrabold leading-[1.0] tracking-[-0.045em] md:text-[60px]">Ton agenda, tes notes et tes fichiers, enfin au même endroit.</h1>
             <p className="mt-6 max-w-[46ch] text-[16.5px] leading-relaxed text-stone-600">
               Kompaly réunit calendrier, tâches, notes et fichiers dans une seule appli, pour les études, le travail ou la vie perso. Et Kompaly, ton ami, te rappelle ce qui compte.
             </p>
@@ -262,7 +262,7 @@ export default function LandingPage() {
         <section id="fonctions" aria-labelledby="fonctions-title" className="border-y border-stone-200 bg-surface">
           <div className="mx-auto grid max-w-[1120px] gap-12 px-5 py-20 md:px-8 lg:grid-cols-[minmax(0,360px)_1fr]">
             <div className="lg:sticky lg:top-24 lg:self-start">
-              <h2 id="fonctions-title" className="text-[30px] font-semibold leading-[1.1] tracking-[-0.025em] md:text-[36px]">
+              <h2 id="fonctions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
                 Six outils qui se parlent.
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-stone-600">Un rendez-vous ajouté dans le calendrier apparaît sur ton accueil, Kompaly le voit, et ton groupe aussi si tu le partages.</p>
@@ -285,7 +285,7 @@ export default function LandingPage() {
         <section id="confiance" aria-labelledby="confiance-title" className="bg-ink text-paper">
           <div className="mx-auto grid max-w-[1120px] gap-10 px-5 py-20 md:px-8 lg:grid-cols-[minmax(0,420px)_1fr]">
             <div>
-              <h2 id="confiance-title" className="text-[30px] font-semibold leading-[1.1] tracking-[-0.025em] md:text-[36px]">
+              <h2 id="confiance-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
                 Tes affaires restent les tiennes.
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-paper/70">
@@ -309,7 +309,7 @@ export default function LandingPage() {
 
         {/* FAQ */}
         <section id="questions" aria-labelledby="questions-title" className="mx-auto max-w-[760px] px-5 py-20 md:px-8">
-          <h2 id="questions-title" className="text-[30px] font-semibold leading-[1.1] tracking-[-0.025em] md:text-[36px]">
+          <h2 id="questions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
             Questions fréquentes
           </h2>
           <div className="mt-8 divide-y divide-stone-200 border-y border-stone-200">
@@ -331,7 +331,7 @@ export default function LandingPage() {
         <section className="mx-auto max-w-[1120px] px-5 pb-24 md:px-8">
           <div className="flex flex-col items-start gap-6 rounded-3xl border border-stone-200 bg-surface p-8 md:flex-row md:items-center md:p-12">
             <div className="flex-1">
-              <h2 className="text-[26px] font-semibold leading-tight tracking-[-0.02em] md:text-[30px]">Range tout au même endroit, dès aujourd’hui.</h2>
+              <h2 className="text-[26px] font-extrabold leading-tight tracking-[-0.03em] md:text-[30px]">Range tout au même endroit, dès aujourd’hui.</h2>
               <p className="mt-2 text-[15px] text-stone-600">Une minute pour créer ton compte, et Kompaly te fait faire le tour.</p>
             </div>
             <Link to="/inscription" className="btn-primary h-11 shrink-0 px-5 text-[15px]">

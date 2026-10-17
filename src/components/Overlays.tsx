@@ -9,7 +9,7 @@ import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
 function ToastRow({ t }: { t: Toast }) {
   const dismiss = useUi(s => s.dismissToast);
   return (
-    <div className="pop flex max-w-[calc(100vw-32px)] items-center gap-2 rounded-lg bg-inverse px-3.5 py-2 text-[13px] text-on-inverse shadow-pop [overflow-wrap:break-word] sm:max-w-[560px]">
+    <div className="pop flex max-w-[calc(100vw-32px)] items-center gap-2.5 rounded-[16px] bg-inverse px-4 py-2.5 font-medium text-[13px] text-on-inverse shadow-pop [overflow-wrap:break-word] sm:max-w-[560px]">
       {t.tone === 'success' ? <CheckCircle2 size={15} className="shrink-0 text-emerald-400" aria-hidden /> : t.tone === 'error' ? <XCircle size={15} className="shrink-0 text-red-400" aria-hidden /> : <Info size={15} className="shrink-0 text-stone-400" aria-hidden />}
       <span className="min-w-0 line-clamp-2">{t.text}</span>
       {t.action && (
@@ -38,7 +38,7 @@ export function Toasts() {
   const toasts = useUi(s => s.toasts).slice(-3);
   return (
     // Full width minus 16 px each side: centred with left-1/2 alone, the toast shrank to half the screen on phones.
-    <div className="pointer-events-none fixed inset-x-4 bottom-20 z-[70] flex flex-col items-center gap-2 lg:bottom-6">
+    <div className="pointer-events-none fixed inset-x-4 bottom-24 z-[70] flex flex-col items-center gap-2 lg:bottom-6">
       <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
         {toasts.filter(t => t.tone !== 'error').map(t => <ToastRow key={t.id} t={t} />)}
       </div>
@@ -91,7 +91,7 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
   // On <body>: a dialog opened from a page that is itself a stacking context (entrance animation) would
   // otherwise end up under Kompaly and the toasts.
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-900/25 p-4 dark:bg-black/60" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#14161f]/40 p-4 backdrop-blur-[2px] dark:bg-black/70" onMouseDown={onClose}>
       <div
         ref={ref}
         role="dialog"
@@ -99,7 +99,7 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
         aria-label={label}
         tabIndex={-1}
         // Taller than the screen (event form on a phone): it scrolls inside instead of being cut off.
-        className="pop max-h-full w-full overflow-y-auto overscroll-contain rounded-2xl border border-stone-200 bg-surface p-5 shadow-pop outline-none"
+        className="pop max-h-full w-full overflow-y-auto overscroll-contain rounded-[26px] bg-surface p-6 shadow-pop outline-none dark:ring-1 dark:ring-stone-200"
         style={{ maxWidth: width }}
         onMouseDown={e => e.stopPropagation()}
       >
@@ -134,7 +134,7 @@ function DialogBody() {
         close(dialog.kind === 'prompt' ? value : true);
       }}
     >
-      <h3 className="text-[15px] font-semibold">{dialog.title}</h3>
+      <h3 className="text-[18px] font-extrabold tracking-[-0.02em]">{dialog.title}</h3>
       {dialog.message && <p className="mt-1 text-[13px] text-stone-500">{dialog.message}</p>}
       {dialog.kind === 'prompt' && (
         <input

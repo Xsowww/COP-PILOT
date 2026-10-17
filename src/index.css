@@ -22,6 +22,8 @@
   --color-tile-dark: #14161f;
   --color-tile-blue: #3d63dd;
   --color-urgent: #ff7a45;
+  /* Urgent dates as small text on white: the tile orange is too light to read there. */
+  --color-urgent-text: #c2410c;
   /* Cards, menus, dialogs. `white` itself is never remapped so `text-white` stays white. */
   --color-surface: #ffffff;
   /* A touch darker than Tailwind's stone-500 so secondary text stays above 4.5:1 on stone-100. */
@@ -49,8 +51,15 @@
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
 
-  --shadow-card: 0 1px 2px rgb(28 27 25 / 0.04), 0 1px 1px rgb(28 27 25 / 0.02);
-  --shadow-pop: 0 12px 32px -8px rgb(28 27 25 / 0.18), 0 2px 6px rgb(28 27 25 / 0.06);
+  --shadow-card: 0 1px 2px rgb(20 22 31 / 0.04), 0 1px 1px rgb(20 22 31 / 0.02);
+  --shadow-pop: 0 16px 40px -10px rgb(20 22 31 / 0.22), 0 2px 6px rgb(20 22 31 / 0.06);
+
+  /* Bento: everything a little rounder (menus, chips, small cards, dialogs). */
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 22px;
+  --radius-3xl: 28px;
 }
 
 :root {
@@ -78,29 +87,34 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-paper: #141311;
-  --color-surface: #1d1c1a;
-  --color-ink: #edeae5;
-  --color-inverse: #3a3835;
-  --color-on-inverse: #f2efea;
+  /* Bento at night: cool blue-black page, raised grey-blue tiles, the big-day tile goes pure black. */
+  --color-paper: #0c0d12;
+  --color-surface: #171922;
+  --color-ink: #f1f2f6;
+  --color-inverse: #2c303d;
+  --color-on-inverse: #f1f2f6;
+  --color-tile-dark: #000000;
+  --color-tile-blue: #3d63dd;
+  --color-urgent: #ff8a5c;
+  --color-urgent-text: #ff9a70;
 
-  --color-stone-50: #222120;
-  --color-stone-100: #2a2926;
-  --color-stone-200: #363431;
-  --color-stone-300: #4a4743;
-  --color-stone-400: #99938c;
-  --color-stone-500: #a8a29b;
-  --color-stone-600: #bfb9b2;
-  --color-stone-700: #d4cfc9;
-  --color-stone-800: #e2ded9;
-  --color-stone-900: #eeebe6;
-  --color-stone-950: #f7f5f2;
+  --color-stone-50: #1d2029;
+  --color-stone-100: #232732;
+  --color-stone-200: #2d313e;
+  --color-stone-300: #3d4253;
+  --color-stone-400: #858ba0;
+  --color-stone-500: #9ba1b5;
+  --color-stone-600: #b9becd;
+  --color-stone-700: #d0d4df;
+  --color-stone-800: #e1e4ec;
+  --color-stone-900: #eef0f5;
+  --color-stone-950: #f7f8fb;
 
-  --color-brand-50: color-mix(in oklab, var(--accent-500, #e8613c) 15%, #1d1c1a);
-  --color-brand-100: color-mix(in oklab, var(--accent-500, #e8613c) 24%, #1d1c1a);
-  --color-brand-200: color-mix(in oklab, var(--accent-500, #e8613c) 42%, #1d1c1a);
-  --color-brand-600: color-mix(in oklab, var(--accent-500, #e8613c) 78%, white);
-  --color-brand-700: color-mix(in oklab, var(--accent-500, #e8613c) 58%, white);
+  --color-brand-50: color-mix(in oklab, var(--accent-500, #3d63dd) 15%, #171922);
+  --color-brand-100: color-mix(in oklab, var(--accent-500, #3d63dd) 26%, #171922);
+  --color-brand-200: color-mix(in oklab, var(--accent-500, #3d63dd) 44%, #171922);
+  --color-brand-600: color-mix(in oklab, var(--accent-500, #3d63dd) 70%, white);
+  --color-brand-700: color-mix(in oklab, var(--accent-500, #3d63dd) 52%, white);
 
   --color-red-50: #34201d;
   --color-red-100: #432520;
@@ -122,23 +136,23 @@
   --color-emerald-700: #6fd3a5;
   --color-emerald-800: #a2e4c4;
 
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
-  --shadow-pop: 0 14px 36px -8px rgb(0 0 0 / 0.6), 0 2px 6px rgb(0 0 0 / 0.35);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-pop: 0 18px 44px -10px rgb(0 0 0 / 0.7), 0 2px 6px rgb(0 0 0 / 0.4);
 
-  --cat-cours-soft: color-mix(in oklab, #3b6fd8 22%, #1d1c1a);
+  --cat-cours-soft: color-mix(in oklab, #3b6fd8 22%, #171922);
   --cat-cours-text: #9dbbf5;
-  --cat-examen-soft: color-mix(in oklab, #d9483b 22%, #1d1c1a);
+  --cat-examen-soft: color-mix(in oklab, #d9483b 22%, #171922);
   --cat-examen-text: #f59a8f;
-  --cat-devoir-soft: color-mix(in oklab, #d48a17 22%, #1d1c1a);
+  --cat-devoir-soft: color-mix(in oklab, #d48a17 22%, #171922);
   --cat-devoir-text: #ebbd6e;
-  --cat-perso-soft: color-mix(in oklab, #2f9e6b 22%, #1d1c1a);
+  --cat-perso-soft: color-mix(in oklab, #2f9e6b 22%, #171922);
   --cat-perso-text: #7fd5aa;
-  --cat-sport-soft: color-mix(in oklab, #7a5ad6 24%, #1d1c1a);
+  --cat-sport-soft: color-mix(in oklab, #7a5ad6 24%, #171922);
   --cat-sport-text: #c0abf5;
 
   --scrollbar: rgb(255 255 255 / 0.14);
   --note-text: #e2ded9;
-  --code-block: #0e0d0c;
+  --code-block: #08090c;
   --mark: rgb(234 179 8 / 0.32);
 }
 
@@ -382,8 +396,14 @@ body {
   transition: none !important;
 }
 
-/* Bento: page titles heavier and tighter, like the tiles' big numbers. */
-#contenu h1 {
+/* Bento: page titles heavier and tighter, like the tiles' big numbers (note contents keep their own). */
+h1:not(.prose-note h1) {
   font-weight: 800;
   letter-spacing: -0.035em;
+}
+
+/* Bento: dialog titles as heavy as page titles. */
+[role='dialog'] :is(h2, h3) {
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }

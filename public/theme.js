@@ -4,6 +4,6 @@ try {
   var t = localStorage.getItem('cop-theme');
   if (t === 'sombre' || ((!t || t === 'auto') && matchMedia('(prefers-color-scheme: dark)').matches)) {
     document.documentElement.dataset.theme = 'dark';
-    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#141311');
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0c0d12');
   }
 } catch (e) {}

@@ -25,7 +25,7 @@ function Showcase() {
     <div className="relative flex h-full flex-col justify-center overflow-hidden px-14">
       <div className="max-w-[440px]">
         <p className="eyebrow">Études, travail, vie perso</p>
-        <h2 className="mt-2 text-[28px] font-semibold leading-[1.15] tracking-[-0.02em]">
+        <h2 className="mt-2 text-[32px] font-extrabold leading-[1.05] tracking-[-0.035em]">
           Ton agenda, tes notes et tes fichiers, enfin au même endroit.
         </h2>
         <p className="mt-3 text-[14px] leading-relaxed text-stone-500">Un espace calme pour t’organiser, et Kompaly pour te rappeler ce qui compte.</p>
@@ -37,8 +37,8 @@ function Showcase() {
           <p className="eyebrow">Cette semaine</p>
           <div className="mt-3 grid grid-cols-5 gap-1.5 text-center">
             {days.map(x => (
-              <div key={x.n} className={x.active ? 'rounded-lg bg-ink py-1.5 text-paper' : 'py-1.5'}>
-                <p className={x.active ? 'text-[10px] text-paper/60' : 'text-[10px] text-stone-500'}>{x.d}</p>
+              <div key={x.n} className={x.active ? 'rounded-xl bg-tile-blue py-1.5 text-white' : 'py-1.5'}>
+                <p className={x.active ? 'text-[10px] text-white/75' : 'text-[10px] text-stone-500'}>{x.d}</p>
                 <p className="tabular text-[14px] font-semibold">{x.n}</p>
                 <span className="mx-auto mt-1 block h-1 w-1 rounded-full" style={{ background: x.dot ?? 'transparent' }} />
               </div>
@@ -53,10 +53,13 @@ function Showcase() {
             </div>
           </div>
         </div>
-        <div className="card col-span-2 flex flex-col p-4">
-          <p className="eyebrow">Prochain grand jour</p>
-          <p className="tabular mt-auto text-[34px] font-semibold leading-none tracking-tight">J-4</p>
-          <p className="mt-1.5 text-[12px] text-stone-500">Présentation du projet</p>
+        <div className="card col-span-2 flex flex-col bg-tile-dark p-4 text-white">
+          <p className="text-[12px] font-semibold text-white/65">Prochain grand jour</p>
+          <p className="mt-auto flex items-baseline gap-1.5">
+            <span className="tabular text-[56px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">4</span>
+            <span className="text-[13px] font-bold">jours</span>
+          </p>
+          <p className="mt-2 text-[12px] font-semibold">Présentation du projet</p>
         </div>
         <div className="card col-span-2 flex items-center gap-2.5 p-3">
           <FileIcon category="folder" size={30} />
@@ -249,7 +252,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         <Logo />
         <div className="flex flex-1 items-center justify-center py-10">
           <form onSubmit={onSubmit} noValidate className="enter w-full max-w-[340px]">
-            <h1 className="text-[22px] font-semibold tracking-[-0.015em]">{adding ? 'Ajouter un compte' : copy.title}</h1>
+            <h1 className="text-[30px] font-extrabold tracking-[-0.035em]">{adding ? 'Ajouter un compte' : copy.title}</h1>
             <p className="mt-1 text-[13px] text-stone-500">{adding ? 'Connecte-toi à un autre compte : tu pourras passer de l’un à l’autre en un clic.' : copy.subtitle}</p>
 
             {mode === 'login' && hasSaved && (

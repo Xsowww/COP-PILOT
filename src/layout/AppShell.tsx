@@ -422,7 +422,7 @@ export default function AppShell() {
             />
           </div>
         )}
-        <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-14 outline-none lg:pb-0">
+        <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] outline-none lg:pb-0">
           <Outlet />
           <FeedbackDialog />
           <ReminderAlerts />
@@ -433,7 +433,7 @@ export default function AppShell() {
             onClick={() => openFeedback()}
             title="Donner mon avis ou signaler un bug"
             aria-label="Donner mon avis ou signaler un bug"
-            className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-20 flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-surface px-3 text-[12.5px] font-medium text-stone-600 shadow-pop transition-colors hover:border-stone-300 hover:text-ink lg:bottom-5 lg:right-5 lg:h-9"
+            className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] right-3 z-20 flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-surface px-3 text-[12.5px] font-medium text-stone-600 shadow-pop transition-colors hover:border-stone-300 hover:text-ink lg:bottom-5 lg:right-5 lg:h-9"
           >
             <MessageSquareText size={16} strokeWidth={1.9} aria-hidden />
             <span className="hidden lg:inline">Avis ou bug</span>
@@ -442,20 +442,20 @@ export default function AppShell() {
       </div>
 
       {/* Bottom nav (mobile) */}
-      <nav aria-label="Navigation principale" className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-stone-200 bg-paper/95 backdrop-blur lg:hidden">
+      <nav aria-label="Navigation principale" className="fixed inset-x-2 bottom-[calc(8px+env(safe-area-inset-bottom))] z-30 flex rounded-[22px] bg-tile-dark p-1 shadow-pop ring-1 ring-white/10 lg:hidden">
         {NAV.map(n => (
           <NavLink
             key={n.to}
             to={n.to}
             end={n.end}
             // 7 spaces: each takes its share, the label shortened rather than pushed off a narrow screen.
-            className={({ isActive }) => cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-medium tracking-[-0.01em] max-[359px]:text-[9.5px]', isActive ? 'text-ink' : 'text-stone-500')}
+            className={({ isActive }) => cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[359px]:text-[9px]', isActive ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white')}
           >
             {({ isActive }) => (
               <>
                 <span className="relative">
-                  <n.icon size={19} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
-                  {news(n.to) > 0 && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full ring-2 ring-paper', n.to === '/agendas' ? 'bg-red-500' : 'bg-brand-solid')} aria-label="nouveautés" />}
+                  <n.icon size={19} strokeWidth={isActive ? 2.2 : 1.9} style={{ color: isActive ? n.color : undefined }} />
+                  {news(n.to) > 0 && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full ring-2', isActive ? 'ring-white' : 'ring-tile-dark', n.to === '/agendas' ? 'bg-red-500' : 'bg-urgent')} aria-label="nouveautés" />}
                 </span>
                 <span className="max-w-full truncate">{'short' in n ? n.short : label(n)}</span>
               </>
