@@ -123,6 +123,12 @@ export default function TasksPage() {
     if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
   }, [location.hash]);
 
+  // /taches?ajout=1 (« Ajouter une tâche » on the home page): the field to type it, ready.
+  const adding = new URLSearchParams(location.search).has('ajout');
+  useEffect(() => {
+    if (adding) setTimeout(() => document.querySelector<HTMLElement>('[data-quickadd]')?.focus(), 50);
+  }, [adding]);
+
   // /taches?tache=… (from « Ma semaine »): that task lights up once on screen.
   const wanted = new URLSearchParams(location.search).get('tache');
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { useToday } from '../../lib/useToday';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
@@ -65,7 +65,11 @@ function removeWithUndo(gone: Todo[]) {
   });
 }
 
-function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
+function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolean; preview?: boolean; now?: number }) {
+  // Ticked less than 5 minutes ago: still in its group, green, with the way back right there.
+  const justDone = t.done && !!t.doneAt && now - Date.parse(t.doneAt) < SETTLE_MS;
+  // (`now` can lag behind a tick just made: never more than the 5 minutes)
+  const minutesLeft = justDone ? Math.min(5, Math.max(1, Math.ceil((Date.parse(t.doneAt!) + SETTLE_MS - now) / 60_000))) : 0;
   const { toggle, remove, update } = useTodos();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(t.title);
@@ -102,14 +106,19 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
         onClick={() => toggle(t.id)}
         className={cx(
           'hit flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
-          t.done ? 'border-ink bg-ink' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
+          justDone ? 'border-emerald-500 bg-emerald-500' : t.done ? 'border-ink bg-ink' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
         )}
         title={t.done ? 'Remettre à faire' : 'Marquer comme faite'}
         aria-label={t.done ? `Remettre « ${t.title} » à faire` : `Cocher « ${t.title} »`}
       >
-        {t.done && <Check size={10} strokeWidth={3} className="text-paper" />}
+        {t.done && <Check size={10} strokeWidth={3} className={cx(justDone ? 'pop text-white' : 'text-paper')} />}
       </button>
-      {editing ? (
+      {preview ? (
+        <Link to={`/taches?tache=${t.id}`} className="min-w-0 flex-1 rounded text-[13px] hover:underline pointer-coarse:py-1" title="Ouvrir dans Tâches">
+          <span className={cx('line-clamp-2 break-words', justDone ? 'text-stone-500 line-through decoration-emerald-500/70' : 'text-ink')}>{t.title}</span>
+          {justDone && <span className="block text-[11.5px] font-medium text-emerald-700 dark:text-emerald-400">Faite · décoche si c’est une erreur</span>}
+        </Link>
+      ) : editing ? (
         <input
           autoFocus
           value={title}
@@ -140,10 +149,17 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
             },
           })}
           // As tall as the row on touch screens (36 px), the clamped text inside.
-          className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', t.done ? 'text-stone-500 line-through' : 'text-ink')}
+          className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', t.done && !justDone ? 'text-stone-500 line-through' : 'text-ink')}
           title={canEdit ? 'Double-clic (ou Entrée) pour renommer ; le crayon pour tout modifier' : t.title}
         >
-          <span className="line-clamp-2 min-w-0 break-words">{t.title}</span>
+          <span className="min-w-0">
+            <span className={cx('line-clamp-2 break-words', justDone && 'text-stone-500 line-through decoration-emerald-500/70')}>{t.title}</span>
+            {justDone && (
+              <span className="block text-[11.5px] font-medium text-emerald-700 no-underline dark:text-emerald-400" aria-live="polite">
+                Faite · rejoint « Terminées » dans {minutesLeft} min — décoche si c’est une erreur
+              </span>
+            )}
+          </span>
         </span>
       )}
       {isTourTodo(t.title) && !t.done && (
@@ -209,8 +225,8 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
       ) : (
         t.due && !t.done && <DueLabel due={t.due} />
       )}
-      {t.done && t.doneAt && <span className="tabular shrink-0 text-[11px] text-stone-500">{fmt(new Date(t.doneAt), 'd MMM')}</span>}
-      <button
+      {t.done && t.doneAt && !justDone && <span className="tabular shrink-0 text-[11px] text-stone-500">{fmt(new Date(t.doneAt), 'd MMM')}</span>}
+      {!preview && <button
         data-remove
         onClick={e => {
           const row = e.currentTarget.closest('li');
@@ -219,7 +235,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
         }}
         className="icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
         <Trash2 size={13} />
-      </button>
+      </button>}
     </li>
   );
 }
@@ -282,18 +298,38 @@ function QuickAdd() {
           onClose={() => setDueMenu(null)}
         />
       )}
+      <button type="button" onClick={submit} disabled={!title.trim()} className="btn h-10 shrink-0 bg-tile-blue px-4 text-white hover:brightness-110 disabled:opacity-50">
+        <Plus size={15} strokeWidth={2.4} aria-hidden /> <span className="max-[380px]:sr-only">Ajouter</span>
+      </button>
     </div>
   );
 }
 
-/** Simple to-do list, independent from the calendar. `limit` gives the compact dashboard version. */
+/** A task just ticked stays in its place, green and struck through, for this long: a wrong tick is undone right there. */
+export const SETTLE_MS = 5 * 60_000;
+const settling = (t: Todo, now: number) => t.done && !!t.doneAt && now - Date.parse(t.doneAt) < SETTLE_MS;
+
+/**
+ * Simple to-do list, independent from the calendar. `grouped`: the Tâches page (add, change, group by day).
+ * `limit`: the home page preview — tick, or open a task in Tâches; adding and changing happen there.
+ */
 export default function TodoList({ limit, grouped }: { limit?: number; grouped?: boolean }) {
   const todos = useTodos(s => s.todos);
   useToday(); // re-render the next day (overdue, « Aujourd'hui »)
   const clearDone = useTodos(s => s.clearDone);
   const [showDone, setShowDone] = useState(false);
-  const open = todos.filter(t => !t.done).sort(sortOpen);
-  const done = todos.filter(t => t.done).sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? ''));
+  const preview = !!limit;
+  // Ticks less than 5 minutes old stay in the list: one render when the next of them is due to leave.
+  const [now, setNow] = useState(Date.now);
+  const nextLeave = Math.min(...todos.filter(t => settling(t, now)).map(t => Date.parse(t.doneAt!) + SETTLE_MS));
+  useEffect(() => {
+    if (!Number.isFinite(nextLeave)) return;
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(30_000, Math.max(500, nextLeave - Date.now())));
+    return () => clearTimeout(timer);
+  }, [nextLeave, now]);
+  // (a tick just made: its time is `doneAt`, newer than `now`, so it stays too)
+  const open = todos.filter(t => !t.done || settling(t, now)).sort(sortOpen);
+  const done = todos.filter(t => t.done && !open.includes(t)).sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? ''));
   const shown = limit ? open.slice(0, limit) : open;
   const today = todayKey();
 
@@ -308,7 +344,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
 
   return (
     <div className="flex flex-1 flex-col" data-todolist>
-      <QuickAdd />
+      {!preview && <QuickAdd />}
       {open.length === 0 ? (
         <p className="py-5 text-[13px] text-stone-500">{done.length ? 'Tout est coché. Profites-en.' : 'Rien à faire pour l’instant.'}</p>
       ) : (
@@ -322,7 +358,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
               )}
               <ul className="-mx-1.5">
                 {g.items.map(t => (
-                  <TodoRow key={t.id} t={t} editable={grouped} />
+                  <TodoRow key={t.id} t={t} editable={grouped} preview={preview} now={now} />
                 ))}
               </ul>
             </div>
@@ -334,7 +370,12 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
           )}
         </div>
       )}
-      {done.length > 0 && (
+      {preview && (
+        <Link to="/taches?ajout=1" className="mt-auto inline-flex h-9 items-center gap-1.5 self-start rounded-full px-1.5 pt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700">
+          <Plus size={14} aria-hidden /> Ajouter une tâche
+        </Link>
+      )}
+      {!preview && done.length > 0 && (
         <div className="mt-auto border-t border-stone-100 pt-2">
           <div className="flex items-center">
             <button onClick={() => setShowDone(v => !v)} className="flex items-center gap-1 rounded px-0.5 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9" aria-expanded={showDone}>
