@@ -13,7 +13,12 @@ export function weekItems(todos: Todo[], events: CalendarEvent[], from: string, 
   const homework = events.filter(e => isDeliverable(e) && inWeek(e.date));
   const total = tasks.length + homework.length;
   const done = tasks.filter(t => t.done).length + homework.filter(e => e.done).length;
-  return { total, done };
+  // What is left, soonest first: where « Ma semaine » sends you to tick the next one.
+  const left: { id: string; title: string; date?: string; kind: 'task' | 'event' }[] = [
+    ...tasks.filter(t => !t.done).map(t => ({ id: t.id, title: t.title, date: t.due, kind: 'task' as const })),
+    ...homework.filter(e => !e.done).map(e => ({ id: e.id, title: e.title, date: e.date, kind: 'event' as const })),
+  ].sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999'));
+  return { total, done, left };
 }
 
 /** A sentence that pulls toward the next tick. */

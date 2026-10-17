@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { DateField, TimeField } from '../../components/Pickers';
 import { CalendarPlus, Check, Clock, Flag, MapPin, Plus, Trash2, Link2 } from 'lucide-react';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useAuth } from '../../store/auth';
@@ -44,18 +45,18 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
       <p className="text-[14px] font-semibold">Proposer {w.meet.a}</p>
       <input autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)} placeholder={w.meet.placeholder} className="field mt-3 w-full" />
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1.4fr_1fr_1fr]">
-        <label className="col-span-2 sm:col-span-1">
+        <div className="col-span-2 sm:col-span-1">
           <span className="eyebrow">Date</span>
-          <input type="date" required min={todayKey()} value={date} onChange={e => setDate(e.target.value)} className="field mt-1 w-full" />
-        </label>
-        <label>
+          <DateField value={date} min={todayKey()} onChange={setDate} label="Date" className="mt-1 w-full" />
+        </div>
+        <div>
           <span className="eyebrow">Début</span>
-          <input type="time" value={start} onChange={e => setStart(e.target.value)} className="field mt-1 w-full" />
-        </label>
-        <label>
+          <TimeField value={start} onChange={setStart} label="Heure de début" clearable className="mt-1 w-full" />
+        </div>
+        <div>
           <span className="eyebrow">Fin</span>
-          <input type="time" value={end} onChange={e => setEnd(e.target.value)} className={cx('field mt-1 w-full', badTime && 'border-red-300')} />
-        </label>
+          <TimeField value={end} onChange={setEnd} label="Heure de fin" clearable invalid={badTime} className="mt-1 w-full" />
+        </div>
       </div>
       <label className="mt-2 block">
         <span className="eyebrow">Lieu ou lien de visio</span>

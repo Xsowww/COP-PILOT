@@ -406,8 +406,10 @@ export default function CalendarPage() {
   const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
   const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
   const homework = visible.filter(isHomeworkSoon).sort(sortEvents).slice(0, 6);
+  // After the important ones, one list in time order: homework to hand in (late first) and the next events.
   const listed = new Set([...allUpcomingExams, ...homework].map(e => e.id));
-  const nextUp = visible.filter(e => isComing(e) && !listed.has(e.id)).sort(sortEvents).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
+  const others = visible.filter(e => isComing(e) && !listed.has(e.id)).sort(sortEvents).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
+  const nextUp = [...homework, ...others].sort(sortEvents);
 
   const monthDays = useMemo(() => {
     const ref = fromKey(selected);
@@ -746,7 +748,7 @@ export default function CalendarPage() {
             <h2 id="a-venir-titre" className="mb-2 text-[13px] font-medium text-stone-600">
               À venir
             </h2>
-            {upcomingExams.length === 0 && homework.length === 0 && nextUp.length === 0 ? (
+            {upcomingExams.length === 0 && nextUp.length === 0 ? (
               <p className="py-1 text-[13px] text-stone-500">
                 {upcomingHidden ? 'Rien à afficher avec ce filtre.' : 'Rien de prévu pour la suite.'}
               </p>
@@ -778,43 +780,38 @@ export default function CalendarPage() {
                 )}
                 {nextUp.map(e => {
                   const n = daysUntil(e.date);
+                  const late = e.date < today;
+                  const toHandIn = isDeliverable(e) && !shared;
                   return (
-                    <li key={e.id}>
-                      <button onClick={() => selectDay(e.date)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
-                        <span className="tabular w-9 shrink-0 text-[12px] font-semibold text-stone-500">{n === 0 ? 'Auj.' : n === 1 ? 'Dem.' : `J-${n}`}</span>
+                    <li key={e.id} className="flex items-center">
+                      <button onClick={() => selectDay(e.date)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
+                        <span className={cx('tabular w-9 shrink-0 text-[12px] font-semibold', late ? 'font-extrabold text-urgent-text' : 'text-stone-500')}>{late ? 'Retard' : n === 0 ? 'Auj.' : n === 1 ? 'Dem.' : `J-${n}`}</span>
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
                             <Dot color={catOf(e.category).color} size={6} />
                             <span className="truncate">{e.title}</span>
                           </span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">
+                            {toHandIn ? `${words.markDone === 'rendu' ? 'À rendre' : 'À faire'} · ` : ''}
                             {fmtDay(fromKey(e.date), 'EEE d MMM')}
                             {e.start && ` · ${e.start}`}
                           </span>
                         </span>
                       </button>
+                      {/* Something to hand in: ticked here once done (it then leaves the list). */}
+                      {toHandIn && (
+                        <button
+                          onClick={() => source.toggleDone(e.id)}
+                          className="hit ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-[1.5px] border-stone-300 text-transparent transition-colors hover:border-emerald-500 hover:text-emerald-500"
+                          title={`Marquer comme ${words.markDone}`}
+                          aria-label={`Marquer « ${e.title} » comme ${words.markDone}`}
+                        >
+                          <Check size={13} strokeWidth={3} />
+                        </button>
+                      )}
                     </li>
                   );
                 })}
-                {homework.map(e => (
-                  <li key={e.id} className="flex h-8 items-center gap-3 px-1.5">
-                    <span className="flex w-9 shrink-0">
-                      {!shared && <button
-                        onClick={() => source.toggleDone(e.id)}
-                        className="hit h-4 w-4 rounded border-[1.5px] border-stone-300 transition-colors hover:border-stone-500"
-                        title={`Marquer comme ${words.markDone}`}
-                        aria-label={`Marquer « ${e.title} » comme ${words.markDone}`}
-                      />}
-                    </span>
-                    <button onClick={() => selectDay(e.date)} className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline pointer-coarse:py-2">
-                      {e.title}
-                    </button>
-                    <span className={cx('tabular shrink-0 text-[12px]', e.date < today ? 'font-medium text-[var(--cat-examen-text)]' : 'text-stone-500')}>
-                      {/* Same countdown as the exams above (« J-1 », not « Demain » next to it). */}
-                      {e.date < today ? 'En retard' : e.date === today ? 'Auj.' : `J-${daysUntil(e.date)}`}
-                    </span>
-                  </li>
-                ))}
               </ul>
             )}
 

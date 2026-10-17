@@ -259,3 +259,13 @@ export function hasStarted(e: { date: string; start?: string | null }, now = new
   if (e.date !== today) return e.date < today;
   return !!e.start && e.start <= format(now, 'HH:mm');
 }
+
+/** « 14 », « 14h », « 14h30 », « 1430 », « 9:5 » → « 14:00 », « 14:30 », « 09:05 »; null when it isn't a time. */
+export function parseTime(text: string): string | null {
+  const m = /^\s*(\d{1,2})\s*(?:[:hH.]\s*(\d{1,2})?)?\s*$/.exec(text) ?? /^\s*(\d{2})(\d{2})\s*$/.exec(text);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = m[2] === undefined ? 0 : Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}

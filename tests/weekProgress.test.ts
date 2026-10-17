@@ -19,7 +19,8 @@ describe('ma semaine', () => {
       from,
       to,
     );
-    expect(r).toEqual({ total: 4, done: 3 });
+    expect([r.total, r.done]).toEqual([4, 3]);
+    expect(r.left.map(x => x.id)).toEqual(['a']);
   });
   it('says what is left, and celebrates', () => {
     expect(cheer(0, 0)).toMatch(/Rien à faire/);

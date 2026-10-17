@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Bell, BellOff, X } from 'lucide-react';
+import { Bell, BellOff, Plus, SlidersHorizontal, X } from 'lucide-react';
+import { DateField, Popover, SelectField, TimeField } from './Pickers';
 import { anchorOf, MAX_MINUTES, minutesBefore, reminderLabel, reminderMoment } from '../lib/reminders';
 import { deviceState, enableDevice } from '../lib/push';
 import { devicePushChanged } from '../lib/reminderScheduler';
@@ -65,13 +66,14 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
     onChange([...value, check.minutes]);
     setCustom(null);
   };
-  // The day before at 9:00 and at 18:00 (minutes before the item, worked out from its day and time), then « Personnalisé… ».
-  const left = date
-    ? [9, 18]
-        .map(h => ({ minutes: minutesBefore(date, time, date, `${pad(h)}:00`) + 1440, label: `La veille à ${h}h` }))
-        // Not a moment already past: it would never ring.
-        .filter(o => !value.includes(o.minutes) && reminderMoment(date, time, o.minutes).getTime() > openedAt)
-    : [];
+  // Ready-made: the day before at 9:00; when that is already past (an event today or tomorrow morning), one hour
+  // before (or 8:00 the same day without a time). Then « Personnaliser… ».
+  const usable = (minutes: number) => !!date && !value.includes(minutes) && reminderMoment(date, time, minutes).getTime() > openedAt;
+  const eve = date ? minutesBefore(date, time, date, '09:00') + 1440 : -1;
+  const left = [
+    usable(eve) ? { minutes: eve, label: 'La veille à 9h' } : usable(60) ? { minutes: 60, label: timed ? '1 h avant' : 'Le jour même à 8h' } : null,
+  ].filter((o): o is { minutes: number; label: string } => !!o);
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
   const sorted = [...value].sort((a, b) => a - b);
 
   const turnOn = async () => {
@@ -93,7 +95,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
           {sorted.map(m => (
-            <span key={m} className="flex h-8 items-center gap-1 rounded-md border border-brand-200 bg-brand-50 pl-2.5 pr-1 text-[13px] font-medium text-brand-700 pointer-coarse:h-9">
+            <span key={m} className="flex h-8 items-center gap-1 rounded-full bg-brand-50 pl-3 pr-1 text-[13px] font-semibold text-brand-700 pointer-coarse:h-9">
               {reminderLabel(m, timed, date, time)}
               <button
                 type="button"
@@ -107,29 +109,54 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
           ))}
           {!value.length && <span className="mr-1 text-[13px] text-stone-500">Aucun</span>}
           {value.length < 10 && !custom && (
-            <select
-              value=""
-              onChange={e => {
-                if (e.target.value === 'perso') openCustom();
-                else if (e.target.value !== '') onChange([...value, Number(e.target.value)]);
-              }}
-              aria-label="Ajouter un rappel"
-              className="field h-8 w-auto pr-7 text-[13px] text-stone-600 pointer-coarse:h-9"
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={!!menu}
+              onClick={e => setMenu(menu ? null : e.currentTarget)}
+              className="flex h-8 items-center gap-1 rounded-full border border-dashed border-stone-300 px-3 text-[13px] font-semibold text-stone-600 transition-colors hover:border-stone-400 hover:text-ink pointer-coarse:h-9"
             >
-              <option value="">+ Ajouter un rappel</option>
-              {left.map(o => (
-                <option key={o.minutes} value={o.minutes}>
-                  {o.label}
-                </option>
-              ))}
-              <option value="perso">Personnalisé…</option>
-            </select>
+              <Plus size={14} aria-hidden /> Ajouter un rappel
+            </button>
+          )}
+          {menu && (
+            <Popover anchor={menu} onClose={() => setMenu(null)} label="Ajouter un rappel" className="p-1">
+              <div role="menu" aria-label="Ajouter un rappel" className="min-w-52">
+                {left.map(o => (
+                  <button
+                    key={o.minutes}
+                    type="button"
+                    role="menuitem"
+                    autoFocus
+                    onClick={() => {
+                      onChange([...value, o.minutes]);
+                      setMenu(null);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-stone-100 focus-visible:bg-stone-100"
+                  >
+                    <Bell size={15} className="text-stone-400" aria-hidden /> {o.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  role="menuitem"
+                  autoFocus={!left.length}
+                  onClick={() => {
+                    setMenu(null);
+                    openCustom();
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-stone-100 focus-visible:bg-stone-100"
+                >
+                  <SlidersHorizontal size={15} className="text-stone-400" aria-hidden /> Personnaliser…
+                </button>
+              </div>
+            </Popover>
           )}
         </div>
       )}
       {!disabled && custom && (
         <div
-          className="mt-2 rounded-lg border border-stone-200 bg-stone-50 p-3"
+          className="mt-2 rounded-2xl bg-stone-50 p-3"
           role="group"
           aria-label="Rappel personnalisé"
           // Enter in its fields adds the reminder (and doesn't send the event's form).
@@ -161,8 +188,8 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
           )}
           {custom.mode === 'moment' ? (
             <div className="flex flex-wrap gap-2">
-              <input type="date" value={custom.day} max={date} onChange={e => setCustom({ ...custom, day: e.target.value })} aria-label="Jour du rappel" className="field h-8 min-w-0 flex-1" />
-              <input type="time" value={custom.at} onChange={e => setCustom({ ...custom, at: e.target.value })} aria-label="Heure du rappel" className="field h-8 w-[118px]" />
+              <DateField value={custom.day} max={date} onChange={day => setCustom({ ...custom, day })} label="Jour du rappel" className="h-9 min-w-0 flex-1" />
+              <TimeField value={custom.at} onChange={at => setCustom({ ...custom, at })} label="Heure du rappel" className="h-9 w-[128px]" />
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -173,13 +200,19 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
                 value={custom.amount}
                 onChange={e => setCustom({ ...custom, amount: e.target.value })}
                 aria-label="Durée"
-                className="field h-8 w-20"
+                className="field h-9 w-20"
               />
-              <select value={custom.unit} onChange={e => setCustom({ ...custom, unit: e.target.value as Unit })} aria-label="Unité" className="field h-8 w-auto pr-7">
-                <option value="min">minutes</option>
-                <option value="h">heures</option>
-                <option value="j">jours</option>
-              </select>
+              <SelectField<Unit>
+                value={custom.unit}
+                onChange={unit => setCustom({ ...custom, unit })}
+                label="Unité"
+                className="h-9 w-32"
+                options={[
+                  { value: 'min', label: 'minutes' },
+                  { value: 'h', label: 'heures' },
+                  { value: 'j', label: 'jours' },
+                ]}
+              />
               <span className="text-[13px] text-stone-600">avant</span>
             </div>
           )}

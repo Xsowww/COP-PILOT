@@ -324,6 +324,16 @@ export function alreadyPlanned(exam: CalendarEvent) {
   };
 }
 
+/**
+ * What a preparation note holds, by what is being prepared: a meeting (client, interview…) gets what to
+ * bring, the questions and the minutes to fill in after; anything else a plain to-do.
+ */
+export function prepTemplate(title: string): string {
+  if (/\b(client|rendez|rdv|r[ée]union|meeting|entretien|visio|appel|call|pr[ée]sentation|soutenance|oral)\b/i.test(title))
+    return `# Objectif du rendez-vous\n- \n# À préparer ou envoyer avant\n[ ] Documents utiles (devis, présentation…)\n[ ] Relire les derniers échanges\n[ ] \n# Questions à poser\n- \n# Points à aborder\n- \n# Compte rendu (après)\n- Décisions :\n- Prochaines étapes :\n- À relancer le :`;
+  return `# Objectif\n- \n# À préparer\n[ ] \n[ ] \n# Points à ne pas oublier\n- \n# Après\n- `;
+}
+
 /** Creates (or reuses) the revision sheet of an exam, in the "Révisions" notes folder (« Préparation » outside studies). */
 export function createRevisionNote(examId: string) {
   const exam = useCalendar.getState().events.find(e => e.id === examId);
@@ -333,7 +343,7 @@ export function createRevisionNote(examId: string) {
   const title = noteTitle(studying() ? 'Fiche · ' : 'À préparer · ', exam, useCalendar.getState().events);
   const note = studying()
     ? createNote(title, `# Ce qui tombe\n- Chapitres à revoir :\n- Type d’épreuve :\n# À retenir\n- \n# Mes points faibles\n[ ] \n# Questions à poser au prof\n- `, 'Révisions')
-    : createNote(title, `# Objectif\n- \n# À préparer\n[ ] \n# Points à aborder\n- \n# Après\n- `, 'Préparation');
+    : createNote(title, prepTemplate(exam.title), 'Préparation');
   // Linked to its exam: two exams with the same title each get their own.
   useNotes.getState().updateNote(note.id, { links: [{ kind: 'event', id: exam.id }] });
   return useNotes.getState().notes.find(n => n.id === note.id) ?? note;

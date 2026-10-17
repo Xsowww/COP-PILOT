@@ -8,7 +8,7 @@ import { useNotes } from '../store/notes';
 import { useCalendar, catOf, isBigEvent, sortEvents, type CalendarEvent } from '../store/calendar';
 import { fmt, fmtDay, toKey, fromKey, weekStart, daysUntil, hasStarted } from '../lib/dates';
 import { relativeTime, stripHtml, cx } from '../lib/utils';
-import { hasRevisionPlan, revisionNote, linkToDay, linkToNote } from '../copilot/actions';
+import { hasRevisionPlan, revisionNote, revisionSessions, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
 import { toast } from '../store/ui';
 import TodoList from './tasks/TodoList';
@@ -109,8 +109,10 @@ export default function Dashboard() {
     if (!nextExam) return;
     const r = runOffer({ label: 'Planifier', kind: 'plan_revisions', payload: { eventId: nextExam.id } });
     // Only a plan with sessions links to the schedule: too late, Kompaly only made the sheet.
-    const planned = r.links?.some(l => l.label === 'Voir le planning');
-    if (planned) return toast(`${words.planned}, ${words === WORDS.etudes ? 'fiche créée' : 'note créée'}`, 'success');
+    const planned = r.links?.find(l => l.label === 'Voir le planning');
+    const made = r.links?.find(l => l.to.startsWith('/notes'));
+    // Straight to what was made: the note to fill in (else the first session in the calendar).
+    if (planned) return toast(`${words.planned} : ${r.links!.length > 1 ? `créneaux dans le calendrier et ${words === WORDS.etudes ? 'une fiche' : 'une note'} à remplir` : 'créneaux dans le calendrier'}`, 'success', { label: made ? 'Ouvrir' : 'Voir', run: () => navigate((made ?? planned).to) });
     // Too late for a session: the sheet Kompaly made anyway is one tap away.
     const sheet = r.links?.find(l => l.to.startsWith('/notes'));
     setTooLate(nextExam.id); // the card now offers the sheet instead of the same message again
@@ -242,9 +244,21 @@ export default function Dashboard() {
                 )}
                 <div className="mt-auto pt-4">
                   {hasRevisionPlan(nextExam) ? (
-                    <p className="flex items-center gap-1.5 text-[12px] text-white/65">
-                      <Check size={13} className="text-emerald-400" /> {words.planned}
-                    </p>
+                    <div className="space-y-2">
+                      <p className="flex items-center gap-1.5 text-[12px] text-white/65">
+                        <Check size={13} className="text-emerald-400" /> {words.planned}
+                        {revisionSessions(nextExam)[0] && (
+                          <Link to={linkToDay(revisionSessions(nextExam)[0].date)} className="ml-auto font-semibold text-white/80 underline-offset-2 hover:text-white hover:underline">
+                            Voir les créneaux
+                          </Link>
+                        )}
+                      </p>
+                      {examSheet && (
+                        <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
+                          {words === WORDS.etudes ? 'Ouvrir la fiche' : 'Ouvrir la note de préparation'}
+                        </Link>
+                      )}
+                    </div>
                   ) : examSheet && (examDays === 0 || tooLate === nextExam.id || noTimeLeft) ? (
                     // A sheet but no session and no time left for one: asking again would only repeat « Plus le temps… ».
                     <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">

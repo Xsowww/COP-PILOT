@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { DateField } from '../../components/Pickers';
 import { addDays, differenceInCalendarDays } from 'date-fns';
 import { Check, Pencil, Plus, Repeat, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
@@ -74,14 +75,14 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
       )}
 
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="block">
+        <div>
           <span className="eyebrow">Du</span>
-          <input type="date" value={d.start} onChange={e => set({ start: e.target.value, ...(e.target.value > d.end && { end: e.target.value }) })} className="field mt-1.5 w-full" required />
-        </label>
-        <label className="block">
+          <DateField value={d.start} onChange={start => set({ start, ...(start > d.end && { end: start }) })} label="Premier jour" className="mt-1.5 w-full" />
+        </div>
+        <div>
           <span className="eyebrow">Au (inclus)</span>
-          <input type="date" value={d.end} min={d.start} onChange={e => set({ end: e.target.value })} className="field mt-1.5 w-full" required />
-        </label>
+          <DateField value={d.end} min={d.start} onChange={end => set({ end })} label="Dernier jour" className="mt-1.5 w-full" />
+        </div>
       </div>
 
       <p className="eyebrow mt-4">Couleur</p>
@@ -114,7 +115,7 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
               <span>toutes les</span>
               <input type="number" min={1} max={52} value={every} onChange={e => setEvery(Math.max(1, Math.min(52, Number(e.target.value) || 1)))} aria-label="Nombre de semaines entre deux débuts" className="field h-9 w-16 text-center" />
               <span>semaines, jusqu’au</span>
-              <input type="date" value={until} min={d.start} onChange={e => setUntil(e.target.value)} aria-label="Dernier début possible" className="field h-9" />
+              <DateField value={until} min={d.start} onChange={setUntil} label="Dernier début possible" className="h-9 w-40" />
               <span className="w-full text-[12px] text-stone-500">
                 {copies.length > 1 ? `${copies.length} périodes, la dernière ${periodRange(copies[copies.length - 1], fmtDay)}.` : 'Une seule période avec ces dates.'}
               </span>

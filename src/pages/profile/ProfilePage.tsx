@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { SelectField, TimeField } from '../../components/Pickers';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
@@ -217,13 +218,7 @@ function ProfileTab() {
           />
         </Row>
         <Row label="Kompaly sert pour">
-          <select className="field w-56" aria-label="Kompaly sert pour" value={settings.usage} onChange={e => { const usage = e.target.value as Usage; settings.set({ usage }); applyUsage(usage); }}>
-            {USAGES.map(u => (
-              <option key={u.key} value={u.key}>
-                {u.label}
-              </option>
-            ))}
-          </select>
+          <SelectField<Usage> className="w-56" label="Kompaly sert pour" value={settings.usage} options={USAGES.map(u => ({ value: u.key, label: u.label }))} onChange={usage => { settings.set({ usage }); applyUsage(usage); }} />
         </Row>
         <Row label={words.school}>
           <input className="field w-56" aria-label={words.school} value={settings.school} placeholder={words.schoolHint} onChange={e => settings.set({ school: e.target.value })} />
@@ -232,13 +227,13 @@ function ProfileTab() {
           <input className="field w-56" aria-label={words.program} value={settings.program} placeholder={words.programHint} onChange={e => settings.set({ program: e.target.value })} />
         </Row>
         <Row label={words.level}>
-          <select className="field w-56" aria-label={words.level} value={settings.year} onChange={e => settings.set({ year: e.target.value })}>
-            {(words.levels.includes(settings.year) ? words.levels : [...words.levels, settings.year]).map(y => (
-              <option key={y} value={y}>
-                {y || '—'}
-              </option>
-            ))}
-          </select>
+          <SelectField<string>
+            className="w-56"
+            label={words.level}
+            value={settings.year}
+            options={(words.levels.includes(settings.year) ? words.levels : [...words.levels, settings.year]).map(y => ({ value: y, label: y || '—' }))}
+            onChange={year => settings.set({ year })}
+          />
         </Row>
       </Section>
 
@@ -524,7 +519,7 @@ function StudiesTab() {
           <Stepper label="Nombre de séances" value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
         <Row label="Heure des séances" hint="Chaque séance dure 1 h 30.">
-          <input type="time" className="field w-32" aria-label="Heure des séances" value={s.revisionTime} onChange={e => e.target.value && s.set({ revisionTime: e.target.value })} />
+          <TimeField className="w-32" label="Heure des séances" value={s.revisionTime} onChange={v => v && s.set({ revisionTime: v })} />
         </Row>
       </Section>
     </div>
@@ -712,19 +707,13 @@ function NotificationsTab() {
       </Section>
       <Section title="Rappels">
         <Row label="Rappel par défaut" hint="Pour chaque événement qui a une heure. Tu peux en mettre d’autres, ou aucun, dans l’événement lui-même.">
-          <select
+          <SelectField<number>
             value={defaultValue}
-            onChange={e => s.set({ defaultReminders: Number(e.target.value) < 0 ? [] : [Number(e.target.value)] })}
-            aria-label="Rappel par défaut"
-            className="field h-8 w-auto pr-7"
-          >
-            <option value={-1}>Aucun</option>
-            {TIMED_OPTIONS.map(o => (
-              <option key={o.minutes} value={o.minutes}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            onChange={v => s.set({ defaultReminders: v < 0 ? [] : [v] })}
+            label="Rappel par défaut"
+            className="h-9 w-52"
+            options={[{ value: -1, label: 'Aucun' }, ...TIMED_OPTIONS.map(o => ({ value: o.minutes, label: o.label }))]}
+          />
         </Row>
         <Row label="Tâches" hint="Dans Tâches, la cloche d’une tâche lui donne une heure et un ou plusieurs rappels (la veille à 18h, le jour même…)." />
       </Section>

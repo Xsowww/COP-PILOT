@@ -1,14 +1,14 @@
 import { useToday } from '../../lib/useToday';
 import { useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Trash2, X } from 'lucide-react';
+import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Trash2 } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { isTourTodo, startTour } from '../../store/tour';
 import { toast } from '../../store/ui';
 import TaskReminderDialog from './TaskReminderDialog';
+import { DatePopover } from '../../components/Pickers';
 
 const OVERDUE = 'var(--cat-examen-text)';
 
@@ -65,45 +65,19 @@ function removeWithUndo(gone: Todo[]) {
   });
 }
 
-// A press in progress (mouse down, or a tap that has just been lifted and is about to click).
-let lastPress = 0;
-if (typeof window !== 'undefined') for (const type of ['pointerdown', 'pointerup']) window.addEventListener(type, () => (lastPress = Date.now()), true);
-
-/**
- * Runs `fn` after the click of the press that caused a blur: saving a date moves the row to another
- * group, and the click would then miss what was under the pointer (another task's date button).
- */
-function afterPress(fn: () => void) {
-  if (Date.now() - lastPress > 1000) return fn(); // keyboard (Tab)
-  let done = false;
-  const run = () => {
-    if (done) return;
-    done = true;
-    window.removeEventListener('click', run, true);
-    setTimeout(fn, 0); // after the click's own handlers
-  };
-  window.addEventListener('click', run, true);
-  setTimeout(run, 800); // no click came (scroll, drag)
-}
-
 function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
   const { toggle, remove, update } = useTodos();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(t.title);
-  const [dating, setDating] = useState(false);
+  // The date button the small calendar hangs from while it is open.
+  const [dating, setDating] = useState<HTMLElement | null>(null);
   const [reminding, setReminding] = useState(false);
   const titleRef = useRef<HTMLSpanElement>(null);
-  const dateRef = useRef<HTMLInputElement>(null);
-  // The date is kept aside while it's being typed: saving each change would move the task to
-  // another group (a new row) in the middle of typing the year.
-  const [draftDue, setDraftDue] = useState('');
-  const closing = useRef(false);
-  const closeDate = (commit: boolean, refocus: boolean, value = draftDue) => {
-    if (closing.current) return; // the field going away can still send a blur
-    closing.current = true;
-    if (commit && value !== (t.due ?? '')) update(t.id, { due: value || undefined });
-    setDating(false);
-    if (refocus) focusDueButton(t.id);
+  // A new date can move the task to another group (a new row): the focus follows it there.
+  const pickDue = (value: string) => {
+    setDating(null);
+    if (value !== (t.due ?? '')) update(t.id, { due: value || undefined });
+    focusDueButton(t.id);
   };
   const overdue = !t.done && !!t.due && t.due < todayKey();
   const canEdit = editable && !t.done;
@@ -195,72 +169,13 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
       {reminding && <TaskReminderDialog todo={t} onClose={() => setReminding(false)} />}
       {/* The tour task has « Lancer » in that column instead (no deadline to give it). */}
       {!t.done && editable && !(isTourTodo(t.title) && !t.due) ? (
-        dating ? (
-          // Only while changing it: a date field on every row meant 4 Tab stops per task.
-          <span
-            className="flex shrink-0 items-center"
-            onBlur={e => {
-              if (e.currentTarget.contains(e.relatedTarget)) return;
-              // Tab out of the field: a new date moves the task to another group (a new row), so the
-              // control the focus was going to is gone. It goes to the same control on the new row.
-              const next = e.relatedTarget instanceof HTMLElement && e.currentTarget.closest('li')?.contains(e.relatedTarget) ? e.relatedTarget : null;
-              const toRemove = !!next?.closest('[data-remove]');
-              afterPress(() => {
-                closeDate(true, false);
-                setTimeout(() => {
-                  if (next ? next.isConnected : document.activeElement !== document.body) return;
-                  const row = document.querySelector(`[data-todo="${t.id}"]`)?.closest('li');
-                  row?.querySelector<HTMLElement>(toRemove ? '[data-remove]' : `[data-due="${t.id}"]`)?.focus();
-                }, 0);
-              });
-            }}
-          >
-            <input
-              ref={dateRef}
-              type="date"
-              autoFocus
-              value={draftDue}
-              onChange={e => setDraftDue(e.target.value)}
-              onKeyDown={e => {
-                if (e.key !== 'Enter' && e.key !== 'Escape') return;
-                e.preventDefault();
-                closeDate(e.key === 'Enter', true);
-              }}
-              aria-label={`Échéance de «\u00a0${t.title}\u00a0»`}
-              className="field h-7 w-[132px] px-1.5 text-[12px]"
-            />
-            {t.due && (
-              <button
-                type="button"
-                onMouseDown={e => e.preventDefault()} // Safari doesn't focus buttons: the field's blur would close it first
-                onClick={() => {
-                  setDraftDue('');
-                  closeDate(true, true, '');
-                }}
-                className="icon-btn h-7 w-7"
-                title="Retirer l’échéance"
-                aria-label={`Retirer l’échéance de «\u00a0${t.title}\u00a0»`}
-              >
-                <X size={13} />
-              </button>
-            )}
-          </span>
-        ) : (
+        <>
           <button
             data-due={t.id}
             type="button"
-            onClick={() => {
-              closing.current = false;
-              setDraftDue(t.due ?? '');
-              flushSync(() => setDating(true));
-              // Phones: open the date picker right away instead of asking for a second tap.
-              if (coarse())
-                try {
-                  dateRef.current?.showPicker();
-                } catch {
-                  /* not allowed here: the field is still focused */
-                }
-            }}
+            aria-haspopup="dialog"
+            aria-expanded={!!dating}
+            onClick={e => setDating(dating ? null : e.currentTarget)}
             className={cx(
               // Same width with or without a date: the reminder bells stay in one column.
               'hit min-w-[58px] shrink-0 rounded-md',
@@ -271,7 +186,8 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           >
             {t.due ? <DueLabel due={t.due} short={overdue} /> : <CalendarPlus size={13} />}
           </button>
-        )
+          {dating && <DatePopover anchor={dating} value={t.due ?? ''} clearable label={`Échéance de « ${t.title} »`} onPick={pickDue} onClose={() => setDating(null)} />}
+        </>
       ) : (
         t.due && !t.done && <DueLabel due={t.due} />
       )}
@@ -294,7 +210,7 @@ function QuickAdd() {
   const add = useTodos(s => s.add);
   const [title, setTitle] = useState('');
   const [due, setDue] = useState('');
-  const [showDate, setShowDate] = useState(false);
+  const [dueMenu, setDueMenu] = useState<HTMLElement | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const submit = () => {
@@ -302,7 +218,6 @@ function QuickAdd() {
     add(title, due || undefined);
     setTitle('');
     setDue('');
-    setShowDate(false);
     titleRef.current?.focus(); // ready for the next one, even from the date field that just went away
   };
 
@@ -321,26 +236,33 @@ function QuickAdd() {
           className="field w-full"
         />
       </div>
-      {showDate || due ? (
-        <span className="flex shrink-0 items-center">
-          <input
-            type="date"
-            value={due}
-            autoFocus={!due}
-            min={todayKey()}
-            onChange={e => setDue(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && submit()}
-            aria-label="Échéance (facultative)"
-            className="field w-[132px] px-2"
-          />
-          <button onClick={() => (setDue(''), setShowDate(false), titleRef.current?.focus())} className="icon-btn" title="Sans échéance" aria-label="Sans échéance">
-            <X size={14} />
-          </button>
-        </span>
-      ) : (
-        <button onClick={() => setShowDate(true)} className="icon-btn h-9 w-9" title="Ajouter une échéance" aria-label="Ajouter une échéance">
-          <CalendarPlus size={15} />
-        </button>
+      {/* The new task's due date: a button, the small calendar under it. */}
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={!!dueMenu}
+        onClick={e => setDueMenu(dueMenu ? null : e.currentTarget)}
+        className={cx('shrink-0', due ? 'flex h-10 items-center gap-1.5 rounded-[14px] bg-stone-100 px-3 text-[12.5px] font-semibold hover:bg-stone-200 pointer-coarse:h-10' : 'icon-btn h-9 w-9')}
+        title={due ? 'Changer l’échéance' : 'Ajouter une échéance'}
+        aria-label={due ? `Échéance : ${fmtDay(fromKey(due), 'EEEE d MMMM')}` : 'Ajouter une échéance'}
+      >
+        <CalendarPlus size={15} />
+        {due && <span className="first-letter:uppercase">{fmtDay(fromKey(due), 'EEE d MMM')}</span>}
+      </button>
+      {dueMenu && (
+        <DatePopover
+          anchor={dueMenu}
+          value={due}
+          min={todayKey()}
+          clearable
+          label="Échéance de la nouvelle tâche"
+          onPick={k => {
+            setDue(k);
+            setDueMenu(null);
+            titleRef.current?.focus();
+          }}
+          onClose={() => setDueMenu(null)}
+        />
       )}
     </div>
   );

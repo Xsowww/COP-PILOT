@@ -11,6 +11,7 @@ import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
 import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
+import { DateField, TimeField } from '../../components/Pickers';
 import { adaptReminders, eventReminders } from '../../lib/reminders';
 
 interface Props {
@@ -46,9 +47,10 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const notes = useNotes(s => s.notes);
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
 
+  const timeError = !!start && !!end && end <= start;
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !day) return;
+    if (!title.trim() || !day || (end && !start) || timeError) return;
     // An end without a start can't be sent: the start field is required then (see below).
     const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen };
     if (event) update(event.id, data);
@@ -103,31 +105,34 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         )}
 
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <label className="col-span-2 sm:col-span-1">
+          <div className="col-span-2 sm:col-span-1">
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Jour</span>
-            <input type="date" value={day} onChange={e => setDay(e.target.value)} className="field w-full" required />
-          </label>
-          <label>
+            <DateField value={day} onChange={setDay} label="Jour de l’événement" className="w-full" />
+          </div>
+          <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Début</span>
-            <input
-              type="time"
+            <TimeField
               value={start}
-              // Worked out at each render: clearing the end (not only typing a start) makes the field valid again.
-              ref={el => el?.setCustomValidity(end && !start ? 'Indique le début, ou efface la fin.' : '')}
-              onChange={e => {
+              label="Heure de début"
+              placeholder="Sans heure"
+              clearable
+              invalid={!!end && !start}
+              onChange={v => {
                 // With or without a time, the reminders don't mean the same: keep those that still fit.
-                if (!!e.target.value !== !!start && chosen) setChosen(adaptReminders(chosen, !!e.target.value, e.target.value ? defaults : [0]));
-                setStart(e.target.value);
+                if (!!v !== !!start && chosen) setChosen(adaptReminders(chosen, !!v, v ? defaults : [0]));
+                setStart(v);
               }}
-              required={!!end}
-              className="field w-full"
+              className="w-full"
             />
-          </label>
-          <label>
+          </div>
+          <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Fin</span>
-            <input type="time" value={end} min={start} onChange={e => setEnd(e.target.value)} className="field w-full" />
-          </label>
+            <TimeField value={end} onChange={setEnd} label="Heure de fin" placeholder="Facultatif" clearable invalid={timeError} className="w-full" />
+          </div>
         </div>
+        {(timeError || (end && !start)) && (
+          <p className="mt-1.5 text-[12.5px] text-red-600">{end && !start ? 'Indique le début, ou efface la fin.' : 'La fin est avant le début.'}</p>
+        )}
 
         {/* What makes it a « big day » for the home page and Kompaly, whatever its category. */}
         {!shared && <button
@@ -179,7 +184,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
             Annuler
           </button>
-          <button type="submit" className="btn-primary" disabled={!title.trim()}>
+          <button type="submit" className="btn-primary" disabled={!title.trim() || (!!end && !start) || timeError}>
             {event ? 'Enregistrer' : 'Ajouter'}
           </button>
         </div>

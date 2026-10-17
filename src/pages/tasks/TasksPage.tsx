@@ -122,6 +122,20 @@ export default function TasksPage() {
     if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
   }, [location.hash]);
 
+  // /taches?tache=… (from « Ma semaine »): that task, in view and lit up a moment, its box focused.
+  const wanted = new URLSearchParams(location.search).get('tache');
+  useEffect(() => {
+    if (!wanted) return;
+    const box = document.querySelector<HTMLElement>(`[data-todo="${CSS.escape(wanted)}"]`);
+    const row = box?.closest('li');
+    if (!box || !row) return;
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    box.focus({ preventScroll: true });
+    row.classList.add('ring-2', 'ring-brand-500', 'bg-brand-50');
+    const t = setTimeout(() => row.classList.remove('ring-2', 'ring-brand-500', 'bg-brand-50'), 2200);
+    return () => clearTimeout(t);
+  }, [wanted]);
+
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
       <div className="mx-auto max-w-[1180px]">

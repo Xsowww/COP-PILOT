@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { DateField, TimeField } from '../../components/Pickers';
 import { Modal } from '../../components/Overlays';
 import ReminderPicker from '../../components/ReminderPicker';
 import { adaptReminders, reminderMoment } from '../../lib/reminders';
@@ -30,23 +31,25 @@ export default function TaskReminderDialog({ todo, onClose }: { todo: Todo; onCl
         <h3 className="text-[15px] font-semibold">Rappel</h3>
         <p className="mt-1 line-clamp-2 text-[13px] text-stone-600 [overflow-wrap:anywhere]">{todo.title}</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <label>
+          <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Échéance</span>
-            <input type="date" value={due} onChange={e => setDue(e.target.value)} className="field w-full" />
-          </label>
-          <label>
+            <DateField value={due} onChange={setDue} label="Échéance" clearable className="w-full" />
+          </div>
+          <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Heure (facultatif)</span>
-            <input
-              type="time"
+            <TimeField
               value={time}
               disabled={!due}
-              onChange={e => {
-                if (!!e.target.value !== !!time) setReminders(r => adaptReminders(r, !!e.target.value, e.target.value ? [15] : [900]));
-                setTime(e.target.value);
+              clearable
+              label="Heure de l’échéance"
+              placeholder="Dans la journée"
+              onChange={v => {
+                if (!!v !== !!time) setReminders(r => adaptReminders(r, !!v, v ? [15] : [900]));
+                setTime(v);
               }}
-              className="field w-full disabled:opacity-50"
+              className="w-full"
             />
-          </label>
+          </div>
         </div>
         <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : 'Choisis d’abord une échéance.'} />
         <div className="mt-5 flex justify-end gap-2">

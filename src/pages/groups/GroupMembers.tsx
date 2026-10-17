@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SelectField } from '../../components/Pickers';
 import { Copy, LogOut, RefreshCw, Trash2, UserMinus } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useGroups } from '../../store/groups';
@@ -145,16 +146,17 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
               <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">Propriétaire</span>
             ) : isOwner ? (
               <div className="ml-auto flex shrink-0 items-center gap-3">
-                <select
-                  className="field h-8 py-0 text-[13px]"
-                  aria-label={`Rôle de ${m.name}`}
+                <SelectField<GroupRole>
+                  className="h-9 w-32 text-[13px]"
+                  label={`Rôle de ${m.name}`}
                   value={m.role}
                   disabled={busy}
-                  onChange={e => void setRights(m, e.target.value as GroupRole, m.canInvite)}
-                >
-                  <option value="lecteur">Lecteur</option>
-                  <option value="editeur">Éditeur</option>
-                </select>
+                  onChange={role => void setRights(m, role, m.canInvite)}
+                  options={[
+                    { value: 'lecteur', label: 'Lecteur', hint: 'Voit tout, ne modifie rien' },
+                    { value: 'editeur', label: 'Éditeur', hint: 'Ajoute et modifie' },
+                  ]}
+                />
                 <label className="check-hit flex items-center gap-1.5 text-[12px] text-stone-600">
                   <input type="checkbox" className="h-4 w-4 accent-[var(--color-ink)]" checked={m.canInvite} disabled={busy} onChange={e => void setRights(m, m.role, e.target.checked)} />
                   Peut inviter
