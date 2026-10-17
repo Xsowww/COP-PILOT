@@ -5,6 +5,8 @@ import { createContext, useContext, useMemo } from 'react';
 import { useCalendar, type CalendarEvent, type NewEvent } from '../../store/calendar';
 import { trashEvent } from '../../lib/trash';
 import type { Group } from '../../lib/groups';
+import { useSettings } from '../../store/settings';
+import { sortPeriods, type Period } from '../../lib/periods';
 
 export interface CalendarSource {
   /** null: my calendar. A shared calendar has no « fait », reminders, import or custom categories. */
@@ -14,6 +16,11 @@ export interface CalendarSource {
   update: (id: string, patch: Partial<CalendarEvent>) => void;
   toggleDone: (id: string) => void;
   remove: (id: string) => void;
+  /** « En entreprise », « Vacances »… (my settings, or the shared calendar's own). */
+  periods: Period[];
+  /** Adds or changes periods (several: a repeated one). */
+  savePeriods: (list: Period[]) => void;
+  removePeriod: (id: string) => void;
 }
 
 export const CalendarSourceContext = createContext<CalendarSource | null>(null);
@@ -21,9 +28,24 @@ export const CalendarSourceContext = createContext<CalendarSource | null>(null);
 export function useCalendarSource(): CalendarSource {
   const shared = useContext(CalendarSourceContext);
   const events = useCalendar(s => s.events);
+  const periods = useSettings(s => s.periods);
   const mine = useMemo<CalendarSource>(() => {
     const { add, update, toggleDone } = useCalendar.getState();
-    return { shared: null, events, add: e => void add(e), update, toggleDone, remove: trashEvent };
-  }, [events]);
+    const settings = useSettings.getState();
+    return {
+      shared: null,
+      events,
+      add: e => void add(e),
+      update,
+      toggleDone,
+      remove: trashEvent,
+      periods,
+      savePeriods: list => {
+        const ids = new Set(list.map(p => p.id));
+        settings.set({ periods: sortPeriods([...useSettings.getState().periods.filter(p => !ids.has(p.id)), ...list]) });
+      },
+      removePeriod: id => settings.set({ periods: useSettings.getState().periods.filter(p => p.id !== id) }),
+    };
+  }, [events, periods]);
   return shared ?? mine;
 }

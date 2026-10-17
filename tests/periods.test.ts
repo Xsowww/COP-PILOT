@@ -1,0 +1,55 @@
+import { describe, expect, it } from 'vitest';
+
+const memory = new Map<string, string>();
+Object.assign(globalThis, {
+  location: new URL('http://localhost/'),
+  localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
+});
+const { cleanPeriod, cleanPeriods, periodsOn, periodsBetween, repeatPeriod, MAX_REPEATS } = await import('../src/lib/periods');
+
+const p = (id: string, start: string, end: string, title = id) => ({ id, title, start, end, color: 'bleu' });
+
+describe('cleanPeriod', () => {
+  it('keeps a good period and fixes an unknown colour', () => {
+    expect(cleanPeriod({ id: 'a', title: '  En entreprise ', start: '2026-10-12', end: '2026-10-23', color: 'fuchsia' })).toEqual({ id: 'a', title: 'En entreprise', start: '2026-10-12', end: '2026-10-23', color: 'bleu' });
+  });
+  it('drops what does not hold up', () => {
+    for (const bad of [null, 'x', { title: '', start: '2026-10-12', end: '2026-10-13' }, { title: 'A', start: '2026-10-13', end: '2026-10-12' }, { title: 'A', start: '2026-02-30', end: '2026-03-02' }, { title: 'A', start: '2026-01-01', end: '2062-01-01' }])
+      expect(cleanPeriod(bad)).toBeNull();
+    expect(cleanPeriods([p('a', '2026-10-12', '2026-10-18'), { nope: 1 }]).map(x => x.id)).toEqual(['a']);
+    expect(cleanPeriods('not a list')).toEqual([]);
+  });
+});
+
+describe('periodsOn / periodsBetween', () => {
+  const list = [p('b', '2026-10-19', '2026-10-25'), p('a', '2026-10-12', '2026-10-18')];
+  it('first and last days are included', () => {
+    expect(periodsOn(list, '2026-10-12').map(x => x.id)).toEqual(['a']);
+    expect(periodsOn(list, '2026-10-18').map(x => x.id)).toEqual(['a']);
+    expect(periodsOn(list, '2026-10-19').map(x => x.id)).toEqual(['b']);
+    expect(periodsOn(list, '2026-10-26')).toEqual([]);
+  });
+  it('a week touching two periods gets both, in order', () => {
+    expect(periodsBetween(list, '2026-10-15', '2026-10-21').map(x => x.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('repeatPeriod (alternance)', () => {
+  const first = { title: 'En cours', start: '2026-09-07', end: '2026-09-20', color: 'bleu' };
+  it('two weeks every four weeks, same length each time', () => {
+    const r = repeatPeriod(first, 4, '2026-11-30');
+    expect(r.map(x => [x.start, x.end])).toEqual([
+      ['2026-09-07', '2026-09-20'],
+      ['2026-10-05', '2026-10-18'],
+      ['2026-11-02', '2026-11-15'],
+      ['2026-11-30', '2026-12-13'],
+    ]);
+  });
+  it('crosses the change of time without shifting a day', () => {
+    expect(repeatPeriod(first, 7, '2026-10-26').map(x => x.start)).toEqual(['2026-09-07', '2026-10-26']);
+  });
+  it('stops at MAX_REPEATS, and an end before the start gives the first only', () => {
+    expect(repeatPeriod(first, 1, '2030-01-01')).toHaveLength(MAX_REPEATS);
+    expect(repeatPeriod(first, 4, '2026-09-01')).toHaveLength(1);
+  });
+});

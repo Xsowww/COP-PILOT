@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { toast } from '../store/ui';
 import { getSettings } from '../store/settings';
 import { AGENDA_WORDS, groupWords } from './usage';
+import { cleanPeriod, type Period } from './periods';
 
 let space: GroupKind = 'groupe';
 /** The screens in use (/groupes or /agendas): messages speak of « ce groupe » or « cet agenda ». */
@@ -145,6 +146,8 @@ export function groupError(e: unknown): string {
   if (/too many groups/i.test(msg)) return `Tu fais déjà partie de 30 ${w.groups}, c’est le maximum.`;
   if (/too large|exceeded the maximum|payload too large|413/i.test(msg)) return 'Fichier trop lourd : 50 Mo au maximum.';
   if (/photo/i.test(msg) && /column|schema cache/i.test(msg)) return 'Les photos ne sont pas encore activées sur le serveur (migration 2026-10-19 à lancer).';
+  if (/group_periods|42P01|PGRST205/.test(msg)) return 'Les périodes ne sont pas encore activées sur le serveur (migration 2026-10-20 à lancer).';
+  if (/too many periods/i.test(msg)) return 'Trop de périodes dans cet agenda (300 au maximum).';
   if (/mfa required/i.test(msg)) return 'Confirme d’abord ta connexion avec le code de ton téléphone.';
   if (/forbidden|row-level security|permission denied/i.test(msg)) return `Tu n’as pas le droit de faire ça dans ${w.this}.`;
   if (/fetch|network/i.test(msg)) return 'Pas de connexion. Réessaie dans un instant.';
@@ -340,6 +343,26 @@ export async function createEvent(groupId: string, e: NewGroupEvent): Promise<Gr
 }
 
 /** Shared calendars: any editor changes any event (the database checks it). */
+// ── Périodes d'un agenda partagé (« En entreprise », « Vacances »…) ─────────────
+const toPeriod = (r: Row): Period | null => cleanPeriod({ id: String(r.id), title: r.title, start: r.start_date, end: r.end_date, color: r.color });
+
+/** A shared calendar's periods; none on a server without the table yet (migration 2026-10-20). */
+export async function fetchPeriods(groupId: string): Promise<Period[]> {
+  const res = await db().from('group_periods').select('id, title, start_date, end_date, color').eq('group_id', groupId).order('start_date');
+  if (res.error && /group_periods|42P01|PGRST205/.test(`${res.error.code} ${res.error.message}`)) return [];
+  return (check(res) as Row[]).map(toPeriod).filter((p): p is Period => !!p);
+}
+
+/** Adds or changes periods (several at once: a repeated one). */
+export async function savePeriods(groupId: string, list: Period[]) {
+  const rows = list.map(p => ({ id: p.id, group_id: groupId, title: p.title, start_date: p.start, end_date: p.end, color: p.color }));
+  check(await db().from('group_periods').upsert(rows));
+}
+
+export async function deletePeriod(id: string) {
+  changed(await db().from('group_periods').delete().eq('id', id).select('id'), 'Tu n’as pas le droit de modifier les périodes de cet agenda.');
+}
+
 export async function updateEvent(id: string, patch: Partial<NewGroupEvent>) {
   const row: Row = {};
   if (patch.title !== undefined) row.title = patch.title;

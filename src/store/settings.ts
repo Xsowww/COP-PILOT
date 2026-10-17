@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { userStorage } from '../lib/userStorage';
 import type { Usage } from '../lib/usage';
 import type { CustomCategory } from './calendar';
+import type { Period } from '../lib/periods';
 
 export type AccentKey = 'orange' | 'bleu' | 'vert' | 'violet' | 'rose' | 'encre';
 export type Chattiness = 'calme' | 'normal' | 'bavard';
@@ -61,6 +62,7 @@ export interface Settings {
   badgeAnnouncements: boolean; // Kompaly announces newly earned badges
   groupsSeen: Record<string, string>; // « groupId:tab » → last time the student looked (synced across devices)
   customCategories: CustomCategory[]; // calendar categories created by the student
+  periods: Period[]; // « En entreprise », « Vacances »… shown as a tint over the calendar days
   renamedToKompa: boolean; // old « COP-PILOT » texts in this account already renamed (see lib/renameToKompa)
 }
 
@@ -95,6 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   badgeAnnouncements: false,
   groupsSeen: {},
   customCategories: [],
+  periods: [],
   renamedToKompa: false,
 };
 

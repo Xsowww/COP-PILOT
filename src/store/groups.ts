@@ -5,6 +5,7 @@ import { addDays } from 'date-fns';
 import { toKey, todayKey } from '../lib/dates';
 import * as api from '../lib/groups';
 import type { Attendance, Group, GroupEvent, GroupFile, GroupMember, GroupNoteSummary } from '../lib/groups';
+import type { Period } from '../lib/periods';
 
 // Groupes de travail (en ligne seulement). Rien n'est gardé dans le navigateur : tout est relu
 // depuis Supabase à l'ouverture, en direct (Realtime) et quand l'onglet reprend la main.
@@ -17,6 +18,8 @@ interface GroupsState {
   members: Record<string, GroupMember[]>;
   notes: Record<string, GroupNoteSummary[]>;
   events: Record<string, GroupEvent[]>;
+  /** A shared calendar's periods (« En entreprise »…), read with its events. */
+  periods: Record<string, Period[]>;
   attendance: Record<string, Attendance[]>;
   files: Record<string, GroupFile[]>;
   /** Code d'invitation (null : pas le droit d'inviter). Lu à part, jamais dans la table groups. */
@@ -62,6 +65,7 @@ export const useGroups = create<GroupsState>((set, get) => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_notes', filter: f }, () => soon(gid, 'notes'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_events', filter: f }, () => soon(gid, 'events'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_event_attendees', filter: f }, () => soon(gid, 'events'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_periods', filter: f }, () => soon(gid, 'events'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'group_files', filter: f }, () => soon(gid, 'files'))
       // Droits changés, arrivée, départ : membres + code d'invitation. (La table groups n'est pas
       // diffusée en direct, pour ne pas exposer le code : la liste est relue ici et au retour sur l'onglet.)
@@ -74,6 +78,9 @@ export const useGroups = create<GroupsState>((set, get) => {
       // Every deletion of the whole site arrives here: only those touching this group cause a reload.
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_events' }, p => {
         if (get().events[gid]?.some(e => e.id === oldOf(p).id)) soon(gid, 'events');
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_periods' }, p => {
+        if (get().periods[gid]?.some(x => x.id === oldOf(p).id)) soon(gid, 'events');
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_event_attendees' }, p => {
         if (get().events[gid]?.some(e => e.id === oldOf(p).event_id)) soon(gid, 'events');
@@ -97,6 +104,7 @@ export const useGroups = create<GroupsState>((set, get) => {
     members: {},
     notes: {},
     events: {},
+    periods: {},
     attendance: {},
     files: {},
     codes: {},
@@ -132,6 +140,7 @@ export const useGroups = create<GroupsState>((set, get) => {
       if (parts.includes('events'))
         jobs.push(
           api.fetchEvents(id, agenda ? toKey(addDays(new Date(), -366)) : todayKey()).then(r => set(s => ({ events: { ...s.events, [id]: r.events }, attendance: { ...s.attendance, [id]: r.attendance } }))),
+          ...(agenda ? [api.fetchPeriods(id).then(p => set(s => ({ periods: { ...s.periods, [id]: p } })))] : []),
         );
       const res = await Promise.allSettled(jobs);
       // Plus membre (retiré par le propriétaire, groupe supprimé) : la liste des groupes le dira.
@@ -151,7 +160,7 @@ export const useGroups = create<GroupsState>((set, get) => {
 
     reset() {
       subscribe(null);
-      set({ groups: [], loaded: false, failed: false, activeId: null, members: {}, notes: {}, events: {}, attendance: {}, files: {}, codes: {} });
+      set({ groups: [], loaded: false, failed: false, activeId: null, members: {}, notes: {}, events: {}, periods: {}, attendance: {}, files: {}, codes: {} });
     },
   };
 });

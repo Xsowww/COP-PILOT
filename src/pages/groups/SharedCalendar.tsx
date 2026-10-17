@@ -4,8 +4,9 @@ import { CalendarSourceContext, type CalendarSource } from '../calendar/source';
 import { CATEGORIES, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
-import { createEvent, deleteEvent, groupError, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
+import { createEvent, deleteEvent, deletePeriod, groupError, savePeriods, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { useMemberName, useRights } from './util';
+import { sortPeriods } from '../../lib/periods';
 
 const builtin = (c: string | null | undefined): EventCategory => (c && c in CATEGORIES ? (c as EventCategory) : 'perso');
 
@@ -41,6 +42,7 @@ const flushPending = () => [...pending.values()].forEach(send => send());
 /** The Calendar page (day, week, month…) on a shared calendar: every member sees the changes live. */
 export default function SharedCalendar({ group }: { group: Group }) {
   const raw = useGroups(s => s.events[group.id]);
+  const periods = useGroups(s => s.periods[group.id]);
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
   const [, redraw] = useState(0);
@@ -93,8 +95,18 @@ export default function SharedCalendar({ group }: { group: Group }) {
           },
         });
       },
+      periods: periods ?? [],
+      savePeriods: list => {
+        const ids = new Set(list.map(p => p.id));
+        useGroups.setState(s => ({ periods: { ...s.periods, [group.id]: sortPeriods([...(s.periods[group.id] ?? []).filter(p => !ids.has(p.id)), ...list]) } }));
+        void savePeriods(group.id, list).then(reload).catch(fail);
+      },
+      removePeriod: id => {
+        useGroups.setState(s => ({ periods: { ...s.periods, [group.id]: (s.periods[group.id] ?? []).filter(p => p.id !== id) } }));
+        void deletePeriod(id).then(reload).catch(fail);
+      },
     };
-  }, [raw, group, nameOf, canEdit]);
+  }, [raw, periods, group, nameOf, canEdit]);
 
   return (
     <CalendarSourceContext.Provider value={source}>

@@ -1,3 +1,4 @@
+import { cleanPeriods, type Period } from './periods';
 import { folderColorKey, useDrive, type DriveItem } from '../store/drive';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, catOf, type CalendarEvent, type CustomCategory } from '../store/calendar';
@@ -67,7 +68,7 @@ function sameType(value: unknown, model: unknown) {
   return typeof value === typeof model && (typeof model !== 'object' || (value !== null && !Array.isArray(value)));
 }
 
-const KEEP_CURRENT = new Set<keyof Settings>(['focusSessions', 'focusTotalMinutes', 'badgesSeen', 'groupsSeen', 'renamedToKompa', 'customCategories']);
+const KEEP_CURRENT = new Set<keyof Settings>(['focusSessions', 'focusTotalMinutes', 'badgesSeen', 'groupsSeen', 'renamedToKompa', 'customCategories', 'periods']);
 
 /**
  * Brings back from an exported file the notes, events, tasks and Drive folders that are no longer
@@ -107,6 +108,7 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
     const restored = Object.fromEntries(known.filter(k => k in data.settings && sameType(data.settings[k], DEFAULT_SETTINGS[k])).map(k => [k, data.settings[k]])) as Partial<Settings>;
     const current = useSettings.getState();
     if (Array.isArray(data.settings.customCategories)) restored.customCategories = [...current.customCategories, ...missing<CustomCategory>(data.settings.customCategories, current.customCategories)];
+    if (Array.isArray(data.settings.periods)) restored.periods = [...current.periods, ...missing<Period>(cleanPeriods(data.settings.periods), current.periods)];
     useSettings.getState().set(restored);
     applyAppearance(useSettings.getState());
     applyUsage(useSettings.getState().usage);

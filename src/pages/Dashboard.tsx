@@ -15,6 +15,7 @@ import TodoList from './tasks/TodoList';
 import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
 import { startTitleBuffer } from './notes/titleBuffer';
+import { periodColor, periodText, periodTint, periodsOn } from '../lib/periods';
 
 /** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
 function Widget({ title, to, linkLabel, className, dark, children }: { title: string; to?: string; linkLabel?: string; className?: string; dark?: boolean; children: React.ReactNode }) {
@@ -64,6 +65,7 @@ const preloadNotes = () => void import('./notes/NotesPage');
 export default function Dashboard() {
   const words = WORDS[useSettings(st => st.usage)] ?? WORDS.etudes;
   const revisionTime = useSettings(st => st.revisionTime) || '18:00';
+  const periods = useSettings(st => st.periods);
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
   const { notes, folders } = useNotes();
@@ -102,6 +104,7 @@ export default function Dashboard() {
   const nowEvent = todayEvents.find(e => !e.done && e.start && (e.end ?? e.start) > nowTime);
   const minutesTo = nowEvent?.start ? Number(nowEvent.start.slice(0, 2)) * 60 + Number(nowEvent.start.slice(3)) - (now.getHours() * 60 + now.getMinutes()) : 0;
 
+  const nowPeriods = periodsOn(periods, today);
   const recentNotes = [...notes].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
 
   const [tooLate, setTooLate] = useState<string>();
@@ -135,6 +138,17 @@ export default function Dashboard() {
             <h1 className="mt-0.5 text-[32px] font-extrabold tracking-[-0.035em]">
               {hello}, {user.name}
             </h1>
+            {nowPeriods.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {nowPeriods.map(p => (
+                  <Link key={p.id} to="/calendrier" className="flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold" style={{ background: periodTint(p, 18), color: periodText(p) }}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
+                    {p.title}
+                    {p.end !== today && <span className="font-medium opacity-80">· jusqu’au {fmtDay(fromKey(p.end), 'd MMM')}</span>}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
           {/* Together: when the title is long, both shortcuts go to the next line, not just one. */}
           <div className="flex gap-2">

@@ -2,13 +2,15 @@ import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp } from 'lucide-react';
+import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange } from 'lucide-react';
 import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
+import PeriodsDialog from './PeriodsDialog';
+import { periodColor, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
 import { useCalendarSource } from './source';
@@ -243,6 +245,7 @@ export default function CalendarPage() {
   const wide = useWide();
   const [allExams, setAllExams] = useState(false);
   const [managing, setManaging] = useState(false);
+  const [periodsOpen, setPeriodsOpen] = useState(false);
   // fromQuick: opened from the quick add (« demain 14h » without a title), whose text is cleared once saved.
   const [form, setFormState] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string; fromQuick?: boolean } | null>(null);
   // A reader of a shared calendar sees it, without the ways to change it (the server refuses them anyway).
@@ -294,6 +297,12 @@ export default function CalendarPage() {
   const today = useToday();
   const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart(selDate), i));
   const dayEvents = byDay.get(selected) ?? [];
+  // Periods (« En entreprise »…): a band over the week, a tint on their days.
+  const { periods } = source;
+  const weekKeys = week.map(toKey);
+  const weekBands = periodsBetween(periods, weekKeys[0], weekKeys[6]);
+  const selPeriods = periodsOn(periods, selected);
+  const tintOf = (key: string): Period | undefined => periodsOn(periods, key)[0];
 
   const parsed = quick.trim() ? parseQuickAdd(quick) : null;
   const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start) : null;
@@ -403,6 +412,8 @@ export default function CalendarPage() {
     return days;
   }, [selected]);
 
+  const monthBands = mode === 'month' && monthDays.length ? periodsBetween(periods, toKey(monthDays[0]), toKey(monthDays[monthDays.length - 1])) : [];
+
   return (
     <div
       className={cx('h-full overflow-y-auto pb-12', !shared && 'px-4 md:px-8')}
@@ -441,6 +452,11 @@ export default function CalendarPage() {
           </div>
           {/* Filter and import wrap together: on a phone the import icon was left alone on its own line. */}
           <div className="flex items-center gap-2">
+          {(!readOnly || periods.length > 0) && (
+            <button className="btn-secondary h-8 px-2.5" onClick={() => setPeriodsOpen(true)} title="Périodes : en cours, en entreprise, vacances…" aria-label="Périodes">
+              <CalendarRange size={15} /> <span className="max-sm:sr-only">Périodes</span>
+            </button>
+          )}
           <CalendarFilter
             categories={allCategories(custom)}
             shown={shown}
@@ -533,12 +549,34 @@ export default function CalendarPage() {
         <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
           <section className="card min-w-0 p-4 md:p-5">
             {mode !== 'month' ? (
+              <>
+              {weekBands.length > 0 && (
+                <div className="mb-1 grid grid-cols-7 gap-1" aria-label="Périodes de la semaine">
+                  {weekBands.slice(0, 3).map(p => {
+                    const from = Math.max(0, weekKeys.findIndex(k => k >= p.start));
+                    const to = 6 - [...weekKeys].reverse().findIndex(k => k <= p.end);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => setPeriodsOpen(true)}
+                        title={`${p.title} · ${periodRange(p, fmtDay)}`}
+                        className="flex h-6 min-w-0 items-center gap-1.5 truncate rounded-md px-2 text-left text-[11.5px] font-semibold"
+                        style={{ gridColumn: `${from + 1} / ${to + 2}`, background: periodTint(p, 20), color: periodText(p) }}
+                      >
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
+                        <span className="truncate">{p.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div className="grid grid-cols-7 gap-1">
                 {week.map(d => {
                   const key = toKey(d);
                   const evs = byDay.get(key) ?? [];
                   const isSel = key === selected;
                   const isToday = key === today;
+                  const tint = tintOf(key);
                   return (
                     <button
                       key={key}
@@ -549,9 +587,10 @@ export default function CalendarPage() {
                       onDoubleClick={() => setForm({ date: key })}
                       className={cx(
                         'flex flex-col items-center rounded-lg py-2.5 transition-colors',
-                        dropDay === key ? 'bg-brand-50 ring-2 ring-brand-500/40' : isSel ? 'bg-stone-100' : 'hover:bg-stone-50',
+                        dropDay === key ? 'bg-brand-50 ring-2 ring-brand-500/40' : isSel ? 'bg-stone-100' : tint ? 'hover:brightness-95' : 'hover:bg-stone-50',
                         drag && dropDay !== key && 'ring-1 ring-stone-200 ring-inset',
                       )}
+                      style={tint && dropDay !== key ? { background: periodTint(tint, isSel ? 26 : 13) } : undefined}
                     >
                       <span className="text-[11px] font-medium capitalize text-stone-500">{fmt(d, 'EEE')}</span>
                       <span
@@ -571,6 +610,7 @@ export default function CalendarPage() {
                   );
                 })}
               </div>
+              </>
             ) : (
               <div className="@container">
                 <div className="grid grid-cols-7 pb-1.5 text-center text-[11px] font-medium text-stone-500">
@@ -579,10 +619,13 @@ export default function CalendarPage() {
                   ))}
                 </div>
                 <div className="grid grid-cols-7 overflow-hidden rounded-lg border border-stone-200 bg-stone-200 [gap:1px]">
-                  {monthDays.map(d => {
+                  {monthDays.map((d, i) => {
                     const key = toKey(d);
                     const evs = byDay.get(key) ?? [];
                     const isSel = key === selected;
+                    const tint = tintOf(key);
+                    // The name where the period starts, and again at the start of each week row.
+                    const named = tint && (tint.start === key || i % 7 === 0);
                     return (
                       <button
                         key={key}
@@ -592,11 +635,15 @@ export default function CalendarPage() {
                         onClick={() => selectDay(key)}
                         onDoubleClick={() => setForm({ date: key })}
                         className={cx(
-                          'flex min-h-16 flex-col items-stretch p-1 text-left transition-colors @md:min-h-[84px]',
+                          'relative flex min-h-16 flex-col items-stretch p-1 text-left transition-colors @md:min-h-[84px]',
                           dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'bg-stone-50' : 'bg-surface hover:bg-stone-50',
                           !isSameMonth(d, selDate) && 'text-stone-500',
                         )}
+                        // Tint over the cell's own background (white or grey), so the grid lines stay.
+                        style={tint && dropDay !== key ? { backgroundImage: `linear-gradient(${periodTint(tint, isSel ? 24 : 13)}, ${periodTint(tint, isSel ? 24 : 13)})` } : undefined}
                       >
+                        {tint && <span className="absolute inset-x-0 top-0 h-[3px]" style={{ background: periodColor(tint) }} aria-hidden />}
+                        {named && <span className="hidden truncate px-1 text-[10px] font-semibold @md:block" style={{ color: periodText(tint) }}>{tint.title}</span>}
                         <span
                           className={cx(
                             'tabular mb-0.5 flex h-6 w-6 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
@@ -628,13 +675,36 @@ export default function CalendarPage() {
                     );
                   })}
                 </div>
+                {monthBands.length > 0 && (
+                  <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Périodes du mois">
+                    {monthBands.slice(0, 8).map(p => (
+                      <button key={p.id} onClick={() => setPeriodsOpen(true)} className="flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold" style={{ background: periodTint(p, 16), color: periodText(p) }}>
+                        <span className="h-2 w-2 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
+                        {p.title} <span className="font-medium opacity-80">{periodRange(p, fmtDay)}</span>
+                      </button>
+                    ))}
+                    {monthBands.length > 8 && <span className="self-center text-[11.5px] text-stone-500">+{monthBands.length - 8}</span>}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Selected day */}
             <div className="mt-5 border-t border-stone-100 pt-5">
-              <div className="mb-4 flex items-baseline gap-2">
+              <div className="mb-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? 'Aujourd’hui' : fmt(selDate, 'EEEE d MMMM')}</h2>
+                {selPeriods.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setPeriodsOpen(true)}
+                    className="flex h-6 min-w-0 max-w-[16rem] items-center gap-1 self-center rounded-full px-2.5 text-[12px] font-semibold"
+                    style={{ background: periodTint(p, 18), color: periodText(p) }}
+                    title={`${p.title} · ${periodRange(p, fmtDay)}`}
+                  >
+                    <span className="min-w-0 truncate">{p.title}</span>
+                    {p.end !== selected && <span className="shrink-0 font-medium opacity-80 max-sm:hidden">· jusqu’au {fmtDay(fromKey(p.end), 'd MMM')}</span>}
+                  </button>
+                ))}
                 {!readOnly && <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>
                   <Plus size={14} /> Ajouter
                 </button>}
@@ -736,6 +806,7 @@ export default function CalendarPage() {
       )}
       {importing && <ImportIcsDialog initial={importing.initial} onClose={() => setImporting(null)} onImported={selectDay} />}
       {managing && <CategoriesDialog onClose={() => setManaging(false)} />}
+      {periodsOpen && <PeriodsDialog day={selected} onClose={() => setPeriodsOpen(false)} />}
 
       {/* Chip that follows the pointer while an event is dragged */}
       {drag && (
