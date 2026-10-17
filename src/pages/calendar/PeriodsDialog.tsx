@@ -6,11 +6,11 @@ import { confirmAction } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { FOLDER_COLORS } from '../../store/drive';
 import { fromKey, toKey, fmtDay, weekStart } from '../../lib/dates';
-import { MAX_DAYS, PERIOD_IDEAS, periodColor, periodRange, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
+import { MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
 import { cx, uid } from '../../lib/utils';
 import { useCalendarSource } from './source';
 
-type Draft = { id?: string; title: string; start: string; end: string; color: string };
+type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[] };
 
 function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
   const source = useCalendarSource();
@@ -22,7 +22,9 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
   const set = (patch: Partial<Draft>) => setD(x => ({ ...x, ...patch }));
   const days = d.start && d.end ? differenceInCalendarDays(fromKey(d.end), fromKey(d.start)) : -1;
   const error = !d.start || !d.end ? 'Choisis le premier et le dernier jour.' : days < 0 ? 'Le dernier jour est avant le premier.' : days > MAX_DAYS ? 'Une période dure au plus un peu plus d’un an.' : '';
-  const base = { title: d.title.trim(), start: d.start, end: d.end, color: d.color };
+  const people = source.shared ? d.people ?? [] : [];
+  const base = { title: d.title.trim(), start: d.start, end: d.end, color: d.color, ...(people.length && { people }) };
+  const togglePerson = (id: string) => set({ people: people.includes(id) ? people.filter(x => x !== id) : [...people, id] });
   const copies = !d.id && repeat && !error ? repeatPeriod(base, every, until) : [base];
 
   const submit = (e: FormEvent) => {
@@ -49,6 +51,27 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
           </button>
         ))}
       </div>
+
+      {source.shared && source.shared.people.length > 1 && (
+        <div className="mt-4">
+          <p className="eyebrow">Pour qui</p>
+          <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Pour qui">
+            <button type="button" aria-pressed={people.length === 0} onClick={() => set({ people: [] })} className={cx('h-8 rounded-full px-3 text-[12.5px] font-semibold transition-colors pointer-coarse:h-9', people.length === 0 ? 'bg-ink text-paper' : 'bg-surface text-stone-600 ring-1 ring-inset ring-stone-200 hover:text-ink')}>
+              Tout le monde
+            </button>
+            {source.shared.people.map(m => {
+              const on = people.includes(m.id);
+              return (
+                <button key={m.id} type="button" aria-pressed={on} onClick={() => togglePerson(m.id)} className={cx('flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors pointer-coarse:h-9', on ? 'bg-ink text-paper' : 'bg-surface text-stone-600 ring-1 ring-inset ring-stone-200 hover:text-ink')}>
+                  {on && <Check size={12} strokeWidth={3} aria-hidden />}
+                  {m.name}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-[12px] text-stone-500">{people.length ? 'Son nom s’affiche avec la période, pour que tout le monde sache qui est concerné.' : 'La période concerne tout l’agenda.'}</p>
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <label className="block">
@@ -137,7 +160,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
             <li key={p.id} className="flex items-center gap-3 rounded-xl px-2.5 py-2" style={{ background: periodTint(p, 10) }}>
               <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-semibold">{p.title}</span>
+                <span className="block truncate text-[13.5px] font-semibold">{periodLabel(p, source.shared?.nameOf)}</span>
                 <span className="block text-[12px] text-stone-500">{periodRange(p, fmtDay)}</span>
               </span>
               {canEdit && (

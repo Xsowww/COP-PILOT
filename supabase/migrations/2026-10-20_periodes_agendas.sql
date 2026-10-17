@@ -10,10 +10,14 @@ create table if not exists public.group_periods (
   start_date date not null,
   end_date date not null,
   color text not null default 'bleu' check (color in ('bleu', 'rouge', 'orange', 'jaune', 'vert', 'violet', 'rose', 'gris')),
+  -- Les membres concernés (« Léa est en entreprise ») ; vide : tout le monde.
+  people uuid[] not null default '{}' check (cardinality(people) <= 50),
   created_by uuid default auth.uid() references auth.users on delete set null,
   created_at timestamptz not null default now(),
   check (end_date >= start_date and end_date - start_date <= 400)
 );
+-- (Déjà lancé avant l'ajout de « pour qui » : la colonne arrive ici.)
+alter table public.group_periods add column if not exists people uuid[] not null default '{}' check (cardinality(people) <= 50);
 create index if not exists group_periods_group on public.group_periods (group_id, start_date);
 alter table public.group_periods enable row level security;
 revoke all on public.group_periods from anon;

@@ -344,19 +344,25 @@ export async function createEvent(groupId: string, e: NewGroupEvent): Promise<Gr
 
 /** Shared calendars: any editor changes any event (the database checks it). */
 // ── Périodes d'un agenda partagé (« En entreprise », « Vacances »…) ─────────────
-const toPeriod = (r: Row): Period | null => cleanPeriod({ id: String(r.id), title: r.title, start: r.start_date, end: r.end_date, color: r.color });
+const toPeriod = (r: Row): Period | null => cleanPeriod({ id: String(r.id), title: r.title, start: r.start_date, end: r.end_date, color: r.color, people: r.people });
 
 /** A shared calendar's periods; none on a server without the table yet (migration 2026-10-20). */
 export async function fetchPeriods(groupId: string): Promise<Period[]> {
-  const res = await db().from('group_periods').select('id, title, start_date, end_date, color').eq('group_id', groupId).order('start_date');
+  const read = (cols: string) => db().from('group_periods').select(cols).eq('group_id', groupId).order('start_date');
+  let res = await read('id, title, start_date, end_date, color, people');
+  // Table made before « pour qui » (no people column): the periods without it.
+  if (res.error?.code === '42703') res = await read('id, title, start_date, end_date, color');
   if (res.error && /group_periods|42P01|PGRST205/.test(`${res.error.code} ${res.error.message}`)) return [];
-  return (check(res) as Row[]).map(toPeriod).filter((p): p is Period => !!p);
+  return (check(res) as unknown as Row[]).map(toPeriod).filter((p): p is Period => !!p);
 }
 
 /** Adds or changes periods (several at once: a repeated one). */
 export async function savePeriods(groupId: string, list: Period[]) {
-  const rows = list.map(p => ({ id: p.id, group_id: groupId, title: p.title, start_date: p.start, end_date: p.end, color: p.color }));
-  check(await db().from('group_periods').upsert(rows));
+  const rows = list.map(p => ({ id: p.id, group_id: groupId, title: p.title, start_date: p.start, end_date: p.end, color: p.color, people: p.people ?? [] }));
+  let res = await db().from('group_periods').upsert(rows);
+  // Table made before « pour qui »: saved for everyone rather than refused.
+  if (res.error?.code === 'PGRST204' && /people/.test(res.error.message)) res = await db().from('group_periods').upsert(rows.map(({ people: _p, ...r }) => r));
+  check(res);
 }
 
 export async function deletePeriod(id: string) {

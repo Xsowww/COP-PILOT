@@ -10,7 +10,15 @@ import { sortPeriods, type Period } from '../../lib/periods';
 
 export interface CalendarSource {
   /** null: my calendar. A shared calendar has no « fait », reminders, import or custom categories. */
-  shared: { group: Group; author: (eventId: string) => string; canEdit: boolean } | null;
+  shared: {
+    group: Group;
+    author: (eventId: string) => string;
+    canEdit: boolean;
+    /** Members, for « pour qui » on periods (me first, named « Moi »). */
+    people: { id: string; name: string }[];
+    /** A member's name for labels (« Toi » for me). */
+    nameOf: (userId: string) => string;
+  } | null;
   events: CalendarEvent[];
   add: (e: NewEvent) => void;
   update: (id: string, patch: Partial<CalendarEvent>) => void;

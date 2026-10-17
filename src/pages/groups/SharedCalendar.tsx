@@ -6,6 +6,7 @@ import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { createEvent, deleteEvent, deletePeriod, groupError, savePeriods, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { useMemberName, useRights } from './util';
+import { useAuth } from '../../store/auth';
 import { sortPeriods } from '../../lib/periods';
 
 const builtin = (c: string | null | undefined): EventCategory => (c && c in CATEGORIES ? (c as EventCategory) : 'perso');
@@ -43,6 +44,8 @@ const flushPending = () => [...pending.values()].forEach(send => send());
 export default function SharedCalendar({ group }: { group: Group }) {
   const raw = useGroups(s => s.events[group.id]);
   const periods = useGroups(s => s.periods[group.id]);
+  const members = useGroups(s => s.members[group.id]);
+  const me = useAuth(s => s.user?.id);
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
   const [, redraw] = useState(0);
@@ -64,7 +67,13 @@ export default function SharedCalendar({ group }: { group: Group }) {
       void reload();
     };
     return {
-      shared: { group, canEdit, author: id => nameOf(list.find(e => e.id === id)?.createdBy ?? null) },
+      shared: {
+        group,
+        canEdit,
+        author: id => nameOf(list.find(e => e.id === id)?.createdBy ?? null),
+        people: [...(members ?? [])].sort((a, b) => Number(b.userId === me) - Number(a.userId === me) || a.name.localeCompare(b.name)).map(m => ({ id: m.userId, name: m.userId === me ? 'Moi' : m.name })),
+        nameOf: id => nameOf(id, 'Toi').replace(/^./, c => c.toUpperCase()),
+      },
       events: list.map(toCalendar),
       add: e => {
         void createEvent(group.id, { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: builtin(e.category), details: e.details ?? null })
@@ -106,7 +115,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
         void deletePeriod(id).then(reload).catch(fail);
       },
     };
-  }, [raw, periods, group, nameOf, canEdit]);
+  }, [raw, periods, members, me, group, nameOf, canEdit]);
 
   return (
     <CalendarSourceContext.Provider value={source}>

@@ -15,6 +15,8 @@ export interface Period {
   end: string;
   /** Key of FOLDER_COLORS. */
   color: string;
+  /** Shared calendar: the members it is about (user ids); none: everyone. */
+  people?: string[];
 }
 
 /** Longest period (a school year and a bit): a typo like 2062 doesn't paint forty years. */
@@ -69,7 +71,17 @@ export function cleanPeriod(x: unknown): Period | null {
   const end = validKey(typeof r.end === 'string' ? r.end : null);
   if (!title || !start || !end || end < start) return null;
   if (differenceInCalendarDays(fromKey(end), fromKey(start)) > MAX_DAYS) return null;
-  return { id: typeof r.id === 'string' && r.id ? r.id : uid(), title, start, end, color: folderColorKey(r.color) ?? 'bleu' };
+  const people = Array.isArray(r.people) ? [...new Set(r.people.filter((x): x is string => typeof x === 'string' && UUID.test(x)))].slice(0, 50) : [];
+  return { id: typeof r.id === 'string' && r.id ? r.id : uid(), title, start, end, color: folderColorKey(r.color) ?? 'bleu', ...(people.length && { people }) };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** « Léa · En entreprise » when the period is about some members, else just its name. */
+export function periodLabel(p: Pick<Period, 'title' | 'people'>, nameOf?: (userId: string) => string): string {
+  if (!p.people?.length || !nameOf) return p.title;
+  const names = p.people.map(nameOf);
+  return `${names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' et ')} · ${p.title}`;
 }
 
 export const cleanPeriods = (list: unknown): Period[] => (Array.isArray(list) ? list.map(cleanPeriod).filter((p): p is Period => !!p) : []);

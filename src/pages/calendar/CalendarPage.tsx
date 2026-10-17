@@ -10,7 +10,7 @@ import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
-import { periodColor, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
+import { periodColor, periodLabel, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
 import { useCalendarSource } from './source';
@@ -303,6 +303,7 @@ export default function CalendarPage() {
   const weekBands = periodsBetween(periods, weekKeys[0], weekKeys[6]);
   const selPeriods = periodsOn(periods, selected);
   const tintOf = (key: string): Period | undefined => periodsOn(periods, key)[0];
+  const label = (p: Period) => periodLabel(p, shared?.nameOf);
 
   const parsed = quick.trim() ? parseQuickAdd(quick) : null;
   const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start) : null;
@@ -559,12 +560,12 @@ export default function CalendarPage() {
                       <button
                         key={p.id}
                         onClick={() => setPeriodsOpen(true)}
-                        title={`${p.title} · ${periodRange(p, fmtDay)}`}
+                        title={`${label(p)} · ${periodRange(p, fmtDay)}`}
                         className="flex h-6 min-w-0 items-center gap-1.5 truncate rounded-md px-2 text-left text-[11.5px] font-semibold"
                         style={{ gridColumn: `${from + 1} / ${to + 2}`, background: periodTint(p, 20), color: periodText(p) }}
                       >
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
-                        <span className="truncate">{p.title}</span>
+                        <span className="truncate">{label(p)}</span>
                       </button>
                     );
                   })}
@@ -643,7 +644,7 @@ export default function CalendarPage() {
                         style={tint && dropDay !== key ? { backgroundImage: `linear-gradient(${periodTint(tint, isSel ? 24 : 13)}, ${periodTint(tint, isSel ? 24 : 13)})` } : undefined}
                       >
                         {tint && <span className="absolute inset-x-0 top-0 h-[3px]" style={{ background: periodColor(tint) }} aria-hidden />}
-                        {named && <span className="hidden truncate px-1 text-[10px] font-semibold @md:block" style={{ color: periodText(tint) }}>{tint.title}</span>}
+                        {named && <span className="hidden truncate px-1 text-[10px] font-semibold @md:block" style={{ color: periodText(tint) }}>{label(tint)}</span>}
                         <span
                           className={cx(
                             'tabular mb-0.5 flex h-6 w-6 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
@@ -680,7 +681,7 @@ export default function CalendarPage() {
                     {monthBands.slice(0, 8).map(p => (
                       <button key={p.id} onClick={() => setPeriodsOpen(true)} className="flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold" style={{ background: periodTint(p, 16), color: periodText(p) }}>
                         <span className="h-2 w-2 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
-                        {p.title} <span className="font-medium opacity-80">{periodRange(p, fmtDay)}</span>
+                        {label(p)} <span className="font-medium opacity-80">{periodRange(p, fmtDay)}</span>
                       </button>
                     ))}
                     {monthBands.length > 8 && <span className="self-center text-[11.5px] text-stone-500">+{monthBands.length - 8}</span>}
@@ -699,9 +700,9 @@ export default function CalendarPage() {
                     onClick={() => setPeriodsOpen(true)}
                     className="flex h-6 min-w-0 max-w-[16rem] items-center gap-1 self-center rounded-full px-2.5 text-[12px] font-semibold"
                     style={{ background: periodTint(p, 18), color: periodText(p) }}
-                    title={`${p.title} · ${periodRange(p, fmtDay)}`}
+                    title={`${label(p)} · ${periodRange(p, fmtDay)}`}
                   >
-                    <span className="min-w-0 truncate">{p.title}</span>
+                    <span className="min-w-0 truncate">{label(p)}</span>
                     {p.end !== selected && <span className="shrink-0 font-medium opacity-80 max-sm:hidden">· jusqu’au {fmtDay(fromKey(p.end), 'd MMM')}</span>}
                   </button>
                 ))}

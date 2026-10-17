@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { cleanPeriod, cleanPeriods, periodsOn, periodsBetween, repeatPeriod, MAX_REPEATS } = await import('../src/lib/periods');
+const { cleanPeriod, cleanPeriods, periodsOn, periodsBetween, repeatPeriod, periodLabel, MAX_REPEATS } = await import('../src/lib/periods');
 
 const p = (id: string, start: string, end: string, title = id) => ({ id, title, start, end, color: 'bleu' });
 
@@ -51,5 +51,22 @@ describe('repeatPeriod (alternance)', () => {
   it('stops at MAX_REPEATS, and an end before the start gives the first only', () => {
     expect(repeatPeriod(first, 1, '2030-01-01')).toHaveLength(MAX_REPEATS);
     expect(repeatPeriod(first, 4, '2026-09-01')).toHaveLength(1);
+  });
+});
+
+describe('pour qui (agendas partagés)', () => {
+  const lea = '11111111-1111-4111-8111-111111111111', tom = '22222222-2222-4222-8222-222222222222';
+  it('keeps member ids, once, and drops anything else', () => {
+    const c = cleanPeriod({ id: 'a', title: 'En entreprise', start: '2026-10-19', end: '2026-10-30', color: 'orange', people: [lea, lea, 'pas un id', 42, tom] });
+    expect(c?.people).toEqual([lea, tom]);
+    expect(cleanPeriod({ id: 'b', title: 'Vacances', start: '2026-10-19', end: '2026-10-30', people: [] })).not.toHaveProperty('people');
+  });
+  it('names who it is about', () => {
+    const names: Record<string, string> = { [lea]: 'Léa', [tom]: 'Tom' };
+    const nameOf = (id: string) => names[id] ?? 'Quelqu’un';
+    expect(periodLabel({ title: 'Vacances' }, nameOf)).toBe('Vacances');
+    expect(periodLabel({ title: 'En entreprise', people: [lea] }, nameOf)).toBe('Léa · En entreprise');
+    expect(periodLabel({ title: 'Stage', people: [lea, tom] }, nameOf)).toBe('Léa et Tom · Stage');
+    expect(periodLabel({ title: 'Stage', people: [lea, tom, '33333333-3333-4333-8333-333333333333'] }, nameOf)).toBe('Léa, Tom +1 · Stage');
   });
 });
