@@ -411,13 +411,29 @@ h1:not(.prose-note h1) {
   letter-spacing: -0.02em;
 }
 
-/* lib/flash: the item a shortcut led to lights up once, softly (a brand tint and a thin ring that fade). */
+/* lib/flash: the item a shortcut led to lights up once, softly: a light brand veil and a thin ring
+   drawn over its own background (a coloured chip keeps its colour) and its own corners, then fading. */
 @keyframes flash-target {
-  0% { background-color: var(--color-brand-50); box-shadow: inset 0 0 0 1.5px var(--color-brand-200); }
-  60% { background-color: var(--color-brand-50); box-shadow: inset 0 0 0 1.5px var(--color-brand-200); }
-  100% { box-shadow: inset 0 0 0 1.5px transparent; }
+  0%,
+  50% {
+    box-shadow:
+      inset 0 0 0 1.5px color-mix(in srgb, var(--color-brand-500) 32%, transparent),
+      inset 0 0 0 100vmax color-mix(in srgb, var(--color-brand-500) 8%, transparent);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 1.5px transparent,
+      inset 0 0 0 100vmax transparent;
+  }
 }
 .flash-target {
   animation: flash-target 1.6s ease-out both;
-  border-radius: 14px;
+}
+
+/* No blinking text cursor on what isn't typed into (a click on a card, a row, a title). */
+body {
+  caret-color: transparent;
+}
+:is(input, textarea, [contenteditable]:not([contenteditable='false'])) {
+  caret-color: auto;
 }

@@ -68,7 +68,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   const defaults = useSettings(s => s.defaultReminders);
   const reminders = shared ? [] : eventReminders(ev, defaults);
   return (
-    <div data-event={ev.id} className="group enter flex items-stretch gap-4">
+    <div className="group enter flex items-stretch gap-4">
       <div className="tabular w-12 shrink-0 pt-3 text-right text-[12px]">
         {ev.start ? (
           <>
@@ -79,7 +79,9 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           <p className="text-stone-500">Journée</p>
         )}
       </div>
+      {/* The card alone lights up when a link leads here (lib/flash), not the time beside it. */}
       <div
+        data-event={ev.id}
         onPointerDown={readOnly ? undefined : onDragStart}
         title={readOnly ? undefined : 'Glisse sur un autre jour pour déplacer'}
         className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', ev.done && 'opacity-60', dragging && 'opacity-40')}

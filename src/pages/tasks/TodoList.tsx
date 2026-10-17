@@ -54,7 +54,7 @@ const focusDueButton = (id: string) => setTimeout(() => document.querySelector<H
 /** Removes tasks with a way back: a single tap on the bin must not lose one for good. */
 function removeWithUndo(gone: Todo[]) {
   if (!gone.length) return;
-  const text = gone.length === 1 ? `Tâche « ${gone[0].title} » supprimée` : `${gone.length} tâches terminées effacées`;
+  const text = gone.length === 1 ? `Tâche « ${gone[0].title} » supprimée` : `${gone.length} tâches supprimées`;
   toast(text, 'info', {
     label: 'Annuler',
     run: () => {
@@ -65,11 +65,16 @@ function removeWithUndo(gone: Todo[]) {
   });
 }
 
+/** Under a ticked task: when it leaves the list. */
+const GoesIn = ({ minutes }: { minutes: number }) => (
+  <span className="block text-[11.5px] font-medium text-emerald-700 dark:text-emerald-400">Se supprime dans {minutes} min</span>
+);
+
 function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolean; preview?: boolean; now?: number }) {
-  // Ticked less than 5 minutes ago: still in its group, green, with the way back right there.
-  const justDone = t.done && !!t.doneAt && now - Date.parse(t.doneAt) < SETTLE_MS;
-  // (`now` can lag behind a tick just made: never more than the 5 minutes)
-  const minutesLeft = justDone ? Math.min(5, Math.max(1, Math.ceil((Date.parse(t.doneAt!) + SETTLE_MS - now) / 60_000))) : 0;
+  // A ticked task is shown green at the bottom of the list until it goes (SETTLE_MS).
+  const justDone = t.done;
+  // (`now` can lag behind a tick just made: never more than the 30 minutes)
+  const minutesLeft = justDone && t.doneAt ? Math.min(SETTLE_MS / 60_000, Math.max(1, Math.ceil((Date.parse(t.doneAt) + SETTLE_MS - now) / 60_000))) : 0;
   const { toggle, remove, update } = useTodos();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(t.title);
@@ -106,17 +111,17 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
         onClick={() => toggle(t.id)}
         className={cx(
           'hit flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
-          justDone ? 'border-emerald-500 bg-emerald-500' : t.done ? 'border-ink bg-ink' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
+          justDone ? 'border-emerald-500 bg-emerald-500' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
         )}
         title={t.done ? 'Remettre à faire' : 'Marquer comme faite'}
         aria-label={t.done ? `Remettre « ${t.title} » à faire` : `Cocher « ${t.title} »`}
       >
-        {t.done && <Check size={10} strokeWidth={3} className={cx(justDone ? 'pop text-white' : 'text-paper')} />}
+        {t.done && <Check size={10} strokeWidth={3} className="pop text-white" />}
       </button>
       {preview ? (
         <Link to={`/taches?tache=${t.id}`} className="min-w-0 flex-1 rounded text-[13px] hover:underline pointer-coarse:py-1" title="Ouvrir dans Tâches">
           <span className={cx('line-clamp-2 break-words', justDone ? 'text-stone-500 line-through decoration-emerald-500/70' : 'text-ink')}>{t.title}</span>
-          {justDone && <span className="block text-[11.5px] font-medium text-emerald-700 dark:text-emerald-400">Faite · décoche si c’est une erreur</span>}
+          {justDone && <GoesIn minutes={minutesLeft} />}
         </Link>
       ) : editing ? (
         <input
@@ -149,16 +154,12 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
             },
           })}
           // As tall as the row on touch screens (36 px), the clamped text inside.
-          className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', t.done && !justDone ? 'text-stone-500 line-through' : 'text-ink')}
+          className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', 'text-ink')}
           title={canEdit ? 'Double-clic (ou Entrée) pour renommer ; le crayon pour tout modifier' : t.title}
         >
           <span className="min-w-0">
             <span className={cx('line-clamp-2 break-words', justDone && 'text-stone-500 line-through decoration-emerald-500/70')}>{t.title}</span>
-            {justDone && (
-              <span className="block text-[11.5px] font-medium text-emerald-700 no-underline dark:text-emerald-400" aria-live="polite">
-                Faite · rejoint « Terminées » dans {minutesLeft} min — décoche si c’est une erreur
-              </span>
-            )}
+            {justDone && <GoesIn minutes={minutesLeft} />}
           </span>
         </span>
       )}
@@ -225,7 +226,6 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
       ) : (
         t.due && !t.done && <DueLabel due={t.due} />
       )}
-      {t.done && t.doneAt && !justDone && <span className="tabular shrink-0 text-[11px] text-stone-500">{fmt(new Date(t.doneAt), 'd MMM')}</span>}
       {!preview && <button
         data-remove
         onClick={e => {
@@ -305,8 +305,11 @@ function QuickAdd() {
   );
 }
 
-/** A task just ticked stays in its place, green and struck through, for this long: a wrong tick is undone right there. */
-export const SETTLE_MS = 5 * 60_000;
+/**
+ * A ticked task stays this long at the bottom of the list, green and struck through (a wrong tick is undone
+ * right there), then leaves the list. It stays in the data: « Ma semaine » and the badges still count it.
+ */
+export const SETTLE_MS = 30 * 60_000;
 const settling = (t: Todo, now: number) => t.done && !!t.doneAt && now - Date.parse(t.doneAt) < SETTLE_MS;
 
 /**
@@ -316,10 +319,8 @@ const settling = (t: Todo, now: number) => t.done && !!t.doneAt && now - Date.pa
 export default function TodoList({ limit, grouped }: { limit?: number; grouped?: boolean }) {
   const todos = useTodos(s => s.todos);
   useToday(); // re-render the next day (overdue, « Aujourd'hui »)
-  const clearDone = useTodos(s => s.clearDone);
-  const [showDone, setShowDone] = useState(false);
   const preview = !!limit;
-  // Ticks less than 5 minutes old stay in the list: one render when the next of them is due to leave.
+  // Ticks less than 30 minutes old stay in the list: one render when the next of them is due to leave.
   const [now, setNow] = useState(Date.now);
   const nextLeave = Math.min(...todos.filter(t => settling(t, now)).map(t => Date.parse(t.doneAt!) + SETTLE_MS));
   useEffect(() => {
@@ -328,31 +329,36 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
     return () => clearTimeout(timer);
   }, [nextLeave, now]);
   // (a tick just made: its time is `doneAt`, newer than `now`, so it stays too)
-  const open = todos.filter(t => !t.done || settling(t, now)).sort(sortOpen);
-  const done = todos.filter(t => t.done && !open.includes(t)).sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? ''));
-  const shown = limit ? open.slice(0, limit) : open;
+  const open = todos.filter(t => !t.done).sort(sortOpen);
+  // Ticked, at the bottom: the first ticked first, the order they were done in.
+  const ticked = todos.filter(t => settling(t, now)).sort((a, b) => a.doneAt!.localeCompare(b.doneAt!));
+  // The home preview keeps room for the last two ticks, so a tick made there shows green instead of vanishing.
+  const tickedShown = limit ? ticked.slice(-2) : ticked;
+  const openShown = limit ? open.slice(0, Math.max(0, limit - tickedShown.length)) : open;
   const today = todayKey();
 
-  const groups = grouped
-    ? [
-        { label: 'En retard', items: open.filter(t => t.due && t.due < today) },
-        { label: 'Aujourd’hui', items: open.filter(t => t.due === today) },
-        { label: 'À venir', items: open.filter(t => t.due && t.due > today) },
-        { label: 'Sans échéance', items: open.filter(t => !t.due) },
-      ].filter(g => g.items.length)
-    : [{ label: '', items: shown }];
+  const groups = (
+    grouped
+      ? [
+          { label: 'En retard', items: open.filter(t => t.due && t.due < today) },
+          { label: 'Aujourd’hui', items: open.filter(t => t.due === today) },
+          { label: 'À venir', items: open.filter(t => t.due && t.due > today) },
+          { label: 'Sans échéance', items: open.filter(t => !t.due) },
+          { label: 'Faites', items: ticked },
+        ]
+      : [{ label: '', items: [...openShown, ...tickedShown] }]
+  ).filter(g => g.items.length);
 
   return (
     <div className="flex flex-1 flex-col" data-todolist>
       {!preview && <QuickAdd />}
-      {open.length === 0 ? (
-        <p className="py-5 text-[13px] text-stone-500">{done.length ? 'Tout est coché. Profites-en.' : 'Rien à faire pour l’instant.'}</p>
-      ) : (
+      {open.length === 0 && <p className={cx('text-[13px] text-stone-500', ticked.length ? 'pt-3' : 'py-5')}>{ticked.length || todos.some(t => t.done) ? 'Tout est coché. Profites-en.' : 'Rien à faire pour l’instant.'}</p>}
+      {groups.length > 0 && (
         <div className="mt-2">
           {groups.map(g => (
             <div key={g.label} className={cx(g.label && 'mt-3 first:mt-1')}>
               {g.label && (
-                <h3 className="eyebrow mb-0.5 px-1.5" style={g.label === 'En retard' ? { color: OVERDUE } : undefined}>
+                <h3 className={cx('eyebrow mb-0.5 px-1.5', g.label === 'Faites' && 'text-emerald-700 dark:text-emerald-400')} style={g.label === 'En retard' ? { color: OVERDUE } : undefined}>
                   {g.label}
                 </h3>
               )}
@@ -363,9 +369,9 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
               </ul>
             </div>
           ))}
-          {limit && open.length > limit && (
+          {limit && open.length > openShown.length && (
             <Link to="/taches" className="mt-1 inline-flex items-center gap-0.5 px-0.5 text-[12px] text-stone-500 hover:text-ink">
-              {open.length - limit} autre{open.length - limit > 1 ? 's' : ''} <ChevronRight size={13} />
+              {open.length - openShown.length} autre{open.length - openShown.length > 1 ? 's' : ''} <ChevronRight size={13} />
             </Link>
           )}
         </div>
@@ -374,26 +380,6 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
         <Link to="/taches?ajout=1" className="mt-auto inline-flex h-9 items-center gap-1.5 self-start rounded-full px-1.5 pt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700">
           <Plus size={14} aria-hidden /> Ajouter une tâche
         </Link>
-      )}
-      {!preview && done.length > 0 && (
-        <div className="mt-auto border-t border-stone-100 pt-2">
-          <div className="flex items-center">
-            <button onClick={() => setShowDone(v => !v)} className="flex items-center gap-1 rounded px-0.5 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9" aria-expanded={showDone}>
-              <ChevronRight size={13} className={cx('transition-transform', showDone && 'rotate-90')} />
-              Terminées <span className="tabular text-stone-500">{done.length}</span>
-            </button>
-            <button onClick={() => removeWithUndo(clearDone())} className="ml-auto rounded px-1 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9">
-              Effacer les terminées
-            </button>
-          </div>
-          {showDone && (
-            <ul className="-mx-1.5 mt-1">
-              {(limit ? done.slice(0, limit) : done).map(t => (
-                <TodoRow key={t.id} t={t} editable={grouped} />
-              ))}
-            </ul>
-          )}
-        </div>
       )}
     </div>
   );

@@ -49,7 +49,7 @@ export default function NotesPage() {
   // Arriving on a note from elsewhere (search, Kompaly, a notification): its row in the list glows.
   const [arrivedOn] = useState(urlNoteId);
   useEffect(() => {
-    if (arrivedOn) flashWhenReady(() => document.querySelector(`[data-note-open="${CSS.escape(arrivedOn)}"]`)?.closest('[role="treeitem"], li') ?? document.querySelector(`[data-note-open="${CSS.escape(arrivedOn)}"]`));
+    if (arrivedOn) flashWhenReady(() => document.querySelector(`[data-note-open="${CSS.escape(arrivedOn)}"]`)?.parentElement); // its row
   }, [arrivedOn]);
   const active = notes.find(n => n.id === noteId);
 
