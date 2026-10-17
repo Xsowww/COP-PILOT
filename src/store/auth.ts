@@ -89,7 +89,8 @@ interface AuthState {
   login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
   /** Opens another account saved on this device; 'credentials' when its session is gone (unused too long, revoked…). */
-  switchAccount: (id: string) => Promise<'credentials' | void>;
+  /** `to`: the page to open once switched (a notification of that account). */
+  switchAccount: (id: string, to?: string) => Promise<'credentials' | void>;
   /** Keeps the current account on this device and opens the login page for another one. */
   /** Leaves this account open on the device and goes to the sign-in page (`email`: the saved account to sign in to again). */
   addAccount: (email?: string) => Promise<void>;
@@ -428,7 +429,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ user: null });
   },
 
-  async switchAccount(id) {
+  async switchAccount(id, to = '/') {
     const current = get().user;
     const target = savedAccount(id);
     if (!target) return 'credentials';
@@ -451,7 +452,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       localStorage.setItem(SESSION_KEY, id);
       sessionStorage.setItem(OWN_SWITCH, '1');
     }
-    location.assign('/');
+    location.assign(to.startsWith('/') ? to : '/');
   },
 
   async addAccount(email) {

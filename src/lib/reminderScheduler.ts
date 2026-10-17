@@ -17,6 +17,8 @@ import { chime, canNotify, showSystemNotification } from './notify';
 import { pushActive, refreshDevice } from './push';
 import { goTo } from '../copilot/actions';
 import { useAgendaNews, viewingAgenda } from '../store/agendaNews';
+import { useAuth } from '../store/auth';
+import { savedAccount, savedAccounts } from './accounts';
 
 /** Push on this device: the server's notification comes first; the app shows it only if it didn't come. */
 const FALLBACK_DELAY = 45_000;
@@ -79,7 +81,11 @@ function fire(r: DueReminder) {
   if (wasShown(r.key) || Date.now() - r.fireAt.getTime() > TOO_LATE) return;
   markShown(r.key);
   if (document.visibilityState === 'visible' || !canNotify()) showInApp(r);
-  else void showSystemNotification(r.title, r.body, r.key, r.url).then(ok => ok || showInApp(r));
+  else {
+    // Same last line as the server's notifications when this device holds several accounts (public/sw.js).
+    const account = savedAccounts().length > 1 && userId ? accountLabels()[userId] : undefined;
+    void showSystemNotification(r.title, account ? `${r.body}\nCompte ${account}` : r.body, r.key, r.url).then(ok => ok || showInApp(r));
+  }
 }
 
 // ── Planning ────────────────────────────────────────────────────────────────
@@ -124,9 +130,9 @@ interface PushedReminder {
   test?: boolean;
 }
 function onWorkerMessage(e: MessageEvent) {
-  const d = e.data as { type?: string; url?: string; reminder?: PushedReminder; mayShow?: boolean } | null;
+  const d = e.data as { type?: string; url?: string; user?: string; reminder?: PushedReminder; mayShow?: boolean } | null;
   if (d?.type === 'kompaly-open' && d.url) {
-    goTo(d.url);
+    openFor(d.url, d.user);
     return;
   }
   if (d?.type !== 'kompaly-reminder' || !d.reminder) return;
@@ -137,7 +143,7 @@ function onWorkerMessage(e: MessageEvent) {
   const seen = !r.test && wasShown(key);
   if (!r.test) markShown(key);
   // A shared calendar's news: the badge follows; nothing to announce when that calendar is on screen (seen live).
-  const agenda = key.startsWith('agenda') ? /[?&]g=([0-9a-f-]{36})/.exec(r.url ?? '')?.[1] : undefined;
+  const agenda = key.startsWith('agenda') || key.startsWith('periode') ? /[?&]g=([0-9a-f-]{36})/.exec(r.url ?? '')?.[1] : undefined;
   if (agenda) {
     setTimeout(() => void useAgendaNews.getState().refresh(), 1500);
     if (agenda === viewingAgenda()) return reply('shown');
@@ -147,6 +153,45 @@ function onWorkerMessage(e: MessageEvent) {
     return reply('shown');
   }
   reply('no');
+}
+
+/**
+ * A notification was tapped: its page, in the account it belongs to (two accounts on one phone:
+ * the « travail » account's news opens the « travail » account).
+ */
+function openFor(url: string, user?: string) {
+  if (!user || user === userId || !savedAccount(user)) return goTo(url);
+  void useAuth
+    .getState()
+    .switchAccount(user, url)
+    .then(r => {
+      if (r === 'credentials') useUi.getState().toast(`Cette notification vient du compte ${accountLabels()[user] ?? 'enregistré sur cet appareil'} : reconnecte-toi à ce compte pour la voir.`, 'info');
+    });
+}
+
+/** How each account of this device is named in its notifications: its first name, or its e-mail when two share a name. */
+function accountLabels(): Record<string, string> {
+  const list = savedAccounts();
+  const names = list.map(a => a.name.trim().toLowerCase());
+  return Object.fromEntries(list.map(a => [a.id, names.filter(n => n === a.name.trim().toLowerCase()).length > 1 || !a.name.trim() ? a.email : a.name.trim()]));
+}
+
+/** Tells the service worker this device's accounts: with two or more, each notification says which one it is for. */
+async function shareAccounts() {
+  const reg = await navigator.serviceWorker?.ready.catch(() => null);
+  const labels = accountLabels();
+  reg?.active?.postMessage({ type: 'kompaly-accounts', accounts: Object.entries(labels).map(([id, label]) => ({ id, label })) });
+}
+
+/** Opened from a notification of another account (no Kompaly tab was open): switch to it. */
+function followNotificationAccount() {
+  const params = new URLSearchParams(location.search);
+  const target = params.get('compte');
+  if (!target) return;
+  params.delete('compte');
+  const url = location.pathname + (params.size ? `?${params}` : '') + location.hash;
+  history.replaceState(history.state, '', url);
+  if (target !== userId) openFor(url, target);
 }
 
 /** Starts the reminders of the signed-in account; returns the function that stops them. */
@@ -163,6 +208,8 @@ export function startReminders(id: string): () => void {
   const onVisible = () => document.visibilityState === 'visible' && planSoon();
   document.addEventListener('visibilitychange', onVisible);
   navigator.serviceWorker?.addEventListener('message', onWorkerMessage);
+  followNotificationAccount();
+  void shareAccounts().catch(() => undefined);
   void (async () => {
     await refreshDevice().catch(() => undefined);
     push = await pushActive().catch(() => false);

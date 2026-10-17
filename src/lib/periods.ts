@@ -108,3 +108,33 @@ export function periodRange(p: Pick<Period, 'start' | 'end'>, fmtDay: (d: Date, 
   const sameMonth = p.start.slice(0, 7) === p.end.slice(0, 7);
   return `du ${fmtDay(fromKey(p.start), sameMonth ? 'd' : 'd MMM')} au ${fmtDay(fromKey(p.end), 'd MMM')}`;
 }
+
+/**
+ * The fill of a day covered by one period or more: one band of each colour, top to bottom
+ * (two periods overlapping both show from their own first day, neither waits for the other to end).
+ */
+export function periodsFill(list: Pick<Period, 'color'>[], strength = 14): string | undefined {
+  if (!list.length) return undefined;
+  const step = 100 / list.length;
+  const stops = list.flatMap((p, i) => [`${periodTint(p, strength)} ${i * step}%`, `${periodTint(p, strength)} ${(i + 1) * step}%`]);
+  return `linear-gradient(to bottom, ${stops.join(', ')})`;
+}
+
+/** Bands of a week: each period on the first row where it fits, from its own first day to its last. */
+export function weekLanes(list: Period[], keys: string[]): { period: Period; from: number; to: number; lane: number }[] {
+  const ends: number[] = [];
+  return sortPeriods(list)
+    .map(period => {
+      const from = keys.findIndex(k => k >= period.start);
+      let to = -1;
+      keys.forEach((k, i) => k <= period.end && (to = i));
+      return { period, from, to };
+    })
+    .filter(b => b.from >= 0 && b.to >= b.from)
+    .map(b => {
+      let lane = ends.findIndex(end => end < b.from);
+      if (lane < 0) lane = ends.length;
+      ends[lane] = b.to;
+      return { ...b, lane };
+    });
+}

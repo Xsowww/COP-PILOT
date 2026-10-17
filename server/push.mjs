@@ -98,17 +98,21 @@ export const pushStatus = { active: false, lastRun: null, lastError: null, lastC
 async function deliverDue() {
   const due = await rest('/rest/v1/rpc/claim_due_reminders', { method: 'POST', body: '{}' });
   if (!Array.isArray(due) || !due.length) return;
-  const users = [...new Set(due.map(r => r.user_id))];
+  // The people who made the changes too: their own phone (another account on it) isn't told of what they just did.
+  const users = [...new Set(due.flatMap(r => [r.user_id, r.actor].filter(Boolean)))];
   const subs = await rest(`/rest/v1/push_subscriptions?select=user_id,endpoint,p256dh,auth&user_id=in.(${users.join(',')})`);
   const byUser = new Map();
   for (const s of subs ?? []) byUser.set(s.user_id, [...(byUser.get(s.user_id) ?? []), s]);
+  const endpointsOf = id => new Set((byUser.get(id) ?? []).map(s => s.endpoint));
   const gone = [];
   await Promise.all(
     due.map(async r => {
       // Late (server restarted…): kept useful for 30 min at most, the time the reminder still makes sense.
       const ttl = Math.max(60, 1800 - Math.round((Date.now() - Date.parse(r.fire_at)) / 1000));
       const payload = { title: r.title, body: r.body, url: r.url, tag: r.key, user: r.user_id };
+      const actorDevices = r.actor ? endpointsOf(r.actor) : new Set();
       for (const s of byUser.get(r.user_id) ?? []) {
+        if (actorDevices.has(s.endpoint)) continue;
         const res = await send(s, payload, ttl);
         if (res === 'sent') pushStatus.sent++;
         if (res === 'gone') gone.push(s);

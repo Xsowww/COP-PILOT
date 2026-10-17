@@ -1,5 +1,6 @@
 // Kompaly's service worker: only for notifications (no offline cache, every request goes to the network).
 // Registered by src/lib/push.ts. A push comes from server/push.mjs: { title, body, url, tag, user }.
+// With several accounts on the device, its last line names the account (« Compte Léa »).
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
@@ -26,6 +27,34 @@ function shownInPage(windows, data) {
   });
 }
 
+// This device's accounts ({ id, label }), sent by the app (src/lib/reminderScheduler.ts). Kept in a cache:
+// the worker is stopped between two pushes and loses its variables.
+const META = 'kompaly-meta';
+const ACCOUNTS = '/__kompaly/comptes';
+async function deviceAccounts() {
+  try {
+    const res = await (await caches.open(META)).match(ACCOUNTS);
+    const list = res ? await res.json() : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+self.addEventListener('message', e => {
+  if (e.data?.type !== 'kompaly-accounts' || !Array.isArray(e.data.accounts)) return;
+  const list = e.data.accounts.filter(a => a && typeof a.id === 'string' && typeof a.label === 'string').slice(0, 20);
+  e.waitUntil(caches.open(META).then(c => c.put(ACCOUNTS, new Response(JSON.stringify(list), { headers: { 'Content-Type': 'application/json' } }))));
+});
+
+/** With two accounts or more on this device: the last line says which one the notification is for. */
+async function withAccount(data) {
+  if (!data.user) return data;
+  const list = await deviceAccounts();
+  const mine = list.find(a => a.id === data.user);
+  if (list.length < 2 || !mine) return data;
+  return { ...data, body: `${data.body ? `${data.body}\n` : ''}Compte ${mine.label}` };
+}
+
 /** Same look as the app's own notifications (src/lib/notify.ts): keep the two in step. */
 function notificationOptions(data) {
   return {
@@ -34,7 +63,7 @@ function notificationOptions(data) {
     lang: 'fr',
     icon: '/icon-192.png', // the Kompaly logo
     badge: '/notification-badge.png', // Android status bar: one colour, the logo's two circles
-    data: { url: data.url || '/' },
+    data: { url: data.url || '/', user: data.user || null },
     timestamp: Date.now(),
     // Computers and Android (Chrome, Edge): two buttons under the notification; elsewhere a tap opens it.
     actions: [
@@ -56,7 +85,7 @@ self.addEventListener('push', e => {
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       if ((await shownInPage(windows, data)) && inPageAllowed) return;
-      await self.registration.showNotification(title, notificationOptions(data));
+      await self.registration.showNotification(title, notificationOptions(await withAccount(data)));
     })(),
   );
 });
@@ -71,13 +100,17 @@ self.addEventListener('notificationclick', e => {
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       const tab = windows.find(w => new URL(w.url).origin === self.location.origin);
+      const user = e.notification.data?.user || undefined;
       if (tab) {
-        // The app goes to the page itself (no reload): src/lib/reminderScheduler.ts.
-        tab.postMessage({ type: 'kompaly-open', url });
+        // The app goes to the page itself (no reload), in the notification's account: src/lib/reminderScheduler.ts.
+        tab.postMessage({ type: 'kompaly-open', url, user });
         await tab.focus();
         return;
       }
-      await self.clients.openWindow(url);
+      // No tab: the app opens on that account (« compte » in the address, read once signed in).
+      const open = new URL(url);
+      if (user) open.searchParams.set('compte', user);
+      await self.clients.openWindow(open.href);
     })(),
   );
 });

@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { cleanPeriod, cleanPeriods, periodsOn, periodsBetween, repeatPeriod, periodLabel, MAX_REPEATS } = await import('../src/lib/periods');
+const { cleanPeriod, cleanPeriods, periodsOn, periodsBetween, repeatPeriod, periodLabel, periodsFill, weekLanes, MAX_REPEATS } = await import('../src/lib/periods');
 
 const p = (id: string, start: string, end: string, title = id) => ({ id, title, start, end, color: 'bleu' });
 
@@ -68,5 +68,29 @@ describe('pour qui (agendas partagés)', () => {
     expect(periodLabel({ title: 'En entreprise', people: [lea] }, nameOf)).toBe('Léa · En entreprise');
     expect(periodLabel({ title: 'Stage', people: [lea, tom] }, nameOf)).toBe('Léa et Tom · Stage');
     expect(periodLabel({ title: 'Stage', people: [lea, tom, '33333333-3333-4333-8333-333333333333'] }, nameOf)).toBe('Léa, Tom +1 · Stage');
+  });
+});
+
+describe('periods that overlap', () => {
+  const week = ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18'];
+  it('the second one starts on its own day, on a second row', () => {
+    const lanes = weekLanes([p('cours', '2026-10-05', '2026-10-16'), p('stage', '2026-10-14', '2026-10-30')], week);
+    expect(lanes.map(b => [b.period.id, b.from, b.to, b.lane])).toEqual([
+      ['cours', 0, 4, 0],
+      ['stage', 2, 6, 1],
+    ]);
+  });
+  it('back-to-back periods share a row', () => {
+    const lanes = weekLanes([p('a', '2026-10-12', '2026-10-14'), p('b', '2026-10-15', '2026-10-18')], week);
+    expect(lanes.map(b => b.lane)).toEqual([0, 0]);
+  });
+  it('a day in both shows both colours', () => {
+    expect(periodsFill([])).toBeUndefined();
+    const fill = periodsFill([{ color: 'bleu' }, { color: 'orange' }])!;
+    expect(fill).toContain('0%');
+    expect(fill).toContain('50%');
+    expect(fill).toContain('100%');
+    expect(fill).toContain('#3b6fd8');
+    expect(fill).toContain('#e8613c');
   });
 });

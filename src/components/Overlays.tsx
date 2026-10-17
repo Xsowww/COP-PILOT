@@ -322,8 +322,8 @@ export function ReminderAlerts() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="flex items-baseline justify-between gap-2 text-[12px] leading-4 text-stone-500">
-                {/* A shared calendar's news: which calendar (its 2nd line, « Agenda « Coloc » »), not « Rappel ». */}
-                <span className="truncate font-medium">{a.key.startsWith('agenda') ? a.body.split('\n')[1] || 'Agenda partagé' : 'Rappel'}</span>
+                {/* My own reminders: « Rappel ». News (shared calendar, administration): where from, its 2nd line. */}
+                <span className="truncate font-medium">{/^(event|task):/.test(a.key) ? 'Rappel' : a.body.split('\n')[1] || 'Kompaly'}</span>
                 {a.at && <time className="tabular">{new Date(a.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time>}
               </p>
               <p className="mt-1 line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{a.title}</p>

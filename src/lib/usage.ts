@@ -15,7 +15,7 @@ export const WORDS: Record<Usage, {
   school: string; schoolHint: string; program: string; programHint: string; level: string; levels: string[];
   groups: string; profileTab: string;
   /** Calendar: example in the quick add, empty « À venir », the box that ticks a deliverable, timetable slots. */
-  quickExample: string; noUpcoming: string; markDone: string; slot: string; slots: string;
+  quickExample: string; markDone: string; slot: string; slots: string;
   /** Calendar: the .ics import (a timetable from the school's ENT, or any agenda), examples of the event form and of a category. */
   timetable: string; icsFrom: string; titleExample: string; notesExample: string; categoryExample: string; categoryHint: string;
   /** Kompaly's message when a big event (exam, deadline…) is added. */
@@ -34,7 +34,7 @@ export const WORDS: Record<Usage, {
     school: 'Établissement', schoolHint: 'Université, école…', program: 'Filière', programHint: 'Droit, info, médecine…',
     level: 'Année', levels: ['', 'Lycée', 'L1', 'L2', 'L3', 'M1', 'M2', 'BTS / BUT', 'Prépa', 'École', 'Doctorat', 'Autre'],
     groups: 'Groupes', profileTab: 'Études',
-    quickExample: 'Partiel de maths vendredi 14h', noUpcoming: 'Aucun examen ni rendu prévu.', markDone: 'rendu', slot: 'cours', slots: 'cours',
+    quickExample: 'Partiel de maths vendredi 14h', markDone: 'rendu', slot: 'cours', slots: 'cours',
     timetable: 'emploi du temps', icsFrom: 'ton ENT ou Google Agenda', titleExample: 'Partiel de maths', notesExample: 'salle, chapitres à réviser…',
     categoryExample: 'Stage, Asso, Job…', categoryHint: 'Stage chez Airbus',
     bigNoted: 'Examen noté', prepare: 'des révisions',
@@ -47,7 +47,7 @@ export const WORDS: Record<Usage, {
     school: 'Entreprise', schoolHint: 'Nom de l’entreprise', program: 'Métier', programHint: 'Graphiste, commercial…',
     level: 'Statut', levels: ['', 'Indépendant·e / freelance', 'Salarié·e', 'Dirigeant·e', 'Association', 'Autre'],
     groups: 'Équipes', profileTab: 'Travail',
-    quickExample: 'Réunion client jeudi 10h', noUpcoming: 'Aucune échéance ni devis prévu.', markDone: 'fait', slot: 'créneau', slots: 'créneaux',
+    quickExample: 'Réunion client jeudi 10h', markDone: 'fait', slot: 'créneau', slots: 'créneaux',
     timetable: 'agenda', icsFrom: 'Outlook, Google Agenda ou Apple Calendrier', titleExample: 'Réunion client', notesExample: 'lieu, ordre du jour…',
     categoryExample: 'Projet, Formation, Salon…', categoryHint: 'Formation Excel',
     bigNoted: 'Échéance notée', prepare: 'du temps pour préparer',
@@ -60,7 +60,7 @@ export const WORDS: Record<Usage, {
     school: 'Ville', schoolHint: 'Lyon, Lille…', program: 'Centres d’intérêt', programHint: 'Cuisine, sport, voyages…',
     level: 'Situation', levels: ['', 'Étudiant·e', 'En activité', 'En recherche', 'Parent', 'Retraité·e', 'Autre'],
     groups: 'Groupes', profileTab: 'Organisation',
-    quickExample: 'Dentiste mardi 17h30', noUpcoming: 'Rien d’important ni à faire de prévu.', markDone: 'fait', slot: 'rendez-vous', slots: 'rendez-vous',
+    quickExample: 'Dentiste mardi 17h30', markDone: 'fait', slot: 'rendez-vous', slots: 'rendez-vous',
     timetable: 'agenda', icsFrom: 'Google Agenda, Outlook ou Apple Calendrier', titleExample: 'Dentiste', notesExample: 'adresse, choses à apporter…',
     categoryExample: 'Famille, Vacances, Asso…', categoryHint: 'Vacances à Biarritz',
     bigNoted: 'C’est noté', prepare: 'du temps pour préparer',

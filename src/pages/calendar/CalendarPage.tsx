@@ -10,7 +10,7 @@ import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
-import { periodColor, periodLabel, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
+import { periodColor, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
 import { useCalendarSource } from './source';
@@ -303,6 +303,7 @@ export default function CalendarPage() {
   const weekBands = periodsBetween(periods, weekKeys[0], weekKeys[6]);
   const selPeriods = periodsOn(periods, selected);
   const tintOf = (key: string): Period | undefined => periodsOn(periods, key)[0];
+  const fillOf = (key: string, strength: number) => periodsFill(periodsOn(periods, key), strength);
   const label = (p: Period) => periodLabel(p, shared?.nameOf);
 
   const parsed = quick.trim() ? parseQuickAdd(quick) : null;
@@ -398,11 +399,15 @@ export default function CalendarPage() {
   // A shared calendar has no « fait »: what is past is just past, not « en retard ».
   const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14 && (!shared || daysUntil(e.date) >= 0);
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
-  const upcomingHidden = filtering && events.some(e => !passes(e) && (isUpcomingExam(e) || isHomeworkSoon(e)));
+  // Anything still to come (not done, not over): after the important ones, the next things, whatever they are.
+  const isComing = (e: CalendarEvent) => !e.done && e.date >= today && !isOver(e);
+  const upcomingHidden = filtering && events.some(e => !passes(e) && (isComing(e) || isHomeworkSoon(e)));
   const allUpcomingExams = visible.filter(isUpcomingExam).sort(sortEvents);
   const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
   const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
   const homework = visible.filter(isHomeworkSoon).sort(sortEvents).slice(0, 6);
+  const listed = new Set([...allUpcomingExams, ...homework].map(e => e.id));
+  const nextUp = visible.filter(e => isComing(e) && !listed.has(e.id)).sort(sortEvents).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
 
   const monthDays = useMemo(() => {
     const ref = fromKey(selected);
@@ -553,16 +558,14 @@ export default function CalendarPage() {
               <>
               {weekBands.length > 0 && (
                 <div className="mb-1 grid grid-cols-7 gap-1" aria-label="Périodes de la semaine">
-                  {weekBands.slice(0, 3).map(p => {
-                    const from = Math.max(0, weekKeys.findIndex(k => k >= p.start));
-                    const to = 6 - [...weekKeys].reverse().findIndex(k => k <= p.end);
+                  {weekLanes(weekBands, weekKeys).filter(b => b.lane < 3).map(({ period: p, from, to, lane }) => {
                     return (
                       <button
                         key={p.id}
                         onClick={() => setPeriodsOpen(true)}
                         title={`${label(p)} · ${periodRange(p, fmtDay)}`}
                         className="flex h-6 min-w-0 items-center gap-1.5 truncate rounded-md px-2 text-left text-[11.5px] font-semibold"
-                        style={{ gridColumn: `${from + 1} / ${to + 2}`, background: periodTint(p, 20), color: periodText(p) }}
+                        style={{ gridColumn: `${from + 1} / ${to + 2}`, gridRow: lane + 1, background: periodTint(p, 20), color: periodText(p) }}
                       >
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
                         <span className="truncate">{label(p)}</span>
@@ -591,7 +594,7 @@ export default function CalendarPage() {
                         dropDay === key ? 'bg-brand-50 ring-2 ring-brand-500/40' : isSel ? 'bg-stone-100' : tint ? 'hover:brightness-95' : 'hover:bg-stone-50',
                         drag && dropDay !== key && 'ring-1 ring-stone-200 ring-inset',
                       )}
-                      style={tint && dropDay !== key ? { background: periodTint(tint, isSel ? 26 : 13) } : undefined}
+                      style={tint && dropDay !== key ? { backgroundImage: fillOf(key, isSel ? 26 : 13) } : undefined}
                     >
                       <span className="text-[11px] font-medium capitalize text-stone-500">{fmt(d, 'EEE')}</span>
                       <span
@@ -624,9 +627,10 @@ export default function CalendarPage() {
                     const key = toKey(d);
                     const evs = byDay.get(key) ?? [];
                     const isSel = key === selected;
-                    const tint = tintOf(key);
-                    // The name where the period starts, and again at the start of each week row.
-                    const named = tint && (tint.start === key || i % 7 === 0);
+                    const dayPeriods = periodsOn(periods, key);
+                    const tint = dayPeriods[0];
+                    // Each name where its period starts, and again at the start of each week row.
+                    const named = dayPeriods.filter(p => p.start === key || i % 7 === 0);
                     return (
                       <button
                         key={key}
@@ -641,10 +645,16 @@ export default function CalendarPage() {
                           !isSameMonth(d, selDate) && 'text-stone-500',
                         )}
                         // Tint over the cell's own background (white or grey), so the grid lines stay.
-                        style={tint && dropDay !== key ? { backgroundImage: `linear-gradient(${periodTint(tint, isSel ? 24 : 13)}, ${periodTint(tint, isSel ? 24 : 13)})` } : undefined}
+                        style={tint && dropDay !== key ? { backgroundImage: fillOf(key, isSel ? 24 : 13) } : undefined}
                       >
-                        {tint && <span className="absolute inset-x-0 top-0 h-[3px]" style={{ background: periodColor(tint) }} aria-hidden />}
-                        {named && <span className="hidden truncate px-1 text-[10px] font-semibold @md:block" style={{ color: periodText(tint) }}>{label(tint)}</span>}
+                        {dayPeriods.length > 0 && (
+                          <span className="absolute inset-x-0 top-0 flex flex-col" aria-hidden>
+                            {dayPeriods.slice(0, 3).map(p => <span key={p.id} className="h-[3px]" style={{ background: periodColor(p) }} />)}
+                          </span>
+                        )}
+                        {named.slice(0, 2).map(p => (
+                          <span key={p.id} className="hidden truncate px-1 text-[10px] font-semibold leading-tight @md:block" style={{ color: periodText(p) }}>{label(p)}</span>
+                        ))}
                         <span
                           className={cx(
                             'tabular mb-0.5 flex h-6 w-6 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
@@ -736,9 +746,9 @@ export default function CalendarPage() {
             <h2 id="a-venir-titre" className="mb-2 text-[13px] font-medium text-stone-600">
               À venir
             </h2>
-            {upcomingExams.length === 0 && homework.length === 0 ? (
+            {upcomingExams.length === 0 && homework.length === 0 && nextUp.length === 0 ? (
               <p className="py-1 text-[13px] text-stone-500">
-                {upcomingHidden ? 'Rien à afficher avec ce filtre.' : words.noUpcoming}
+                {upcomingHidden ? 'Rien à afficher avec ce filtre.' : 'Rien de prévu pour la suite.'}
               </p>
             ) : (
               <ul className="-mx-1.5">
@@ -766,6 +776,26 @@ export default function CalendarPage() {
                     </button>
                   </li>
                 )}
+                {nextUp.map(e => {
+                  const n = daysUntil(e.date);
+                  return (
+                    <li key={e.id}>
+                      <button onClick={() => selectDay(e.date)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
+                        <span className="tabular w-9 shrink-0 text-[12px] font-semibold text-stone-500">{n === 0 ? 'Auj.' : n === 1 ? 'Dem.' : `J-${n}`}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
+                            <Dot color={catOf(e.category).color} size={6} />
+                            <span className="truncate">{e.title}</span>
+                          </span>
+                          <span className="block text-[12px] first-letter:uppercase text-stone-500">
+                            {fmtDay(fromKey(e.date), 'EEE d MMM')}
+                            {e.start && ` · ${e.start}`}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
                 {homework.map(e => (
                   <li key={e.id} className="flex h-8 items-center gap-3 px-1.5">
                     <span className="flex w-9 shrink-0">
