@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useContext, useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CalendarClock, CloudOff, Copy, Link2, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
 import { useAuth } from '../../store/auth';
@@ -16,6 +16,7 @@ import GroupEvents from './GroupEvents';
 import GroupMembers from './GroupMembers';
 import GroupFiles from './GroupFiles';
 import ShareButton from './GroupShare';
+import { showJoined } from './join';
 
 type Tab = 'notes' | 'fichiers' | 'revisions' | 'membres';
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
@@ -70,7 +71,7 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
   );
 }
 
-function JoinForm({ onDone }: { onDone: (id?: string) => void }) {
+function JoinForm({ onDone }: { onDone: () => void }) {
   const w = useGroupWords();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -89,8 +90,8 @@ function JoinForm({ onDone }: { onDone: (id?: string) => void }) {
       }
       const already = useGroups.getState().groups.some(g => g.id === id);
       await useGroups.getState().loadGroups();
-      toast(already ? `Tu fais déjà partie de ${w.this}` : `Tu as rejoint ${w.the}`, 'success');
-      onDone(id);
+      showJoined({ kind: 'groupe', id, name: useGroups.getState().groups.find(g => g.id === id)?.name ?? '', already });
+      onDone();
     } catch (err) {
       setError(groupError(err));
       setBusy(false);
@@ -196,28 +197,6 @@ function Groups() {
   }, [loaded, gid, active, elsewhere, navigate, setParams]);
 
   const go = (id: string | null, t: Tab = tabs[0].id) => setParams(id ? (t === tabs[0].id ? { g: id } : { g: id, onglet: t }) : {});
-
-  // Invitation link (…?rejoindre=CODE): joins, then opens it.
-  const invite = params.get('rejoindre');
-  const joining = useRef(false);
-  useEffect(() => {
-    if (!invite || !loaded || joining.current) return;
-    joining.current = true;
-    void joinGroup(invite)
-      .then(async id => {
-        if (!id) return toast('Ce lien d’invitation ne marche plus : demande-en un nouveau.', 'error');
-        const already = useGroups.getState().groups.some(g => g.id === id);
-        await useGroups.getState().loadGroups();
-        const name = useGroups.getState().groups.find(g => g.id === id)?.name ?? w.the;
-        toast(already ? `Tu fais déjà partie de ${name}` : `Tu as rejoint ${name}`, 'success');
-        setParams({ g: id }, { replace: true });
-      })
-      .catch(e => toast(groupError(e), 'error'))
-      .finally(() => {
-        joining.current = false;
-        if (new URLSearchParams(location.search).has('rejoindre')) setParams({}, { replace: true });
-      });
-  }, [invite, loaded, setParams, w.the]);
 
   const sorted = [...groups].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
@@ -368,10 +347,7 @@ function Groups() {
       <Modal open={dialog === 'join'} onClose={() => setDialog(null)}>
         {dialog === 'join' && (
           <JoinForm
-            onDone={id => {
-              setDialog(null);
-              if (id) go(id);
-            }}
+            onDone={() => setDialog(null)}
           />
         )}
       </Modal>

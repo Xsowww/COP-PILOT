@@ -22,6 +22,8 @@ import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
 import { ContextMenu, ReminderAlerts } from '../components/Overlays';
 import { PENDING_INVITE } from '../App';
+import { JoinedDialog } from '../pages/groups/Joined';
+import { useInvitations } from '../pages/groups/join';
 import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
@@ -226,13 +228,11 @@ export default function AppShell() {
   const trashLabel = trashCount ? `Corbeille, ${trashCount} élément${trashCount > 1 ? 's' : ''}` : 'Corbeille';
 
   useEffect(() => registerNavigate(navigate), [navigate]);
-  // An invitation link opened before signing in (App › RequireAuth): opened now.
-  useEffect(() => {
-    const invite = sessionStorage.getItem(PENDING_INVITE);
-    if (!invite) return;
-    sessionStorage.removeItem(PENDING_INVITE);
-    navigate(invite, { replace: true });
-  }, [navigate]);
+  // Invitation links: joined, then a window says so (pages/groups/Joined). One opened before signing in
+  // (App › RequireAuth) is joined now, without leaving the page shown after sign-in.
+  const [pendingInvite] = useState(() => sessionStorage.getItem(PENDING_INVITE));
+  useEffect(() => sessionStorage.removeItem(PENDING_INVITE), []);
+  useInvitations(pendingInvite);
   useEffect(() => startProactive(), []);
   // Rappels des événements et des tâches (dans l'appli, et par notifications push en ligne).
   useEffect(() => startReminders(user.id), [user.id]);
@@ -423,6 +423,7 @@ export default function AppShell() {
           <Outlet />
           <FeedbackDialog />
           <ReminderAlerts />
+          <JoinedDialog />
           {/* « Avis ou bug » : always at hand, bottom right (above the tab bar on phones). */}
           <button
             type="button"

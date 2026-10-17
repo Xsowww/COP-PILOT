@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, CloudOff, Link2, Plus, Settings2, Users } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useGroups, watchFocus } from '../../store/groups';
-import { toast } from '../../store/ui';
 import { Modal } from '../../components/Overlays';
 import { cloudEnabled } from '../../lib/supabase';
-import { copyInviteLink, groupError, joinAgenda, setGroupSpace } from '../../lib/groups';
+import { copyInviteLink, setGroupSpace } from '../../lib/groups';
 import { cx } from '../../lib/utils';
 import { GroupBadge } from './shared';
 import { KindContext } from './util';
@@ -92,32 +91,6 @@ function Agendas() {
   useEffect(() => {
     if (group) navigate(`/groupes?g=${group.id}`, { replace: true });
   }, [group, navigate]);
-
-  // Invitation link (/agendas?invitation=…): joins (the owner is told), then opens it.
-  const invitation = params.get('invitation');
-  const joining = useRef(false);
-  useEffect(() => {
-    if (!invitation || !loaded || joining.current) return;
-    joining.current = true;
-    void joinAgenda(invitation)
-      .then(async id => {
-        if (!id) {
-          toast('Ce lien d’invitation ne marche plus : demande un nouveau lien à la personne qui te l’a envoyé.', 'error');
-          setParams({}, { replace: true });
-          return;
-        }
-        const already = useGroups.getState().groups.some(g => g.id === id);
-        await useGroups.getState().loadGroups();
-        const name = `« ${useGroups.getState().groups.find(g => g.id === id)?.name ?? 'l’agenda'} »`;
-        toast(already ? `Tu fais déjà partie de ${name}` : `Tu as rejoint ${name}`, 'success');
-        setParams({ g: id }, { replace: true });
-      })
-      .catch(e => {
-        toast(groupError(e), 'error');
-        setParams({}, { replace: true });
-      })
-      .finally(() => (joining.current = false));
-  }, [invitation, loaded, setParams]);
 
   const open = (id: string) => setParams({ g: id });
 
