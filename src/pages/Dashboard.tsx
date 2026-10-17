@@ -16,6 +16,7 @@ import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
 import { startTitleBuffer } from './notes/titleBuffer';
 import { periodColor, periodText, periodTint, periodsOn } from '../lib/periods';
+import WeekProgress from './WeekProgress';
 
 /** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
 function Widget({ title, to, linkLabel, className, dark, children }: { title: string; to?: string; linkLabel?: string; className?: string; dark?: boolean; children: React.ReactNode }) {
@@ -95,10 +96,6 @@ export default function Dashboard() {
   const notExam = !!nextExam && nextExam.category !== 'examen' && studies;
   const ws = weekStart(now);
   const weekDays = Array.from({ length: 7 }, (_, i) => toKey(addDays(ws, i)));
-  const week = events.filter(e => e.date >= weekDays[0] && e.date <= weekDays[6]);
-  const weekLeft = week.filter(e => !e.done).length;
-  const perDay = weekDays.map(d => events.filter(e => e.date === d).length);
-  const maxPerDay = Math.max(1, ...perDay);
 
   // « Maintenant » : what is on now, else the next thing today (the blue tile).
   const nowEvent = todayEvents.find(e => !e.done && e.start && (e.end ?? e.start) > nowTime);
@@ -197,7 +194,12 @@ export default function Dashboard() {
               <div className="flex flex-1 flex-col">
                 <Link to={linkToDay(nextExam.date)} className="group flex flex-col gap-3">
                   <span className="flex items-baseline gap-3">
-                    <span className="tabular text-[112px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">{examDays === 0 ? 'Auj.' : examDays}</span>
+                    {examDays === 0 ? (
+                      // A word, not a number: « j » goes below the line, so no 0.8 line height here.
+                      <span className="text-[52px] font-extrabold leading-none tracking-[-0.045em] text-urgent">Aujourd’hui</span>
+                    ) : (
+                      <span className="tabular text-[112px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">{examDays}</span>
+                    )}
                     {examDays > 0 && <span className="text-[18px] font-bold">jour{examDays > 1 ? 's' : ''}</span>}
                   </span>
                   <span className="min-w-0">
@@ -293,32 +295,9 @@ export default function Dashboard() {
             <TodoList limit={6} />
           </Widget>
 
-          {/* Week */}
-          <Widget title="Cette semaine" to="/calendrier" linkLabel="Ouvrir le calendrier" className="lg:col-start-2 lg:row-start-3">
-            <p className="text-[13px] text-stone-500">
-              {week.length === 0 ? (
-                'Rien de prévu.'
-              ) : weekLeft === 0 ? (
-                'Tout est fait.'
-              ) : (
-                <>
-                  <span className="tabular font-semibold text-ink">{weekLeft}</span> à faire sur {week.length}
-                </>
-              )}
-            </p>
-            <div className="mt-auto grid grid-cols-7 items-end gap-1.5 pt-4">
-              {weekDays.map((d, i) => (
-                <Link key={d} to={linkToDay(d)} className="group flex flex-col items-center gap-1.5" aria-label={`${fmt(fromKey(d), 'EEEE d MMMM')} : ${perDay[i]} élément${perDay[i] > 1 ? 's' : ''}`}>
-                  <span className="flex h-10 w-full items-end justify-center">
-                    <span
-                      className={cx('w-full max-w-6 rounded-[6px] transition-colors', d === today ? 'bg-tile-blue' : 'bg-brand-100 group-hover:bg-brand-200')}
-                      style={{ height: perDay[i] ? `${Math.max(14, (perDay[i] / maxPerDay) * 100)}%` : 2 }}
-                    />
-                  </span>
-                  <span className={cx('text-[11px] capitalize', d === today ? 'font-semibold text-ink' : 'text-stone-500')}>{fmt(fromKey(d), 'EEEEE')}</span>
-                </Link>
-              ))}
-            </div>
+          {/* Week: a ring that fills as the week's tasks get ticked */}
+          <Widget title="Ma semaine" to="/taches" linkLabel="Ouvrir les tâches" className="lg:col-start-2 lg:row-start-3">
+            <WeekProgress from={weekDays[0]} to={weekDays[6]} />
           </Widget>
 
           {/* Notes */}

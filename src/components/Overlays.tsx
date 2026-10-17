@@ -204,9 +204,12 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
     if (el) {
       // Always on screen, 8 px from the edges (a keyboard opening could give x = 0 or less). Measured
       // at its widest (no right edge squeezing it), else it grows once moved and touches the edge.
+      // (Its own position put back after: when it already fits, React has nothing new to write and the
+      // menu fell back to the left edge of the page.)
+      const left = el.style.left;
       el.style.left = '0px';
       const r = el.getBoundingClientRect();
-      el.style.left = '';
+      el.style.left = left;
       setPos({ x: Math.max(8, Math.min(x, window.innerWidth - r.width - 8)), y: Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) });
     }
     const close = () => closeRef.current();
