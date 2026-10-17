@@ -16,13 +16,14 @@ import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
 import { startTitleBuffer } from './notes/titleBuffer';
 
-function Widget({ title, to, linkLabel, className, children }: { title: string; to?: string; linkLabel?: string; className?: string; children: React.ReactNode }) {
+/** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
+function Widget({ title, to, linkLabel, className, dark, children }: { title: string; to?: string; linkLabel?: string; className?: string; dark?: boolean; children: React.ReactNode }) {
   return (
-    <section className={cx('card enter flex flex-col p-5', className)}>
+    <section className={cx('card enter flex flex-col p-6', dark && 'bg-tile-dark text-white', className)}>
       <header className="mb-3 flex min-h-7 items-center gap-2">
-        <h2 className="text-[13px] font-medium text-stone-600">{title}</h2>
+        <h2 className={cx('text-[16px] font-bold tracking-[-0.01em]', dark ? 'text-white/70' : 'text-ink')}>{title}</h2>
         {to && (
-          <Link to={to} className="icon-btn ml-auto -mr-1.5 h-7 w-7" title={linkLabel} aria-label={linkLabel}>
+          <Link to={to} className={cx('icon-btn ml-auto -mr-1.5 h-7 w-7', dark && 'text-white/70 hover:bg-white/10 hover:text-white')} title={linkLabel} aria-label={linkLabel}>
             <ArrowUpRight size={15} />
           </Link>
         )}
@@ -97,6 +98,10 @@ export default function Dashboard() {
   const perDay = weekDays.map(d => events.filter(e => e.date === d).length);
   const maxPerDay = Math.max(1, ...perDay);
 
+  // « Maintenant » : what is on now, else the next thing today (the blue tile).
+  const nowEvent = todayEvents.find(e => !e.done && e.start && (e.end ?? e.start) > nowTime);
+  const minutesTo = nowEvent?.start ? Number(nowEvent.start.slice(0, 2)) * 60 + Number(nowEvent.start.slice(3)) - (now.getHours() * 60 + now.getMinutes()) : 0;
+
   const recentNotes = [...notes].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
 
   const [tooLate, setTooLate] = useState<string>();
@@ -127,7 +132,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-end gap-2 pb-7 pt-2">
           <div className="mr-auto">
             <p className="eyebrow first-letter:uppercase">{fmt(now, 'EEEE d MMMM')}</p>
-            <h1 className="mt-0.5 text-[24px] font-semibold tracking-[-0.02em]">
+            <h1 className="mt-0.5 text-[32px] font-extrabold tracking-[-0.035em]">
               {hello}, {user.name}
             </h1>
           </div>
@@ -151,10 +156,103 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Two columns on large screens; on a phone the DOM order is the priority order. */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        {/* Bento: tiles of different sizes; on a phone the DOM order is the priority order. */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+          {/* Now (blue tile) */}
+          <Link to={nowEvent ? linkToDay(today) : '/calendrier?ajout=1'} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 lg:col-start-1 lg:row-start-1">
+            <span className="flex justify-between text-[13px] font-semibold text-white/80">
+              <span>{nowEvent && minutesTo <= 0 ? 'En ce moment' : 'Ensuite aujourd’hui'}</span>
+              {nowEvent && minutesTo > 0 && <span>{minutesTo < 60 ? `dans ${minutesTo} min` : `dans ${Math.floor(minutesTo / 60)} h ${String(minutesTo % 60).padStart(2, '0')}`}</span>}
+            </span>
+            {nowEvent ? (
+              <span className="flex items-end justify-between gap-4">
+                <span className="min-w-0">
+                  <span className="block truncate text-[26px] font-extrabold leading-tight tracking-[-0.03em]">{nowEvent.title}</span>
+                  {nowEvent.details && <span className="block truncate text-[14px] text-white/80">{nowEvent.details.split('\n')[0]}</span>}
+                </span>
+                <span className="tabular shrink-0 text-[40px] font-extrabold leading-none tracking-[-0.04em]">{nowEvent.start}</span>
+              </span>
+            ) : (
+              <span className="text-[22px] font-extrabold tracking-[-0.02em]">Plus rien de prévu aujourd’hui. Ajouter quelque chose ?</span>
+            )}
+          </Link>
+
+          {/* Next exam */}
+          <Widget dark title={notExam ? 'Prochain grand jour' : words.nextBig} className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
+            {nextExam ? (
+              <div className="flex flex-1 flex-col">
+                <Link to={linkToDay(nextExam.date)} className="group flex flex-col gap-3">
+                  <span className="flex items-baseline gap-3">
+                    <span className="tabular text-[112px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">{examDays === 0 ? 'Auj.' : examDays}</span>
+                    {examDays > 0 && <span className="text-[18px] font-bold">jour{examDays > 1 ? 's' : ''}</span>}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex min-w-0 items-center gap-1.5 text-[17px] font-bold group-hover:underline">
+                      {nextExam.important && <Flag size={14} className="shrink-0 fill-urgent text-urgent" aria-label="Important" />}
+                      <span className="truncate">{nextExam.title}</span>
+                    </span>
+                    <span className="block text-[13px] first-letter:uppercase text-white/65">
+                      {fmtDay(fromKey(nextExam.date), 'EEEE d MMMM')}
+                      {nextExam.start && ` · ${nextExam.start}`}
+                    </span>
+                  </span>
+                </Link>
+                {laterBig.length > 0 && (
+                  <div className="mt-5 border-t border-white/10 pt-4">
+                    <p className="mb-1 text-[12px] font-semibold text-white/60">Ensuite</p>
+                    <ul className="space-y-0.5">
+                      {laterBig.map(e => {
+                        const d = daysUntil(e.date);
+                        return (
+                          <li key={e.id}>
+                            <Link to={linkToDay(e.date)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
+                              <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-urgent' : 'text-white/70')}>{d === 0 ? 'Auj.' : `J-${d}`}</span>
+                              <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
+                              <span className="ml-auto shrink-0 text-[12px] text-white/55">
+                                {fmtDay(fromKey(e.date), 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
+                                {e.start && ` · ${e.start}`}
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {bigDays.length > 3 && (
+                      <Link to="/calendrier" className="mt-1 inline-block text-[12px] text-white/55 hover:text-white hover:underline pointer-coarse:py-2">
+                        +{bigDays.length - 3} autre{bigDays.length > 4 ? 's' : ''} dans le calendrier
+                      </Link>
+                    )}
+                  </div>
+                )}
+                <div className="mt-auto pt-4">
+                  {hasRevisionPlan(nextExam) ? (
+                    <p className="flex items-center gap-1.5 text-[12px] text-white/65">
+                      <Check size={13} className="text-emerald-400" /> {words.planned}
+                    </p>
+                  ) : examSheet && (examDays === 0 || tooLate === nextExam.id || noTimeLeft) ? (
+                    // A sheet but no session and no time left for one: asking again would only repeat « Plus le temps… ».
+                    <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
+                      {words === WORDS.etudes ? 'Ouvrir la fiche' : 'Ouvrir la note'}
+                    </Link>
+                  ) : hasStarted(nextExam) || notExam ? null : (
+                    <button onClick={planExam} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
+                      {words.plan}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="py-1.5 text-[13px] text-white/65">
+                <p>{words.noBig}</p>
+                <p className="mt-1 flex items-center gap-1 text-[12px]">
+                  <Flag size={12} className="shrink-0" /> Marque un événement comme important pour le voir ici.
+                </p>
+              </div>
+            )}
+          </Widget>
+
           {/* Today */}
-          <Widget title="Aujourd’hui" to={linkToDay(today)} linkLabel="Ouvrir la journée dans le calendrier" className="lg:col-start-1 lg:row-start-1">
+          <Widget title="Aujourd’hui" to={linkToDay(today)} linkLabel="Ouvrir la journée dans le calendrier" className="lg:col-start-1 lg:row-start-2">
             {todayEvents.length === 0 ? (
               <p className="py-1.5 text-[13px] text-stone-500">Rien de prévu aujourd’hui.</p>
             ) : (
@@ -176,87 +274,13 @@ export default function Dashboard() {
             )}
           </Widget>
 
-          {/* Next exam */}
-          <Widget title={notExam ? 'Prochain grand jour' : words.nextBig} className="lg:col-start-2 lg:row-start-1">
-            {nextExam ? (
-              <div className="flex flex-1 flex-col">
-                <Link to={linkToDay(nextExam.date)} className="group flex items-center gap-3">
-                  <span className={cx('tabular shrink-0 text-[32px] font-semibold leading-none tracking-[-0.03em]', examDays <= 3 ? 'text-[var(--cat-examen-text)]' : 'text-ink')}>
-                    {examDays === 0 ? "Auj." : `J-${examDays}`}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="flex min-w-0 items-center gap-1 text-[13px] font-medium group-hover:underline">
-                      {nextExam.important && <Flag size={12} className="shrink-0 fill-amber-500 text-amber-500" aria-label="Important" />}
-                      <span className="truncate">{nextExam.title}</span>
-                    </span>
-                    <span className="block text-[12px] first-letter:uppercase text-stone-500">
-                      {fmtDay(fromKey(nextExam.date), 'EEEE d MMMM')}
-                      {nextExam.start && ` · ${nextExam.start}`}
-                    </span>
-                  </span>
-                </Link>
-                {laterBig.length > 0 && (
-                  <div className="mt-3 border-t border-stone-100 pt-3">
-                    <p className="eyebrow mb-1">Ensuite</p>
-                    <ul className="space-y-0.5">
-                      {laterBig.map(e => {
-                        const d = daysUntil(e.date);
-                        return (
-                          <li key={e.id}>
-                            <Link to={linkToDay(e.date)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
-                              <span className={cx('tabular w-9 shrink-0 font-semibold', d <= 3 ? 'text-[var(--cat-examen-text)]' : 'text-stone-600')}>{d === 0 ? 'Auj.' : `J-${d}`}</span>
-                              {e.important && <Flag size={11} className="shrink-0 fill-amber-500 text-amber-500" aria-label="Important" />}
-                              <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
-                              <span className="ml-auto shrink-0 text-[12px] text-stone-500">
-                                {fmtDay(fromKey(e.date), 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
-                                {e.start && ` · ${e.start}`}
-                              </span>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {bigDays.length > 3 && (
-                      <Link to="/calendrier" className="mt-1 inline-block text-[12px] text-stone-500 hover:text-ink hover:underline pointer-coarse:py-2">
-                        +{bigDays.length - 3} autre{bigDays.length > 4 ? 's' : ''} dans le calendrier
-                      </Link>
-                    )}
-                  </div>
-                )}
-                <div className="mt-auto pt-4">
-                  {hasRevisionPlan(nextExam) ? (
-                    <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
-                      <Check size={13} className="text-emerald-600" /> {words.planned}
-                    </p>
-                  ) : examSheet && (examDays === 0 || tooLate === nextExam.id || noTimeLeft) ? (
-                    // A sheet but no session and no time left for one: asking again would only repeat « Plus le temps… ».
-                    <Link to={linkToNote(examSheet.id)} className="btn-secondary h-8 text-[12px]">
-                      {words === WORDS.etudes ? 'Ouvrir la fiche' : 'Ouvrir la note'}
-                    </Link>
-                  ) : hasStarted(nextExam) || notExam ? null : (
-                    <button onClick={planExam} className="btn-secondary h-8 text-[12px]">
-                      {words.plan}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="py-1.5 text-[13px] text-stone-500">
-                <p>{words.noBig}</p>
-                <p className="mt-1 flex items-center gap-1 text-[12px]">
-                  <Flag size={12} className="shrink-0" /> Marque un événement comme important pour le voir ici.
-                </p>
-              </div>
-            )}
-          </Widget>
-
           {/* To-do */}
-          <Widget title="À faire" to="/taches" linkLabel="Ouvrir toutes les tâches" className="lg:col-start-1 lg:row-span-2 lg:row-start-2">
+          <Widget title="À faire" to="/taches" linkLabel="Ouvrir toutes les tâches" className="lg:col-start-1 lg:row-span-2 lg:row-start-3">
             <TodoList limit={6} />
           </Widget>
 
           {/* Week */}
-          <Widget title="Cette semaine" to="/calendrier" linkLabel="Ouvrir le calendrier" className="lg:col-start-2 lg:row-start-2">
+          <Widget title="Cette semaine" to="/calendrier" linkLabel="Ouvrir le calendrier" className="lg:col-start-2 lg:row-start-3">
             <p className="text-[13px] text-stone-500">
               {week.length === 0 ? (
                 'Rien de prévu.'
@@ -273,7 +297,7 @@ export default function Dashboard() {
                 <Link key={d} to={linkToDay(d)} className="group flex flex-col items-center gap-1.5" aria-label={`${fmt(fromKey(d), 'EEEE d MMMM')} : ${perDay[i]} élément${perDay[i] > 1 ? 's' : ''}`}>
                   <span className="flex h-10 w-full items-end justify-center">
                     <span
-                      className={cx('w-full max-w-5 rounded-[3px] transition-colors', d === today ? 'bg-ink' : 'bg-stone-200 group-hover:bg-stone-300')}
+                      className={cx('w-full max-w-6 rounded-[6px] transition-colors', d === today ? 'bg-tile-blue' : 'bg-brand-100 group-hover:bg-brand-200')}
                       style={{ height: perDay[i] ? `${Math.max(14, (perDay[i] / maxPerDay) * 100)}%` : 2 }}
                     />
                   </span>
@@ -284,7 +308,7 @@ export default function Dashboard() {
           </Widget>
 
           {/* Notes */}
-          <Widget title="Notes récentes" to="/notes" linkLabel="Ouvrir les notes" className="lg:col-start-2 lg:row-start-3">
+          <Widget title="Notes récentes" to="/notes" linkLabel="Ouvrir les notes" className="lg:col-start-2 lg:row-start-4">
             {recentNotes.length === 0 ? (
               <p className="py-1.5 text-[13px] text-stone-500">Aucune note pour l’instant.</p>
             ) : (

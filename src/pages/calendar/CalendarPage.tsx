@@ -79,7 +79,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
       <div
         onPointerDown={readOnly ? undefined : onDragStart}
         title={readOnly ? undefined : 'Glisse sur un autre jour pour déplacer'}
-        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-lg border border-stone-200/80 bg-surface py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:border-stone-300', ev.done && 'bg-stone-50', dragging && 'opacity-40')}
+        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', ev.done && 'opacity-60', dragging && 'opacity-40')}
       >
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
         {!shared && <button

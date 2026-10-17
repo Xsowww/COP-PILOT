@@ -124,11 +124,11 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         aria-controls="recherche-resultats"
         aria-activedescendant={open && hits[active] ? `recherche-${active}` : undefined}
         // A card-like field (border + surface): the grey tint alone barely stood out from the page, light or dark.
-        className="h-8 w-full rounded-lg border border-stone-200 bg-surface pl-8 pr-14 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-500 hover:border-stone-300 focus:border-focus focus:ring-1 focus:ring-focus"
+        className="h-10 w-full rounded-[14px] border border-transparent bg-surface pl-9 pr-14 text-[13.5px] text-ink outline-none transition placeholder:text-stone-500 hover:border-stone-200 focus:border-focus focus:ring-1 focus:ring-focus"
       />
       <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
       {open && q.trim() && (
-        <div id="recherche-resultats" role="listbox" aria-label="Résultats de recherche" className="enter absolute left-0 right-0 top-10 z-40 overflow-hidden rounded-xl border border-stone-200 bg-surface p-1 shadow-pop">
+        <div id="recherche-resultats" role="listbox" aria-label="Résultats de recherche" className="enter absolute left-0 right-0 top-12 z-40 overflow-hidden rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop">
           {hits.length === 0 && <p className="px-3 py-5 text-center text-[13px] text-stone-500 [overflow-wrap:anywhere]">Aucun résultat pour «&nbsp;{q}&nbsp;»</p>}
           {hits.map((h, i) => {
             const Icon = HIT_ICON[h.type];
@@ -283,7 +283,7 @@ export default function AppShell() {
         Aller au contenu
       </a>
       {/* Sidebar (desktop) */}
-      <aside aria-label="Barre latérale" className="hidden w-[256px] shrink-0 flex-col border-r border-stone-200/80 px-3 pb-3 pt-4 lg:flex">
+      <aside aria-label="Barre latérale" className="m-3 mr-0 hidden w-[244px] shrink-0 flex-col rounded-[24px] bg-surface px-3 pb-3 pt-4 lg:flex">
         <div className="mb-6 px-2">
           <Logo />
         </div>
@@ -296,8 +296,8 @@ export default function AppShell() {
               end={n.end}
               className={({ isActive }) =>
                 cx(
-                  'flex h-10 items-center gap-3 rounded-lg border px-2.5 text-[14px] font-medium transition-colors',
-                  isActive ? 'border-stone-200 bg-surface text-ink shadow-card' : 'border-transparent text-stone-600 hover:bg-stone-100 hover:text-ink',
+                  'flex h-10 items-center gap-3 rounded-[14px] border px-2.5 text-[14px] font-medium transition-colors',
+                  isActive ? 'border-transparent bg-ink font-semibold text-paper' : 'border-transparent text-stone-600 hover:bg-stone-100 hover:text-ink',
                 )
               }
             >

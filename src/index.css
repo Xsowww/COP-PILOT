@@ -4,15 +4,28 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 @theme {
-  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-paper: #f7f7f5;
-  --color-ink: #16181d;
+  /* Bento: tiles (white, ink, blue) on a cool grey page. */
+  --color-paper: #eceef3;
+  --color-ink: #14161f;
+  --color-stone-50: #f6f7fa;
+  --color-stone-100: #eef0f4;
+  --color-stone-200: #e1e4eb;
+  --color-stone-300: #cbd0da;
+  --color-stone-400: #9aa0b2;
+  --color-stone-600: #4a5064;
+  --color-stone-700: #383d4d;
+  --color-stone-800: #232633;
+  --color-stone-900: #171a24;
+  --color-tile-dark: #14161f;
+  --color-tile-blue: #3d63dd;
+  --color-urgent: #ff7a45;
   /* Cards, menus, dialogs. `white` itself is never remapped so `text-white` stays white. */
   --color-surface: #ffffff;
   /* A touch darker than Tailwind's stone-500 so secondary text stays above 4.5:1 on stone-100. */
-  --color-stone-500: #716a64;
+  --color-stone-500: #646a7d;
   /* Error texts: Tailwind's red-600 was 4.45:1 on the page background, just under 4.5:1. */
   --color-red-600: #cf1d16;
 
@@ -143,7 +156,7 @@ body {
   margin: 0;
   color: var(--color-ink);
   background: var(--color-paper);
-  font-feature-settings: 'ss01', 'cv11';
+  font-feature-settings: normal;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -196,17 +209,17 @@ body {
 
 /* ── Design system ───────────────────────────────────────────── */
 @utility card {
-  @apply rounded-xl border border-stone-200/80 bg-surface shadow-card;
+  @apply rounded-[24px] bg-surface;
 }
 @utility btn {
   /* min-h: the smaller h-8 / h-7 variants stay at least 36 px tall for a finger. */
-  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:pointer-events-none disabled:opacity-45 pointer-coarse:min-h-9;
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-[14px] px-4 text-[13.5px] font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:pointer-events-none disabled:opacity-45 pointer-coarse:min-h-9;
 }
 @utility btn-primary {
-  @apply btn bg-brand-solid text-on-brand shadow-[inset_0_1px_0_rgb(255_255_255_/0.15)] hover:bg-brand-solid-hover;
+  @apply btn bg-ink text-paper hover:bg-stone-800;
 }
 @utility btn-secondary {
-  @apply btn border border-stone-200 bg-surface text-stone-700 shadow-card hover:bg-stone-50 hover:text-ink;
+  @apply btn bg-surface text-ink ring-1 ring-inset ring-stone-200 hover:bg-stone-50;
 }
 @utility btn-ghost {
   @apply btn text-stone-600 hover:bg-stone-100 hover:text-ink;
@@ -215,10 +228,10 @@ body {
   @apply btn bg-danger text-white hover:bg-danger-hover;
 }
 @utility icon-btn {
-  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-stone-500 transition-colors outline-none hover:bg-stone-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-focus;
+  @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-stone-500 transition-colors outline-none hover:bg-stone-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-focus;
 }
 @utility field {
-  @apply h-9 rounded-lg border border-stone-200 bg-surface px-3 text-[13px] text-ink shadow-card outline-none transition placeholder:text-stone-500 focus:border-focus focus:ring-1 focus:ring-focus pointer-coarse:min-h-9;
+  @apply h-10 rounded-[14px] border border-stone-200 bg-surface px-3.5 text-[13.5px] text-ink outline-none transition placeholder:text-stone-500 focus:border-focus focus:ring-1 focus:ring-focus pointer-coarse:min-h-9;
 }
 @utility eyebrow {
   @apply text-[12px] font-medium text-stone-500;
@@ -367,4 +380,10 @@ body {
 .reduce-motion *::after {
   animation: none !important;
   transition: none !important;
+}
+
+/* Bento: page titles heavier and tighter, like the tiles' big numbers. */
+#contenu h1 {
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
