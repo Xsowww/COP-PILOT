@@ -7,6 +7,7 @@ import { toKey, fmt, fromKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import FocusTimer from '../../components/FocusTimer';
 import TodoList from './TodoList';
+import { flashWhenReady } from '../../lib/flash';
 import { SubjectBars, DailyFocus, DataTable } from './FocusCharts';
 import { dailyMinutes, formatMinutes, minutesBySubject, noSubjectLabel, weekMinutes } from './focusStats';
 import { useSettings } from '../../store/settings';
@@ -122,18 +123,15 @@ export default function TasksPage() {
     if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
   }, [location.hash]);
 
-  // /taches?tache=… (from « Ma semaine »): that task, in view and lit up a moment, its box focused.
+  // /taches?tache=… (from « Ma semaine »): that task glows once on screen, its box focused.
   const wanted = new URLSearchParams(location.search).get('tache');
   useEffect(() => {
     if (!wanted) return;
-    const box = document.querySelector<HTMLElement>(`[data-todo="${CSS.escape(wanted)}"]`);
-    const row = box?.closest('li');
-    if (!box || !row) return;
-    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    box.focus({ preventScroll: true });
-    row.classList.add('ring-2', 'ring-brand-500', 'bg-brand-50');
-    const t = setTimeout(() => row.classList.remove('ring-2', 'ring-brand-500', 'bg-brand-50'), 2200);
-    return () => clearTimeout(t);
+    flashWhenReady(() => {
+      const box = document.querySelector<HTMLElement>(`[data-todo="${CSS.escape(wanted)}"]`);
+      box?.focus({ preventScroll: true });
+      return box?.closest('li');
+    });
   }, [wanted]);
 
   return (

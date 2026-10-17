@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flashWhenReady } from '../../lib/flash';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, ChevronDown, FilePlus2, FolderPlus, Folder, FolderOpen, FolderInput, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
@@ -45,6 +46,11 @@ export default function NotesPage() {
   useEffect(() => setCreated(null), [urlNoteId]);
   const noteId = created ?? urlNoteId;
   const folderParam = params.get('dossier');
+  // Arriving on a note from elsewhere (search, Kompaly, a notification): its row in the list glows.
+  const [arrivedOn] = useState(urlNoteId);
+  useEffect(() => {
+    if (arrivedOn) flashWhenReady(() => document.querySelector(`[data-note-open="${CSS.escape(arrivedOn)}"]`)?.closest('[role="treeitem"], li') ?? document.querySelector(`[data-note-open="${CSS.escape(arrivedOn)}"]`));
+  }, [arrivedOn]);
   const active = notes.find(n => n.id === noteId);
 
   // The trash lives on its own page now: old links (and links to a deleted note) go there.

@@ -26,7 +26,8 @@ export const goTo = (to: string) => navigateFn?.(to);
 
 export const linkToDriveFolder = (id: string | null) => (id ? `/drive?dossier=${id}` : '/drive');
 export const linkToNote = (id: string) => `/notes?note=${id}`;
-export const linkToDay = (date: string) => `/calendrier?jour=${date}`;
+/** A day of the calendar; with an event, that event glows once there (lib/flash). */
+export const linkToDay = (date: string, eventId?: string) => `/calendrier?jour=${date}${eventId ? `&evt=${eventId}` : ''}`;
 
 export interface SearchHit {
   type: 'dossier' | 'fichier' | 'note' | 'dossier de notes' | 'événement';
@@ -77,7 +78,7 @@ export function search(query: string, limit = 8): SearchHit[] {
   }
   for (const e of useCalendar.getState().events) {
     const s = score(e.title, q);
-    if (s) hits.push({ s, type: 'événement', id: e.id, title: e.title, where: fmtDay(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date) });
+    if (s) hits.push({ s, type: 'événement', id: e.id, title: e.title, where: fmtDay(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date, e.id) });
   }
   return hits.sort((a, b) => b.s - a.s).slice(0, limit).map(({ s: _s, ...h }) => h);
 }

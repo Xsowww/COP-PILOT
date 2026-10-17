@@ -50,7 +50,7 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
       </button>
       <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: c.color }} />
       {/* Taller on touch screens (36 px) without moving the row. */}
-      <Link to={linkToDay(e.date)} className="min-w-0 flex-1 pointer-coarse:-my-2 pointer-coarse:py-2">
+      <Link to={linkToDay(e.date, e.id)} className="min-w-0 flex-1 pointer-coarse:-my-2 pointer-coarse:py-2">
         <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-500 line-through' : muted ? 'text-stone-600' : 'font-medium')}>{e.title}</span>
       </Link>
       <span className="tabular shrink-0 text-[12px] text-stone-500">
@@ -172,7 +172,7 @@ export default function Dashboard() {
         {/* Bento: tiles of different sizes; on a phone the DOM order is the priority order. */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
           {/* Now (blue tile) */}
-          <Link to={nowEvent ? linkToDay(today) : '/calendrier?ajout=1'} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 lg:col-start-1 lg:row-start-1">
+          <Link to={nowEvent ? linkToDay(today, nowEvent.id) : '/calendrier?ajout=1'} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 lg:col-start-1 lg:row-start-1">
             <span className="flex justify-between text-[13px] font-semibold text-white/80">
               <span>{nowEvent && minutesTo <= 0 ? 'En ce moment' : 'Ensuite aujourd’hui'}</span>
               {nowEvent && minutesTo > 0 && <span>{minutesTo < 60 ? `dans ${minutesTo} min` : `dans ${Math.floor(minutesTo / 60)} h ${String(minutesTo % 60).padStart(2, '0')}`}</span>}
@@ -194,7 +194,7 @@ export default function Dashboard() {
           <Widget dark title={notExam ? 'Prochain grand jour' : words.nextBig} className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
             {nextExam ? (
               <div className="flex flex-1 flex-col">
-                <Link to={linkToDay(nextExam.date)} className="group flex flex-col gap-3">
+                <Link to={linkToDay(nextExam.date, nextExam.id)} className="group flex flex-col gap-3">
                   <span className="flex items-baseline gap-3">
                     {examDays === 0 ? (
                       // A word, not a number: « j » goes below the line, so no 0.8 line height here.
@@ -223,7 +223,7 @@ export default function Dashboard() {
                         const d = daysUntil(e.date);
                         return (
                           <li key={e.id}>
-                            <Link to={linkToDay(e.date)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
+                            <Link to={linkToDay(e.date, e.id)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
                               <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-urgent' : 'text-white/70')}>{d === 0 ? 'Auj.' : `J-${d}`}</span>
                               <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
                               <span className="ml-auto shrink-0 text-[12px] text-white/55">
@@ -248,7 +248,7 @@ export default function Dashboard() {
                       <p className="flex items-center gap-1.5 text-[12px] text-white/65">
                         <Check size={13} className="text-emerald-400" /> {words.planned}
                         {revisionSessions(nextExam)[0] && (
-                          <Link to={linkToDay(revisionSessions(nextExam)[0].date)} className="ml-auto font-semibold text-white/80 underline-offset-2 hover:text-white hover:underline">
+                          <Link to={linkToDay(revisionSessions(nextExam)[0].date, revisionSessions(nextExam)[0].id)} className="ml-auto font-semibold text-white/80 underline-offset-2 hover:text-white hover:underline">
                             Voir les créneaux
                           </Link>
                         )}

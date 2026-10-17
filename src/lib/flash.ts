@@ -1,0 +1,21 @@
+// « It's here »: the item a link or a shortcut leads to glows for a few seconds once on screen
+// (a task from « Ma semaine », an event from the home page or a search, a note…).
+
+const CLASS = 'flash-target';
+
+/** Brings the element into view and makes it glow (again, if it already was). */
+export function flash(el: Element | null | undefined) {
+  if (!(el instanceof HTMLElement)) return;
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el.classList.remove(CLASS);
+  void el.offsetWidth; // restart the animation
+  el.classList.add(CLASS);
+  setTimeout(() => el.classList.remove(CLASS), 3200);
+}
+
+/** The same, once the element is there (pages and lists draw a moment after the navigation). */
+export function flashWhenReady(find: () => Element | null | undefined, tries = 30) {
+  const el = find();
+  if (el) return flash(el);
+  if (tries > 0) setTimeout(() => flashWhenReady(find, tries - 1), 100);
+}

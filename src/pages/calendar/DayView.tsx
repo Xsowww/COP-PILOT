@@ -117,6 +117,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
             return (
               <button
                 key={ev.id}
+                data-event={ev.id}
                 onPointerDown={e => onDragStart(ev, e)}
                 onClick={() => onEdit(ev)}
                 className={cx('flex h-6 max-w-full touch-manipulation select-none pointer-coarse:h-8 items-center gap-1.5 truncate rounded-md px-2 text-[12px] font-medium [-webkit-touch-callout:none]', ev.done && 'line-through opacity-60', dragged?.id === ev.id && 'opacity-40')}
@@ -178,6 +179,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
               return (
                 <button
                   key={ev.id}
+                  data-event={ev.id}
                   onPointerDown={e => onDragStart(ev, e, true)}
                   onClick={e => {
                     e.stopPropagation();

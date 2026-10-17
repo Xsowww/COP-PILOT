@@ -410,3 +410,14 @@ h1:not(.prose-note h1) {
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+
+/* lib/flash: the item a shortcut led to glows three times (a ring, a soft brand fill). */
+@keyframes flash-target {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand-500) 60%, transparent); background-color: var(--color-brand-50); }
+  70% { box-shadow: 0 0 0 9px transparent; background-color: var(--color-brand-50); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.flash-target {
+  animation: flash-target 1s ease-out 3;
+  border-radius: 14px;
+}

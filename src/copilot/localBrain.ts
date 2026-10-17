@@ -386,7 +386,7 @@ export function localReply(raw: string): BotReply {
     if (what) {
       const title = what.charAt(0).toUpperCase() + what.slice(1);
       const ev = addEvent({ title, date: parsed.date ?? todayKey(), start: parsed.start ?? undefined, category: 'perso' });
-      return { text: `C’est noté : ${describeEvent(ev)}. Je te le rappellerai.`, links: [{ label: 'Voir le jour', to: linkToDay(ev.date) }] };
+      return { text: `C’est noté : ${describeEvent(ev)}. Je te le rappellerai.`, links: [{ label: 'Voir le jour', to: linkToDay(ev.date, ev.id) }] };
     }
   }
 
@@ -461,7 +461,7 @@ export function localReply(raw: string): BotReply {
       const ev = addEvent({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, important: parsed.important });
       return {
         text: `Ajouté au calendrier : ${describeEvent(ev)}${parsed.date ? '' : '\n(Pas de date trouvée, je l’ai mis aujourd’hui — tu peux le déplacer.)'}`,
-        links: [{ label: 'Voir le jour', to: linkToDay(ev.date) }],
+        links: [{ label: 'Voir le jour', to: linkToDay(ev.date, ev.id) }],
       };
     }
   }

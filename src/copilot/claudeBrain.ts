@@ -159,7 +159,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         category: !picked || (picked === 'perso' && guessed !== 'perso') ? guessed : picked,
         important: input.important === true || undefined,
       });
-      links.push({ label: 'Voir le jour', to: linkToDay(ev.date) });
+      links.push({ label: 'Voir le jour', to: linkToDay(ev.date, ev.id) });
       return { created: describeEvent(ev), id: ev.id };
     }
     case 'update_event': {
@@ -172,7 +172,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         important: typeof input.important === 'boolean' ? input.important : undefined,
       });
       if (!ev) throw new Error('événement introuvable');
-      links.push({ label: 'Voir le jour', to: linkToDay(ev.date) });
+      links.push({ label: 'Voir le jour', to: linkToDay(ev.date, ev.id) });
       return { updated: describeEvent(ev) };
     }
     case 'delete_event': {

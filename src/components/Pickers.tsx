@@ -268,7 +268,7 @@ const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
 
 function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: string, done: boolean) => void; clearable?: boolean }) {
-  const [text, setText] = useState(value);
+  const [text, setText] = useState(value ? value.replace(':', 'h') : '');
   const [h, m] = value ? value.split(':') : ['', ''];
   const lists = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -279,6 +279,10 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
     }
   }, []);
   const typed = parseTime(text);
+  const pickFromList = (v: string, done: boolean) => {
+    setText(v.replace(':', 'h'));
+    onPick(v, done);
+  };
   const minutes = m && !MINUTES.includes(m) ? [...MINUTES, m].sort() : MINUTES;
   return (
     <div className="w-[208px]">
@@ -305,8 +309,9 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
       </form>
       <div ref={lists} className="mt-1 grid grid-cols-2 gap-1 border-t border-stone-100 pt-1">
         {[
-          { list: HOURS, current: h, label: 'Heure', pick: (v: string) => onPick(`${v}:${m || '00'}`, false) },
-          { list: minutes, current: m, label: 'Minutes', pick: (v: string) => onPick(`${h || '08'}:${v}`, true) },
+          // The hour keeps the panel open (the minutes come next) and shows in the box above, where « OK » takes it.
+          { list: HOURS, current: h, label: 'Heure', pick: (v: string) => pickFromList(`${v}:${m || '00'}`, false) },
+          { list: minutes, current: m, label: 'Minutes', pick: (v: string) => pickFromList(`${h || '08'}:${v}`, true) },
         ].map(col => (
           <div key={col.label} data-col role="group" aria-label={col.label} className="max-h-52 space-y-0.5 overflow-y-auto overscroll-contain p-0.5">
             {col.list.map(v => (

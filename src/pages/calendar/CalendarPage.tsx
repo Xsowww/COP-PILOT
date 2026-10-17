@@ -19,6 +19,7 @@ import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { isIcsFile } from '../../lib/ics';
 import { useEventDrag, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
+import { flashWhenReady } from '../../lib/flash';
 import { eventReminders, reminderLabel } from '../../lib/reminders';
 
 type Mode = 'week' | 'month' | 'day';
@@ -67,7 +68,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   const defaults = useSettings(s => s.defaultReminders);
   const reminders = shared ? [] : eventReminders(ev, defaults);
   return (
-    <div className="group enter flex items-stretch gap-4">
+    <div data-event={ev.id} className="group enter flex items-stretch gap-4">
       <div className="tabular w-12 shrink-0 pt-3 text-right text-[12px]">
         {ev.start ? (
           <>
@@ -272,12 +273,26 @@ export default function CalendarPage() {
     if (jour) setSelected(jour);
   }
 
+  // …&evt=… : that event glows once its day is on screen (from the home page, a search, « Ma semaine »…).
+  const evt = params.get('evt');
+  useEffect(() => {
+    if (!evt) return;
+    flashWhenReady(() => document.querySelector(`[data-event="${CSS.escape(evt)}"]`));
+    setParams(p => (p.delete('evt'), p), { replace: true });
+  }, [evt, setParams]);
+
   useEffect(() => {
     if (params.get('ajout')) {
       quickRef.current?.focus();
       setParams(p => (p.delete('ajout'), p), { replace: true });
     }
   }, [params, setParams]);
+
+  /** A row of « À venir »: its day, and the event glowing in it. */
+  const showEvent = (e: Pick<CalendarEvent, 'id' | 'date'>) => {
+    selectDay(e.date);
+    flashWhenReady(() => document.querySelector(`[data-event="${CSS.escape(e.id)}"]`));
+  };
 
   const selectDay = (key: string) => {
     setSelected(key);
@@ -758,7 +773,7 @@ export default function CalendarPage() {
                   const n = daysUntil(e.date);
                   return (
                     <li key={e.id}>
-                      <button onClick={() => selectDay(e.date)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
+                      <button onClick={() => showEvent(e)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
                         <span className={cx('tabular w-9 shrink-0 text-[13px] font-semibold', n <= 3 ? 'font-extrabold text-urgent-text' : 'text-ink')}>{n === 0 ? 'Auj.' : `J-${n}`}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium">{e.title}</span>
@@ -784,7 +799,7 @@ export default function CalendarPage() {
                   const toHandIn = isDeliverable(e) && !shared;
                   return (
                     <li key={e.id} className="flex items-center">
-                      <button onClick={() => selectDay(e.date)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
+                      <button onClick={() => showEvent(e)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
                         <span className={cx('tabular w-9 shrink-0 text-[12px] font-semibold', late ? 'font-extrabold text-urgent-text' : 'text-stone-500')}>{late ? 'Retard' : n === 0 ? 'Auj.' : n === 1 ? 'Dem.' : `J-${n}`}</span>
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
