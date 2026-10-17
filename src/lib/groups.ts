@@ -174,10 +174,10 @@ export async function sessionUserId(): Promise<string> {
 export async function fetchGroups(): Promise<Group[]> {
   // Jamais « * » : le code d'invitation n'est pas lisible dans la table (voir group_invite_code).
   // Newest columns first; a server without a recent migration (no « photo », 2026-10-19; no « kind », 2026-10-18)
-  // answers 42703 and the next, older list is tried.
+  // answers 42703 (no such column) or 42501 (column not readable yet) and the next, older list is tried.
   for (const cols of ['id, name, color, photo, owner_id, created_at, kind', 'id, name, color, owner_id, created_at, kind', 'id, name, color, owner_id, created_at']) {
     const res = await db().from('groups').select(cols).order('created_at');
-    if (res.error?.code === '42703') continue;
+    if (res.error?.code === '42703' || res.error?.code === '42501') continue;
     return (check(res) as unknown as Row[]).map(toGroup);
   }
   return [];

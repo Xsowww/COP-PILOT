@@ -1739,4 +1739,5 @@ create policy "groupes supprimés : effacer les fichiers" on storage.objects for
 -- ── Photo d'un groupe ou d'un agenda partagé (2026-10-19) ───────────────────
 alter table public.groups add column if not exists photo text
   check (photo is null or (char_length(photo) <= 150000 and photo ~ '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$'));
+grant select (photo) on public.groups to authenticated;
 grant update (name, color, photo) on public.groups to authenticated;
