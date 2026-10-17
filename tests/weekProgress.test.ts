@@ -11,14 +11,23 @@ const task = (id: string, due?: string, done = false, doneAt?: string) => ({ id,
 
 describe('ma semaine', () => {
   const from = '2026-10-12', to = '2026-10-18';
-  it('counts the tasks due this week and those ticked this week, not the calendar', () => {
+  it('counts what is to do by the end of the week (no due day and late too) and what was ticked this week', () => {
     const r = weekItems(
-      [task('a', '2026-10-13'), task('b', '2026-10-14', true, '2026-10-14T09:00:00Z'), task('c', '2026-10-25'), task('d', undefined, true, '2026-10-15T18:00:00Z'), task('e', undefined), task('f', '2026-10-12')],
+      [
+        task('a', '2026-10-13'),
+        task('b', '2026-10-14', true, '2026-10-14T09:00:00Z'),
+        task('c', '2026-10-25'), // next week: not yet
+        task('d', undefined, true, '2026-10-15T18:00:00Z'),
+        task('e', undefined), // « test », no due day: counts
+        task('f', '2026-10-12'),
+        task('g', '2026-10-02'), // late: still to do
+        task('h', undefined, true, '2026-10-05T10:00:00Z'), // ticked last week: not this week's
+      ],
       from,
       to,
     );
-    expect([r.total, r.done]).toEqual([4, 2]);
-    expect(r.left.map(x => x.id)).toEqual(['f', 'a']);
+    expect([r.total, r.done]).toEqual([6, 2]);
+    expect(r.left.map(x => x.id)).toEqual(['g', 'f', 'a', 'e']);
   });
   it('says what is left, and celebrates', () => {
     expect(cheer(0, 0)).toMatch(/Aucune tâche/);

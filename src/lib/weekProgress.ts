@@ -3,12 +3,13 @@
 import type { Todo } from '../store/todos';
 
 /**
- * What counts for « ma semaine »: the tasks (Tâches) due this week, or ticked this week. Calendar events,
- * homework included, stay in the calendar (« À venir », « Prochaine échéance »).
+ * What counts for « ma semaine », among the tasks (Tâches): everything still to do by the end of the week
+ * (due this week, late, or with no due day at all) and what was ticked this week. Tasks due later wait for
+ * their week. Calendar events, homework included, stay in the calendar (« À venir », « Prochaine échéance »).
  */
 export function weekItems(todos: Todo[], from: string, to: string) {
   const inWeek = (key?: string) => !!key && key >= from && key <= to;
-  const tasks = todos.filter(t => inWeek(t.due) || (t.done && inWeek(t.doneAt?.slice(0, 10))));
+  const tasks = todos.filter(t => (t.done ? inWeek(t.doneAt?.slice(0, 10)) || inWeek(t.due) : !t.due || t.due <= to));
   const total = tasks.length;
   const done = tasks.filter(t => t.done).length;
   // What is left, soonest first: where « Ma semaine » sends you to tick the next one.

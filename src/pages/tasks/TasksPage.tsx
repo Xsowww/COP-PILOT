@@ -123,15 +123,11 @@ export default function TasksPage() {
     if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
   }, [location.hash]);
 
-  // /taches?tache=… (from « Ma semaine »): that task glows once on screen, its box focused.
+  // /taches?tache=… (from « Ma semaine »): that task lights up once on screen.
   const wanted = new URLSearchParams(location.search).get('tache');
   useEffect(() => {
     if (!wanted) return;
-    flashWhenReady(() => {
-      const box = document.querySelector<HTMLElement>(`[data-todo="${CSS.escape(wanted)}"]`);
-      box?.focus({ preventScroll: true });
-      return box?.closest('li');
-    });
+    flashWhenReady(() => document.querySelector(`[data-todo="${CSS.escape(wanted)}"]`)?.closest('li'));
   }, [wanted]);
 
   return (

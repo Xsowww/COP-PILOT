@@ -65,7 +65,11 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
               >
                 <span className="h-4 w-4 shrink-0 rounded-full border-[1.5px] border-stone-300" aria-hidden />
                 <span className="min-w-0 flex-1 truncate font-medium">{x.title}</span>
-                {x.due && <span className="shrink-0 text-[12px] capitalize text-stone-500">{x.due === todayKey() ? 'Auj.' : fmtDay(fromKey(x.due), 'EEE d')}</span>}
+                {x.due && (
+                  <span className={cx('shrink-0 text-[12px]', x.due < todayKey() ? 'font-semibold text-urgent-text' : 'capitalize text-stone-500')}>
+                    {x.due < todayKey() ? 'En retard' : x.due === todayKey() ? 'Auj.' : fmtDay(fromKey(x.due), 'EEE d')}
+                  </span>
+                )}
               </Link>
             </li>
           ))}

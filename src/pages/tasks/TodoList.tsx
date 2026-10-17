@@ -1,13 +1,13 @@
 import { useToday } from '../../lib/useToday';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Trash2 } from 'lucide-react';
+import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { isTourTodo, startTour } from '../../store/tour';
 import { toast } from '../../store/ui';
-import TaskReminderDialog from './TaskReminderDialog';
+import TaskDialog from './TaskDialog';
 import { DatePopover } from '../../components/Pickers';
 
 const OVERDUE = 'var(--cat-examen-text)';
@@ -71,7 +71,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
   const [title, setTitle] = useState(t.title);
   // The date button the small calendar hangs from while it is open.
   const [dating, setDating] = useState<HTMLElement | null>(null);
-  const [reminding, setReminding] = useState(false);
+  const [openDialog, setOpenDialog] = useState<'edit' | 'remind' | null>(null);
   const titleRef = useRef<HTMLSpanElement>(null);
   // A new date can move the task to another group (a new row): the focus follows it there.
   const pickDue = (value: string) => {
@@ -132,7 +132,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           {...(canEdit && {
             role: 'button',
             tabIndex: 0,
-            'aria-label': `Modifier « ${t.title} »`,
+            'aria-label': `Renommer « ${t.title} »`,
             onKeyDown: (e: React.KeyboardEvent) => {
               if (e.key !== 'Enter' && e.key !== 'F2') return;
               e.preventDefault();
@@ -141,7 +141,7 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           })}
           // As tall as the row on touch screens (36 px), the clamped text inside.
           className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', t.done ? 'text-stone-500 line-through' : 'text-ink')}
-          title={canEdit ? 'Double-clic (ou Entrée) pour modifier' : t.title}
+          title={canEdit ? 'Double-clic (ou Entrée) pour renommer ; le crayon pour tout modifier' : t.title}
         >
           <span className="line-clamp-2 min-w-0 break-words">{t.title}</span>
         </span>
@@ -154,7 +154,18 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
       {canEdit && !isTourTodo(t.title) && (
         <button
           type="button"
-          onClick={() => setReminding(true)}
+          onClick={() => setOpenDialog('edit')}
+          className="icon-btn touch-show h-9 w-9 shrink-0 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100"
+          title="Modifier (titre, échéance, rappel)"
+          aria-label={`Modifier «\u00a0${t.title}\u00a0»`}
+        >
+          <Pencil size={13} />
+        </button>
+      )}
+      {canEdit && !isTourTodo(t.title) && (
+        <button
+          type="button"
+          onClick={() => setOpenDialog('remind')}
           className={cx(
             'hit flex shrink-0 items-center gap-1 rounded-md text-[11.5px]',
             hasReminder ? 'px-1 py-0.5 font-medium text-brand-600 hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
@@ -166,7 +177,14 @@ function TodoRow({ t, editable }: { t: Todo; editable?: boolean }) {
           {hasReminder && t.time && <span className="tabular">{t.time.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '')}</span>}
         </button>
       )}
-      {reminding && <TaskReminderDialog todo={t} onClose={() => setReminding(false)} />}
+      {openDialog && (
+        <TaskDialog
+          todo={t}
+          remind={openDialog === 'remind'}
+          onClose={() => setOpenDialog(null)}
+          onDelete={() => removeWithUndo([remove(t.id)].filter(x => !!x))}
+        />
+      )}
       {/* The tour task has « Lancer » in that column instead (no deadline to give it). */}
       {!t.done && editable && !(isTourTodo(t.title) && !t.due) ? (
         <>
@@ -242,12 +260,12 @@ function QuickAdd() {
         aria-haspopup="dialog"
         aria-expanded={!!dueMenu}
         onClick={e => setDueMenu(dueMenu ? null : e.currentTarget)}
-        className={cx('shrink-0', due ? 'flex h-10 items-center gap-1.5 rounded-[14px] bg-stone-100 px-3 text-[12.5px] font-semibold hover:bg-stone-200 pointer-coarse:h-10' : 'icon-btn h-9 w-9')}
+        className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-[14px] px-3 text-[12.5px] font-semibold transition-colors', due ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')}
         title={due ? 'Changer l’échéance' : 'Ajouter une échéance'}
         aria-label={due ? `Échéance : ${fmtDay(fromKey(due), 'EEEE d MMMM')}` : 'Ajouter une échéance'}
       >
         <CalendarPlus size={15} />
-        {due && <span className="first-letter:uppercase">{fmtDay(fromKey(due), 'EEE d MMM')}</span>}
+        <span className="first-letter:uppercase max-[380px]:sr-only">{due ? fmtDay(fromKey(due), 'EEE d MMM') : 'Échéance'}</span>
       </button>
       {dueMenu && (
         <DatePopover
