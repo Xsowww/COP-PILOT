@@ -2,8 +2,9 @@ import { GROUP_COLORS, type Group } from '../../lib/groups';
 import { groupColor } from './util';
 import { cx } from '../../lib/utils';
 
-/** Pastille carrée du groupe (initiale sur sa couleur). */
-export function GroupBadge({ group, size = 28 }: { group: Pick<Group, 'name' | 'color'>; size?: number }) {
+/** Pastille carrée du groupe : sa photo, sinon l'initiale sur sa couleur. */
+export function GroupBadge({ group, size = 28 }: { group: Pick<Group, 'name' | 'color'> & { photo?: string | null }; size?: number }) {
+  if (group.photo) return <img src={group.photo} alt="" width={size} height={size} className="shrink-0 rounded-lg object-cover" style={{ width: size, height: size }} />;
   return (
     <span
       className="flex shrink-0 items-center justify-center rounded-lg font-semibold text-white"

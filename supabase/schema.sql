@@ -1735,3 +1735,8 @@ create policy "groupes supprimés : effacer les fichiers" on storage.objects for
 -- ── 3. Te déclarer administrateur ───────────────────────────────────────────
 -- Remplace l'adresse par celle de ton compte COP-PILOT :
 -- insert into public.admins (user_id) select id from auth.users where email = 'ton.adresse@exemple.fr' on conflict do nothing;
+
+-- ── Photo d'un groupe ou d'un agenda partagé (2026-10-19) ───────────────────
+alter table public.groups add column if not exists photo text
+  check (photo is null or (char_length(photo) <= 150000 and photo ~ '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$'));
+grant update (name, color, photo) on public.groups to authenticated;

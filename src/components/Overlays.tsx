@@ -38,7 +38,7 @@ export function Toasts() {
   const toasts = useUi(s => s.toasts).slice(-3);
   return (
     // Full width minus 16 px each side: centred with left-1/2 alone, the toast shrank to half the screen on phones.
-    <div className="pointer-events-none fixed inset-x-4 bottom-24 z-[70] flex flex-col items-center gap-2 lg:bottom-6">
+    <div className="pointer-events-none fixed inset-x-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-[70] flex flex-col items-center gap-2 lg:bottom-6">
       <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
         {toasts.filter(t => t.tone !== 'error').map(t => <ToastRow key={t.id} t={t} />)}
       </div>

@@ -991,16 +991,6 @@ export default function ProfilePage() {
   const [params, setParams] = useSearchParams();
   const tab = (TABS.find(t => t.key === params.get('onglet'))?.key ?? 'profil') as TabKey;
   const usage = useSettings(s => s.usage);
-  // Phones: the tab bar scrolls sideways; bring the open tab into view (« Compte » is off screen).
-  const navRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const nav = navRef.current;
-    const el = nav?.querySelector<HTMLElement>('[aria-current="page"]');
-    if (!nav || !el || nav.scrollWidth <= nav.clientWidth) return;
-    const r = el.getBoundingClientRect();
-    const n = nav.getBoundingClientRect();
-    nav.scrollLeft += r.left - n.left - (n.width - r.width) / 2;
-  }, [tab]);
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
@@ -1009,23 +999,24 @@ export default function ProfilePage() {
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Profil et réglages</h1>
         </div>
         <div className="flex flex-col gap-6 md:flex-row">
-          <nav ref={navRef} aria-label="Sections du profil" className="-mx-1 flex shrink-0 gap-0.5 overflow-x-auto md:mx-0 md:w-48 md:flex-col">
+          <nav aria-label="Sections du profil" className="grid shrink-0 grid-cols-4 gap-1.5 md:flex md:w-48 md:flex-col md:gap-0.5">
             {TABS.map(t => (
               <button
                 key={t.key}
                 aria-current={tab === t.key ? 'page' : undefined}
                 onClick={() => setParams(t.key === 'profil' ? {} : { onglet: t.key })}
                 className={cx(
-                  'flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9',
-                  tab === t.key ? 'bg-surface text-ink shadow-card ring-1 ring-stone-200' : 'text-stone-600 hover:bg-stone-100 hover:text-ink',
+                  // Phone: every section visible at once (a grid of 4), no hidden tabs to swipe to.
+                  'flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11.5px] font-medium transition-colors md:h-8 md:shrink-0 md:flex-row md:justify-start md:gap-2.5 md:rounded-md md:px-2.5 md:py-0 md:text-[13px] md:pointer-coarse:h-9',
+                  tab === t.key ? 'bg-ink font-semibold text-paper md:bg-surface md:text-ink md:shadow-card md:ring-1 md:ring-stone-200' : 'bg-surface text-stone-600 hover:bg-stone-100 hover:text-ink md:bg-transparent',
                 )}
               >
                 {(() => {
                   // The « Études » tab is « Travail » or « Organisation » for other usages: its icon follows.
                   const Icon = t.key === 'etudes' ? USAGE_ICONS[usage] ?? t.icon : t.icon;
-                  return <Icon size={15} className={tab === t.key ? 'text-brand-600' : ''} />;
+                  return <Icon size={15} className={cx('shrink-0', tab === t.key && 'md:text-brand-600')} />;
                 })()}
-                {t.key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : t.label}
+                <span className="max-w-full truncate">{t.key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : t.label}</span>
               </button>
             ))}
           </nav>

@@ -446,7 +446,7 @@ export default function Copilot() {
             open, the panel takes his place (his hands stuck out over its edge). */}
         <div
           className={cx(
-            'origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8]',
+            'relative origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8]',
             pose === 'hidden' && 'max-sm:translate-x-1.5',
             isOpen && 'max-sm:invisible',
           )}
@@ -471,6 +471,8 @@ export default function Copilot() {
           }}
         >
           <Character pose={pose} look={look} blink={blink} mood={mood} size={104} />
+          {/* Fingers: only his head shows at the edge, too small to tap; a wider invisible pad along the edge. */}
+          {!isOpen && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-14 pointer-coarse:block" />}
         </div>
       </div>
     </div>

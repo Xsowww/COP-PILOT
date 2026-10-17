@@ -19,6 +19,8 @@ export interface Group {
   id: string;
   name: string;
   color: string | null;
+  /** Small square picture (data URL) shown instead of the initial; null: the initial on the colour. */
+  photo: string | null;
   ownerId: string | null;
   createdAt: string;
   /** 'agenda' : an « agenda partagé » (own space, /agendas); 'groupe' : a work group (/groupes). */
@@ -94,6 +96,7 @@ const toGroup = (r: Row): Group => ({
   id: String(r.id),
   name: String(r.name),
   color: s(r.color),
+  photo: typeof r.photo === 'string' && r.photo.startsWith('data:image/') ? r.photo : null,
   ownerId: s(r.owner_id),
   createdAt: String(r.created_at),
   kind: r.kind === 'agenda' ? 'agenda' : 'groupe',
@@ -141,6 +144,7 @@ export function groupError(e: unknown): string {
   if (/group full/i.test(msg)) return `Plus de place : 50 membres au maximum dans ${w.this}.`;
   if (/too many groups/i.test(msg)) return `Tu fais déjà partie de 30 ${w.groups}, c’est le maximum.`;
   if (/too large|exceeded the maximum|payload too large|413/i.test(msg)) return 'Fichier trop lourd : 50 Mo au maximum.';
+  if (/photo/i.test(msg) && /column|schema cache/i.test(msg)) return 'Les photos ne sont pas encore activées sur le serveur (migration 2026-10-19 à lancer).';
   if (/mfa required/i.test(msg)) return 'Confirme d’abord ta connexion avec le code de ton téléphone.';
   if (/forbidden|row-level security|permission denied/i.test(msg)) return `Tu n’as pas le droit de faire ça dans ${w.this}.`;
   if (/fetch|network/i.test(msg)) return 'Pas de connexion. Réessaie dans un instant.';
@@ -169,10 +173,14 @@ export async function sessionUserId(): Promise<string> {
 // ── Groupes et membres ────────────────────────────────────────────────────
 export async function fetchGroups(): Promise<Group[]> {
   // Jamais « * » : le code d'invitation n'est pas lisible dans la table (voir group_invite_code).
-  const res = await db().from('groups').select('id, name, color, owner_id, created_at, kind').order('created_at');
-  // Server without the 2026-10-18 migration yet: no « kind » column, every group is a work group.
-  const rows = res.error?.code === '42703' ? check(await db().from('groups').select('id, name, color, owner_id, created_at').order('created_at')) : check(res);
-  return (rows as Row[]).map(toGroup);
+  // Newest columns first; a server without a recent migration (no « photo », 2026-10-19; no « kind », 2026-10-18)
+  // answers 42703 and the next, older list is tried.
+  for (const cols of ['id, name, color, photo, owner_id, created_at, kind', 'id, name, color, owner_id, created_at, kind', 'id, name, color, owner_id, created_at']) {
+    const res = await db().from('groups').select(cols).order('created_at');
+    if (res.error?.code === '42703') continue;
+    return (check(res) as unknown as Row[]).map(toGroup);
+  }
+  return [];
 }
 
 export async function createGroup(name: string, color: string | null, kind: GroupKind = 'groupe'): Promise<Group> {
@@ -216,7 +224,7 @@ export async function joinGroup(code: string): Promise<string | null> {
   return id ? String(id) : null;
 }
 
-export async function updateGroup(id: string, patch: { name?: string; color?: string | null }) {
+export async function updateGroup(id: string, patch: { name?: string; color?: string | null; photo?: string | null }) {
   changed(await db().from('groups').update(patch).eq('id', id).select('id'), `Seul le propriétaire peut modifier ${words().this}.`);
 }
 

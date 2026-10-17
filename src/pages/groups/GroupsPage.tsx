@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, CloudOff, Copy, Link2, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CloudOff, Copy, ImagePlus, Link2, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
+import { imageToAvatar } from '../../lib/backup';
 import { useAuth } from '../../store/auth';
 import { useGroups, watchFocus } from '../../store/groups';
 import { useGroupActivity, totalUnread } from '../../store/groupActivity';
@@ -32,18 +33,29 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
   const kind = useContext(KindContext);
   const [name, setName] = useState(group?.name ?? '');
   const [color, setColor] = useState<string>(group?.color ?? GROUP_COLORS[0]);
+  const [photo, setPhoto] = useState<string | null>(group?.photo ?? null);
   const [busy, setBusy] = useState(false);
+  const pickPhoto = async (f: File | undefined) => {
+    if (!f) return;
+    try {
+      setPhoto(await imageToAvatar(f, 256));
+    } catch {
+      toast('Cette image ne peut pas être lue. Essaie une photo JPEG ou PNG.', 'error');
+    }
+  };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     setBusy(true);
     try {
       if (group) {
-        await updateGroup(group.id, { name: name.trim(), color });
+        await updateGroup(group.id, { name: name.trim(), color, ...(photo !== group.photo && { photo }) });
         await useGroups.getState().loadGroups();
         onDone(group);
       } else {
         const g = await createGroup(name.trim(), color, kind);
+        // Created first, then its photo: a refused photo (server not up to date) doesn't lose the group.
+        if (photo) await updateGroup(g.id, { photo }).catch(err => toast(groupError(err), 'error'));
         await useGroups.getState().loadGroups();
         toast(w.created, 'success');
         onDone(g);
@@ -59,7 +71,20 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
       {!group && <p className="mt-1 text-[13px] text-stone-500">Tu recevras un lien d’invitation à envoyer à {w.mates}.</p>}
       <label className="eyebrow mt-4 block" htmlFor="group-name">Nom</label>
       <input id="group-name" autoFocus value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder={w.namePlaceholder} className="field mt-1.5 w-full" />
-      <p className="eyebrow mt-4">Couleur</p>
+      <p className="eyebrow mt-4">Photo</p>
+      <div className="mt-2 flex items-center gap-3">
+        <GroupBadge group={{ name: name || '?', color, photo }} size={52} />
+        <label className="btn-secondary h-9 cursor-pointer focus-within:ring-2 focus-within:ring-focus">
+          <ImagePlus size={15} aria-hidden /> {photo ? 'Changer' : 'Ajouter une photo'}
+          <input type="file" accept="image/*" className="sr-only" onChange={e => { void pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+        </label>
+        {photo && (
+          <button type="button" className="btn-ghost h-9" onClick={() => setPhoto(null)}>
+            Retirer
+          </button>
+        )}
+      </div>
+      <p className="eyebrow mt-4">{photo ? 'Couleur (sans photo)' : 'Couleur'}</p>
       <div className="mt-2">
         <ColorPicker value={color} onChange={setColor} />
       </div>
