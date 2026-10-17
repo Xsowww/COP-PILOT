@@ -213,7 +213,8 @@ const FAQ = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-dvh overflow-x-clip bg-paper text-ink">
+    // The page scrolls itself: the app keeps <body> fixed (overflow hidden), so the wheel and the finger did nothing here.
+    <div className="h-full overflow-y-auto overflow-x-clip scroll-pt-16 bg-paper text-ink">
       <header className="sticky top-0 z-30 border-b border-transparent bg-paper/85 backdrop-blur supports-[backdrop-filter]:bg-paper/70">
         <div className="mx-auto flex h-16 max-w-[1120px] items-center gap-6 px-5 md:px-8">
           <Link to="/" aria-label="Kompaly, accueil" className="shrink-0">
