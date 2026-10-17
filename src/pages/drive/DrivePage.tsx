@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ChevronDown, ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
-  List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Ban, Check,
+  List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
   MoreHorizontal,
 } from 'lucide-react';
 import {
@@ -13,6 +13,7 @@ import { askText, toast, useUi } from '../../store/ui';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fold, highlightParts, searchFileContents, startTextIndexing } from '../../lib/textIndex';
 import FileIcon from '../../components/FileIcon';
+import { FolderColorPicker } from '../../components/FolderColorPicker';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import PreviewModal from './PreviewModal';
 import StorageGauge from './StorageGauge';
@@ -96,6 +97,7 @@ export default function DrivePage() {
   const [anchor, setAnchor] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; target: string | null } | null>(null);
   const [importMenu, setImportMenu] = useState<{ x: number; y: number } | null>(null);
+  const [colorMenu, setColorMenu] = useState<{ x: number; y: number } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | 'here' | null>(null);
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -161,6 +163,7 @@ export default function DrivePage() {
 
   const selectedIds = useMemo(() => [...selected].filter(id => items.some(i => i.id === id)), [selected, items]);
   const single = selectedIds.length === 1 ? items.find(i => i.id === selectedIds[0]) : undefined;
+  const selectedFolders = items.filter(i => i.kind === 'folder' && selected.has(i.id));
   const activeId = (visible.find(i => i.id === focusId) ?? visible.find(i => selected.has(i.id)) ?? visible[0])?.id;
 
   const changeSort = (key: SortKey) => {
@@ -500,29 +503,13 @@ export default function DrivePage() {
             label: 'Couleur',
             onClick: () => {},
             content: (
-              <div className="px-2 pb-1.5 pt-1">
-                <p className="text-[11px] font-medium text-stone-500">Couleur du dossier</p>
-                <div className="mt-1.5 flex items-center gap-1">
-                  {[null, ...Object.keys(FOLDER_COLORS)].map(key => {
-                    const on = targets.every(t => (t.color ?? null) === key);
-                    return (
-                      <button
-                        key={key ?? 'none'}
-                        title={key ? FOLDER_COLORS[key].label : 'Par défaut'} aria-label={key ? FOLDER_COLORS[key].label : 'Par défaut'}
-                        onClick={() => {
-                          for (const t of targets) useDrive.getState().update(t.id, { color: key ?? undefined });
-                          setMenu(null);
-                        }}
-                        className={cx('flex h-[22px] w-[22px] items-center justify-center rounded-full ring-offset-1 transition', on ? 'ring-2 ring-stone-400' : 'hover:ring-2 hover:ring-stone-200')}
-                        style={{ background: key ? FOLDER_COLORS[key].color : '#9dbdec' }}
-                      >
-                        {on && <Check size={12} strokeWidth={3} className="text-white" />}
-                        {!key && !on && <Ban size={11} className="text-white/90" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <FolderColorPicker
+                value={targets.every(t => (t.color ?? null) === (targets[0].color ?? null)) ? (targets[0].color ?? null) : undefined}
+                onPick={key => {
+                  for (const t of targets) useDrive.getState().update(t.id, { color: key ?? undefined });
+                  setMenu(null);
+                }}
+              />
             ),
           },
         ]
@@ -749,6 +736,7 @@ export default function DrivePage() {
               ...(single ? [{ icon: Pencil, label: 'Renommer', fn: () => void rename(single) }] : []),
               ...(single?.kind === 'file' ? [{ icon: Download, label: 'Télécharger', fn: () => downloadItem(single), more: true }] : []),
               { icon: Tag, label: 'Étiquettes', fn: () => setTagIds(selectedIds) },
+              ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: 'Couleur', fn: (e: React.MouseEvent) => setColorMenu(menuPoint(e)) }] : []),
               { icon: Trash2, label: 'Corbeille', fn: () => remove(selectedIds) },
             ].map(a => (
               <button
@@ -967,6 +955,27 @@ export default function DrivePage() {
       </div>
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={shownMenu} onClose={() => setMenu(null)} />}
+      {colorMenu && selectedFolders.length > 0 && (
+        <ContextMenu
+          x={colorMenu.x}
+          y={colorMenu.y}
+          label="Couleur du dossier"
+          onClose={() => setColorMenu(null)}
+          items={[{
+            label: 'Couleur du dossier',
+            onClick: () => {},
+            content: (
+              <FolderColorPicker
+                value={selectedFolders.every(f => (f.color ?? null) === (selectedFolders[0].color ?? null)) ? (selectedFolders[0].color ?? null) : undefined}
+                onPick={key => {
+                  for (const f of selectedFolders) useDrive.getState().update(f.id, { color: key ?? undefined });
+                  setColorMenu(null);
+                }}
+              />
+            ),
+          }]}
+        />
+      )}
       {sortMenu && (
         <ContextMenu
           x={sortMenu.x}

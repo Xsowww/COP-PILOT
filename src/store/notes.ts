@@ -10,6 +10,8 @@ export interface NoteFolder {
   parentId: string | null;
   createdAt: string;
   deletedAt?: string;
+  /** Key of FOLDER_COLORS (same colours as the Drive); none: grey. */
+  color?: string;
 }
 
 /** A note can point to Drive files and calendar events (« Partiel de chimie » → its PDFs). */
@@ -38,6 +40,7 @@ interface NotesState {
   trashNotes: Note[];
   createFolder: (name: string, parentId: string | null) => NoteFolder;
   renameFolder: (id: string, name: string) => void;
+  setFolderColor: (id: string, color: string | undefined) => void;
   removeFolder: (id: string) => void;
   moveFolder: (id: string, parentId: string | null) => void;
   createNote: (data?: Partial<Pick<Note, 'title' | 'content' | 'folderId'>>) => Note;
@@ -90,6 +93,10 @@ export const useNotes = create<NotesState>()(
         const folder = get().folders.find(f => f.id === id);
         const taken = get().folders.filter(f => f.parentId === folder?.parentId && f.id !== id).map(f => f.name);
         set(s => ({ folders: s.folders.map(f => (f.id === id ? { ...f, name: uniqueName(name.trim(), taken) } : f)) }));
+      },
+
+      setFolderColor(id, color) {
+        set(s => ({ folders: s.folders.map(f => (f.id === id ? { ...f, color } : f)) }));
       },
 
       removeFolder(id) {

@@ -6,7 +6,7 @@ import { cleanReminders } from './reminders';
 import { supabase } from './supabase';
 import { useCalendar, type CalendarEvent } from '../store/calendar';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
-import { useDrive, type DriveItem } from '../store/drive';
+import { folderColorKey, useDrive, type DriveItem } from '../store/drive';
 import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
 import { useUi } from '../store/ui';
 import { useTodos, type Todo } from '../store/todos';
@@ -48,13 +48,14 @@ const rowToEvent = (r: Row): CalendarEvent => ({
   deletedAt: (r.deleted_at as string) ?? undefined,
 });
 
-const folderToRow = (f: NoteFolder): Row => ({ id: f.id, name: f.name, parent_id: f.parentId, created_at: f.createdAt, deleted_at: f.deletedAt ?? null });
+const folderToRow = (f: NoteFolder): Row => ({ id: f.id, name: f.name, parent_id: f.parentId, created_at: f.createdAt, deleted_at: f.deletedAt ?? null, color: f.color ?? null });
 const rowToFolder = (r: Row): NoteFolder => ({
   id: r.id as string,
   name: r.name as string,
   parentId: (r.parent_id as string) ?? null,
   createdAt: r.created_at as string,
   deletedAt: (r.deleted_at as string) ?? undefined,
+  color: folderColorKey(r.color),
 });
 
 const noteToRow = (n: Note): Row => ({
@@ -144,7 +145,7 @@ const unstamped = (rows: Row[]) => rows.map(({ updated_at: _u, ...r }) => r);
 const missingStamp = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && !!e.message?.includes('updated_at');
 const missingColumn = (e: { code?: string; message?: string } | null, col: string) => e?.code === 'PGRST204' && !!e.message?.includes(col);
 // Columns added by later migrations: a server without them yet gets the rows without them (kept on this device).
-const OPTIONAL: Partial<Record<Table, string[]>> = { events: ['important', 'reminders'], todos: ['due_time', 'reminders'] };
+const OPTIONAL: Partial<Record<Table, string[]>> = { events: ['important', 'reminders'], todos: ['due_time', 'reminders'], note_folders: ['color'] };
 const absent = new Map<Table, Set<string>>();
 const withoutAbsent = (table: Table, rows: Row[]) => {
   const cols = absent.get(table);

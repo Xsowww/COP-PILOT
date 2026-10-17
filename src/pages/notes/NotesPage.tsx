@@ -7,6 +7,8 @@ import {
 import { useNotes, type Note, type NoteFolder } from '../../store/notes';
 import { askText, toast } from '../../store/ui';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
+import { FolderColorPicker } from '../../components/FolderColorPicker';
+import { FOLDER_COLORS } from '../../store/drive';
 import { cx, normalize, relativeTime, stripHtml } from '../../lib/utils';
 import NoteEditor from './NoteEditor';
 import { LinkChips, LinkPicker } from './NoteLinks';
@@ -263,6 +265,12 @@ export default function NotesPage() {
     { label: 'Déplacer vers…', icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'folder', id: f.id, name: f.name, from: f.parentId }) },
     ...(f.parentId ? [{ label: 'Remonter à la racine', icon: <FolderOpen size={15} />, onClick: () => store.moveFolder(f.id, null) }] : []),
     { label: '', divider: true, onClick: () => {} },
+    {
+      label: 'Couleur du dossier',
+      onClick: () => {},
+      content: <FolderColorPicker value={f.color ?? null} onPick={key => { store.setFolderColor(f.id, key ?? undefined); setMenu(null); }} />,
+    },
+    { label: '', divider: true, onClick: () => {} },
     { label: 'Supprimer', icon: <Trash2 size={15} />, danger: true, onClick: () => deleteFolder(f) },
   ];
 
@@ -382,7 +390,11 @@ export default function NotesPage() {
             style={{ paddingLeft: 4 + depth * 16 }}
           >
             <ChevronRight size={13} className={cx('shrink-0 text-stone-400 transition-transform', open && 'rotate-90')} />
-            {open ? <FolderOpen size={15} className="shrink-0 text-stone-500" /> : <Folder size={15} className="shrink-0 text-stone-500" />}
+            {(() => {
+              const c = f.color ? FOLDER_COLORS[f.color]?.color : undefined;
+              const Icon = open ? FolderOpen : Folder;
+              return <Icon size={15} className={cx('shrink-0', !c && 'text-stone-500')} style={c ? { color: c, fill: `color-mix(in srgb, ${c} 22%, transparent)` } : undefined} />;
+            })()}
             <span className="flex-1 truncate">{f.name}</span>
           </div>
           {/* Shown on hover, and always on touch screens (no hover there). */}

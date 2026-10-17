@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { useDrive, isPlainText, pasteForbidden } = await import('../src/store/drive');
+const { useDrive, isPlainText, pasteForbidden, FOLDER_COLORS, folderColorKey } = await import('../src/store/drive');
 
 beforeEach(() => {
   useDrive.setState({ items: [], trash: [], clipboard: null });
@@ -85,5 +85,14 @@ describe('isPlainText', () => {
     expect(isPlainText({ kind: 'file', name: 'notes.txt' })).toBe(true);
     expect(isPlainText({ kind: 'file', name: 'tableau.xlsx' })).toBe(false);
     expect(isPlainText({ kind: 'folder', name: 'data.csv' })).toBe(false);
+  });
+});
+
+describe('folderColorKey', () => {
+  it('keeps the app’s colour keys', () => {
+    for (const k of Object.keys(FOLDER_COLORS)) expect(folderColorKey(k)).toBe(k);
+  });
+  it('drops anything else (server rows, imported files)', () => {
+    for (const v of [null, undefined, '', 'Bleu', '#3b6fd8', 'constructor', 'toString', 42]) expect(folderColorKey(v)).toBeUndefined();
   });
 });

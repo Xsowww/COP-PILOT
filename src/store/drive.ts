@@ -350,6 +350,9 @@ export const FOLDER_COLORS: Record<string, { label: string; color: string }> = {
   gris: { label: 'Gris', color: '#78716c' },
 };
 
+/** A known colour key, else undefined (imported files, rows from the server). */
+export const folderColorKey = (c: unknown) => (typeof c === 'string' && Object.hasOwn(FOLDER_COLORS, c) ? c : undefined);
+
 export async function getFileUrl(id: string): Promise<string | null> {
   // A trashed file's content waits in the trash folder (cloud mode).
   const blob = (await blobStore.get(blobKey(id))) ?? (await blobStore.get(trashBlobKey(id)));

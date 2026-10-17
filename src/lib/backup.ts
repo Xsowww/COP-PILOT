@@ -1,4 +1,4 @@
-import { useDrive, type DriveItem } from '../store/drive';
+import { folderColorKey, useDrive, type DriveItem } from '../store/drive';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, catOf, type CalendarEvent, type CustomCategory } from '../store/calendar';
 import { useSettings, DEFAULT_SETTINGS, applyAppearance, type Settings } from '../store/settings';
@@ -92,7 +92,7 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   const events = valid(missing(data.calendar, cal.events, cal.trash), okEvent);
   useCalendar.setState(s => ({ events: [...s.events, ...events] }));
   const nb = useNotes.getState();
-  const folders = valid(missing<NoteFolder>(data.notes.folders, nb.folders, nb.trashFolders), okFolder);
+  const folders = valid(missing<NoteFolder>(data.notes.folders, nb.folders, nb.trashFolders), okFolder).map(f => ({ ...f, color: folderColorKey(f.color) }));
   const notes = valid(missing<Note>(data.notes.notes, nb.notes, nb.trashNotes), okNote);
   // Into a folder that is in the trash, they would be invisible: root instead.
   const live = new Set([...nb.folders, ...folders].map(f => f.id));

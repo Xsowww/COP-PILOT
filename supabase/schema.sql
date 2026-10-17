@@ -1741,3 +1741,7 @@ alter table public.groups add column if not exists photo text
   check (photo is null or (char_length(photo) <= 150000 and photo ~ '^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$'));
 grant select (photo) on public.groups to authenticated;
 grant update (name, color, photo) on public.groups to authenticated;
+
+-- ── Couleur des dossiers de notes (2026-10-19c) ─────────────────────────────
+alter table public.note_folders add column if not exists color text
+  check (color is null or color in ('bleu', 'rouge', 'orange', 'jaune', 'vert', 'violet', 'rose', 'gris'));
